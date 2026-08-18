@@ -9,8 +9,15 @@ on:
 jobs:
   fossa-scan:
     runs-on: ubuntu-latest
+    env:
+      FOSSA_API_KEY: ${{ secrets.fossaApiKey }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: fossas/fossa-action@main
+      - uses: actions/checkout@v4
+      - name: Explain why FOSSA is skipped
+        if: ${{ env.FOSSA_API_KEY == '' }}
+        run: echo "FOSSA scan skipped because this repository has no fossaApiKey secret."
+      - name: Run FOSSA scan
+        if: ${{ env.FOSSA_API_KEY != '' }}
+        uses: fossas/fossa-action@main
         with:
-          api-key: ${{ secrets.fossaApiKey }}
+          api-key: ${{ env.FOSSA_API_KEY }}
