@@ -1,0 +1,34 @@
+{
+  "mcp_servers": {
+    "ddg-search": {
+      "command": "uvx",
+      "args": [
+        "duckduckgo-mcp-server"
+      ]
+    },
+    "open-websearch": {
+      "command": "npx",
+      "args": [
+        "open-websearch@latest"
+      ],
+      "env": {
+        "DEFAULT_SEARCH_ENGINE": "bing"
+      }
+    },
+    "audio-player": {
+      "command": ".venv/Scripts/python.exe",
+      "args": [
+        "mcp_tools/audio-player-mcp/src/audio_player_mcp/player.py"
+      ],
+      "env": {
+        "AUDIO_PLAYER_DIR": "atri_musics"
+      }
+    },
+    "sing-server": {
+      "command": ".venv/Scripts/python.exe",
+      "args": [
+        "mcp_tools/sing-mcp/src/player.py"
+      ]
+    }
+  }
+}

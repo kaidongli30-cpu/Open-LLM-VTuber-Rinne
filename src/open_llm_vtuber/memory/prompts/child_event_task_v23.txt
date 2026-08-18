@@ -1,0 +1,41 @@
+请整理下面这一天的日记。按系统提示的工作顺序执行，不要输出分析过程。
+
+输出严格JSON，不要输出Markdown代码围栏或额外文字。结构：
+
+{
+  "memory_day": "{MEMORY_DAY}",
+  "day_richness": "内容较少、普通或丰富",
+  "memories": [
+    {
+      "type": "事件",
+      "title": "具体中文名称，一眼能指认这件往事；标题只能写当天日记真实存在的事件；标题主语与动作方向必须和原文一致，尽量含原文专有名词",
+      "description": "80至160个汉字；只讲这一件完整往事；自然保留原文的人名、地名、物品名、项目名、金额、关键原话、人生节点等强锚点；直接引语保留原文人称；不复制大段原文",
+      "why_independent": "不超过40个汉字",
+      "source_fact": "依据原文的事实，不超过60字",
+      "subject_check": "谁对谁做了什么，写明动作方向",
+      "time_check": "事件在当天原文中的先后位置",
+      "location_check": "原文是否明确地点；没有则写“原文未明确”",
+      "salience_check": "为什么比被舍弃内容更值得未来提起，写明保留的强锚点和人生节点",
+      "inference_check": "确认未新增承诺/约定/关系结论"
+    }
+  ],
+  "merged_or_discarded": [
+    {
+      "detail": "被合并或舍弃的细节",
+      "decision": "merged、routine_background、future_plan或not_salient",
+      "target_title": "合并到哪条记忆；未合并则为空字符串",
+      "reason": "不超过40个汉字"
+    }
+  ]
+}
+
+要求：
+- memories为1至5条。
+- type只能取“事件”或“瞬间”。
+- merged_or_discarded最多8条，只列最容易被误拆成独立记忆的细节。
+- 六项核对字段不得省略；它们只用于质量检查，不会展示给记忆工人。
+- 禁止输出推理过程。
+
+<BEGIN_DIARY>
+{DIARY_TEXT}
+<END_DIARY>

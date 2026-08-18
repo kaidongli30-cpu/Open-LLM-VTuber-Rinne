@@ -1,0 +1,137 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "atri_8.moc3",
+		"Textures": [
+			"atri_8.4096/texture_00.png",
+			"atri_8.4096/texture_01.png"
+		],
+		"Physics": "atri_8.physics3.json",
+		"DisplayInfo": "atri_8.cdi3.json",
+		"Expressions": [
+			{
+				"Name": "exp_01",
+				"File": "expressions/expression1.exp3.json"
+			},
+			{
+				"Name": "exp_02",
+				"File": "expressions/expression2.exp3.json"
+			},
+			{
+				"Name": "exp_03",
+				"File": "expressions/expression3.exp3.json"
+			},
+			{
+				"Name": "exp_04",
+				"File": "expressions/expression4.exp3.json"
+			},
+			{
+				"Name": "exp_05",
+				"File": "expressions/expression5.exp3.json"
+			},
+			{
+				"Name": "exp_06",
+				"File": "expressions/expression6.exp3.json"
+			},
+			{
+				"Name": "exp_07",
+				"File": "expressions/expression7.exp3.json"
+			},
+			{
+				"Name": "exp_08",
+				"File": "expressions/expression8.exp3.json"
+			},
+			{
+				"Name": "exp_09",
+				"File": "expressions/expression9.exp3.json"
+			},
+			{
+				"Name": "exp_10",
+				"File": "expressions/expression10.exp3.json"
+			},
+			{
+				"Name": "exp_11",
+				"File": "expressions/expression11.exp3.json"
+			},
+			{
+				"Name": "exp_12",
+				"File": "expressions/expression12.exp3.json"
+			},
+			{
+				"Name": "exp_13",
+				"File": "expressions/expression13.exp3.json"
+			},
+			{
+				"Name": "exp_14",
+				"File": "expressions/expression14.exp3.json"
+			},
+			{
+				"Name": "exp_15",
+				"File": "expressions/expression15.exp3.json"
+			},
+			{
+				"Name": "exp_16",
+				"File": "expressions/expression16.exp3.json"
+			},
+			{
+				"Name": "exp_17",
+				"File": "expressions/expression17.exp3.json"
+			},
+			{
+				"Name": "exp_18",
+				"File": "expressions/expression18.exp3.json"
+			},
+			{
+				"Name": "exp_19",
+				"File": "expressions/expression19.exp3.json"
+			}
+		],
+		"Motions": {
+			"Idle": [
+				{
+					"File": "motions/model.motion3.json"
+				}
+			],
+			"": [
+				{
+					"File": "motions/dec-r.motion3.json"
+				},
+				{
+					"File": "motions/dec-l.motion3.json"
+				}
+			]
+		}
+	},
+	"Groups": [
+		{
+			"Target": "Parameter",
+			"Name": "EyeBlink",
+			"Ids": [
+				"ParamEyeLOpen",
+				"ParamEyeROpen"
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Name": "LipSync",
+			"Ids": [
+				"ParamMouthForm",
+				"ParamMouthOpenY"
+			]
+		}
+	],
+	"HitAreas": [
+		{
+			"Id": "HitArea",
+			"Name": ""
+		},
+		{
+			"Id": "HitArea2",
+			"Name": ""
+		},
+		{
+			"Id": "HitArea3",
+			"Name": ""
+		}
+	]
+}

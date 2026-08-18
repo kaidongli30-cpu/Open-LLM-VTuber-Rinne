@@ -1,0 +1,84 @@
+[
+    {
+        "name": "mao_pro",
+        "description": "",
+        "url": "/live2d-models/mao_pro/runtime/mao_pro.model3.json",
+        "kScale": 0.5,
+        "initialXshift": 0,
+        "initialYshift": 0,
+        "kXOffset": 1150,
+        "idleMotionGroupName": "Idle",
+        "emotionMap": {
+            "neutral": 0,
+            "anger": 2,
+            "disgust": 2,
+            "fear": 1,
+            "joy": 3,
+            "smirk": 3,
+            "sadness": 1,
+            "surprise": 3
+        },
+        "tapMotions": {
+            "HitAreaHead": {
+                "": 1
+            },
+            "HitAreaBody": {
+                "": 1
+            }
+        }
+    },
+    {
+        "name": "atri",
+        "description": "",
+        "url": "/live2d-models/atri/runtime/atri_8.model3.json",
+        "kScale": 0.5,
+        "initialXshift": 0,
+        "initialYshift": 0,
+        "kXOffset": 1150,
+        "idleMotionGroupName": "Idle",
+        "emotionMap": {
+            "neutral": 0,
+            "anger": 1,
+            "disgust": 1,
+            "fear": 1,
+            "shy": 17,
+            "happy": 16,
+            "sadness": 1,
+            "surprise": 6,
+            "yes": 12,
+            "no": 11,
+            "like":17
+        },
+        "tapMotions": {
+            "HitAreaHead": {
+                "": 1
+            },
+            "HitAreaBody": {
+                "": 1
+            }
+        }
+    },
+	{
+		"name": "rinne",
+        "description": "",
+        "url": "/live2d-models/rinne/rinne.model3.json",
+        "kScale": 0.8,
+        "initialXshift": 0,
+        "initialYshift": -200,
+        "kXOffset": 1150,
+        "idleMotionGroupName": "Idle",
+        "emotionMap": {
+            "neutral": -1,
+			"ambitious": 0,
+			"happy": 4,
+			"shy": 6,
+			"surprise": 7,
+			"surprised": 7,
+			"sad": 5,
+			"worried": 8,
+			"angry": 1,
+			"awkward": 2,
+			"confused": 3
+        }
+	}
+]
