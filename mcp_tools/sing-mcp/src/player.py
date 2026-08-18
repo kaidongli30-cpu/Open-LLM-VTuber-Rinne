@@ -84,7 +84,7 @@ async def sing(ctx: Context) -> str:
 
 @mcp.tool()
 async def stop_singing(ctx: Context) -> str:
-    """停止唱歌。当主人说“别唱了”或“停止唱歌”时调用此工具。"""
+    """停止唱歌。当用户说“别唱了”或“停止唱歌”时调用此工具。"""
     global is_playing
     logger.info("Attempting to stop singing")
 
