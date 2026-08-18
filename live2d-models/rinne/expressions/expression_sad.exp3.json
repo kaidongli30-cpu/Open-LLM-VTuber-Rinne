@@ -1,0 +1,95 @@
+{
+	"Type": "Live2D Expression",
+	"Parameters": [
+		{
+			"Id": "ParamAngleZ",
+			"Value": 0,
+			"Blend": "Add"
+		},
+		{
+			"Id": "ParamEyeLOpen",
+			"Value": 0.9,
+			"Blend": "Multiply"
+		},
+		{
+			"Id": "ParamEyeROpen",
+			"Value": 0.9,
+			"Blend": "Multiply"
+		},
+		{
+			"Id": "ParamBodyAngleY",
+			"Value": 0,
+			"Blend": "Add"
+		},
+		{
+			"Id": "CheekFlushed",
+			"Value": 0.3,
+			"Blend": "Add"
+		},
+		{
+			"Id": "Sweat",
+			"Value": -1,
+			"Blend": "Add"
+		},
+		{
+			"Id": "Embarressed",
+			"Value": -0.4,
+			"Blend": "Add"
+		},
+		{
+			"Id": "MouthExpressions",
+			"Value": 1,
+			"Blend": "Add"
+		},
+		{
+			"Id": "EyebrowLAngry",
+			"Value": -1,
+			"Blend": "Add"
+		},
+		{
+			"Id": "EyebrowRAngry",
+			"Value": -1,
+			"Blend": "Add"
+		},
+		{
+			"Id": "EyebrowLSurprise",
+			"Value": -1,
+			"Blend": "Add"
+		},
+		{
+			"Id": "EyebrowRSurprise",
+			"Value": -1,
+			"Blend": "Add"
+		},
+		{
+			"Id": "EyeLSurprise",
+			"Value": -1,
+			"Blend": "Add"
+		},
+		{
+			"Id": "EyeRSurprise",
+			"Value": -1,
+			"Blend": "Add"
+		},
+		{
+			"Id": "EyeBrowLSad",
+			"Value": 1,
+			"Blend": "Add"
+		},
+		{
+			"Id": "EyebrowRSad",
+			"Value": 1,
+			"Blend": "Add"
+		},
+		{
+			"Id": "EyeLSad",
+			"Value": 1,
+			"Blend": "Add"
+		},
+		{
+			"Id": "EyeRSad",
+			"Value": 1,
+			"Blend": "Add"
+		}
+	]
+}

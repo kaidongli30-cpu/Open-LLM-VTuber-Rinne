@@ -1,0 +1,147 @@
+{
+	"Version": 3,
+	"Parameters": [
+		{
+			"Id": "ParamAngleX",
+			"GroupId": "",
+			"Name": "角度 X"
+		},
+		{
+			"Id": "ParamAngleY",
+			"GroupId": "",
+			"Name": "角度 Y"
+		},
+		{
+			"Id": "ParamAngleZ",
+			"GroupId": "",
+			"Name": "角度 Z"
+		},
+		{
+			"Id": "ParamEyeLOpen",
+			"GroupId": "",
+			"Name": "左眼　开闭"
+		},
+		{
+			"Id": "ParamEyeROpen",
+			"GroupId": "",
+			"Name": "右眼 开闭"
+		},
+		{
+			"Id": "ParamEyeBallX",
+			"GroupId": "",
+			"Name": "眼球 X"
+		},
+		{
+			"Id": "ParamEyeBallY",
+			"GroupId": "",
+			"Name": "眼球 Y"
+		},
+		{
+			"Id": "FrontHairSwing",
+			"GroupId": "",
+			"Name": "前发摇动"
+		},
+		{
+			"Id": "HairBSwing",
+			"GroupId": "",
+			"Name": "后发摇动"
+		},
+		{
+			"Id": "ParamMouthOpenY",
+			"GroupId": "",
+			"Name": "嘴巴　张开和闭合"
+		},
+		{
+			"Id": "ParamCheek",
+			"GroupId": "",
+			"Name": "脸颊"
+		},
+		{
+			"Id": "ParamBodyAngleX",
+			"GroupId": "",
+			"Name": "身体旋转　X"
+		},
+		{
+			"Id": "ParamBodyAngleY",
+			"GroupId": "",
+			"Name": "身体旋转　Y"
+		},
+		{
+			"Id": "ParamBodyAngleZ",
+			"GroupId": "",
+			"Name": "身体旋转　Z"
+		},
+		{
+			"Id": "CheekFlushed",
+			"GroupId": "",
+			"Name": "腮红"
+		},
+		{
+			"Id": "Sweat",
+			"GroupId": "",
+			"Name": "流汗"
+		},
+		{
+			"Id": "Embarressed",
+			"GroupId": "",
+			"Name": "尴尬"
+		},
+		{
+			"Id": "MouthExpressions",
+			"GroupId": "",
+			"Name": "嘴巴 各种表情"
+		},
+		{
+			"Id": "EyebrowLAngry",
+			"GroupId": "",
+			"Name": "左眉 生气"
+		},
+		{
+			"Id": "EyebrowRAngry",
+			"GroupId": "",
+			"Name": "右眉生气"
+		},
+		{
+			"Id": "EyebrowLSurprise",
+			"GroupId": "",
+			"Name": "左眉惊讶"
+		},
+		{
+			"Id": "EyebrowRSurprise",
+			"GroupId": "",
+			"Name": "右眉惊讶"
+		},
+		{
+			"Id": "EyeLSurprise",
+			"GroupId": "",
+			"Name": "左眼惊讶"
+		},
+		{
+			"Id": "EyeRSurprise",
+			"GroupId": "",
+			"Name": "右眼惊讶"
+		},
+		{
+			"Id": "EyeBrowLSad",
+			"GroupId": "",
+			"Name": "左眉伤心"
+		},
+		{
+			"Id": "EyebrowRSad",
+			"GroupId": "",
+			"Name": "右眉伤心"
+		},
+		{
+			"Id": "EyeLSad",
+			"GroupId": "",
+			"Name": "左眼伤心"
+		},
+		{
+			"Id": "EyeRSad",
+			"GroupId": "",
+			"Name": "右眼伤心"
+		}
+	],
+	"ParameterGroups": [],
+	"Parts": []
+}
