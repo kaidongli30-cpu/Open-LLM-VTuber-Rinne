@@ -2,16 +2,18 @@
 chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
-if not defined RINNE_GPT_SOVITS_ROOT set "RINNE_GPT_SOVITS_ROOT=%~dp0..\..\GPT-SoVITS-v2pro-20250604"
+
+set "RINNE_GPT_SOVITS_ROOT=%~dp0..\..\GPT-SoVITS-v2pro-20250604"
 if not exist "%RINNE_GPT_SOVITS_ROOT%\runtime\python.exe" set "RINNE_GPT_SOVITS_ROOT=%RINNE_GPT_SOVITS_ROOT%\GPT-SoVITS-v2pro-20250604"
+
 if not exist "%RINNE_GPT_SOVITS_ROOT%\runtime\python.exe" (
-  echo [错误] 未找到 GPT-SoVITS runtime\python.exe
-  echo 请先按根目录 README 设置 RINNE_GPT_SOVITS_ROOT。
+  echo [错误] 未找到 GPT-SoVITS 的 runtime\python.exe
+  echo 请按根目录 README 将 GPT-SoVITS-v2pro-20250604 放到项目根目录。
   pause
   exit /b 1
 )
-echo 正在启动凛祢 V2 语音服务。
-echo 如果另一个 GPT-SoVITS API 窗口仍在运行，请先关闭它。
+
+echo 正在启动凛祢 V2 语音服务，请保持本窗口运行。
 echo.
 "%RINNE_GPT_SOVITS_ROOT%\runtime\python.exe" "rinne_voice_manager.py" switch-v2
 echo.

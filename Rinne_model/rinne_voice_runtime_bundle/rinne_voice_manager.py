@@ -18,8 +18,12 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 PROJECT_ROOT = HERE.parents[1]
+DEFAULT_GSV_PARENT = PROJECT_ROOT / "GPT-SoVITS-v2pro-20250604"
+DEFAULT_GSV_NESTED = DEFAULT_GSV_PARENT / "GPT-SoVITS-v2pro-20250604"
 DEFAULT_GSV_ROOT = (
-    PROJECT_ROOT / "GPT-SoVITS-v2pro-20250604" / "GPT-SoVITS-v2pro-20250604"
+    DEFAULT_GSV_PARENT
+    if (DEFAULT_GSV_PARENT / "runtime" / "python.exe").exists()
+    else DEFAULT_GSV_NESTED
 )
 GSV_ROOT = Path(os.environ.get("RINNE_GPT_SOVITS_ROOT", DEFAULT_GSV_ROOT)).expanduser()
 RUNTIME_PYTHON = GSV_ROOT / "runtime" / "python.exe"
@@ -65,21 +69,20 @@ def require(path: Path) -> None:
         raise FileNotFoundError(path)
 
 
-def validate_files() -> dict[str, Any]:
+def validate_files(*, include_v4: bool = False) -> dict[str, Any]:
     required = [
         RUNTIME_PYTHON,
         API_SCRIPT,
         BASE_TTS_CONFIG,
         PROJECT_CONFIG,
-        PROXY_SCRIPT,
         V2_GPT,
         V2_SOVITS,
-        V4_GPT,
-        V4_SOVITS,
         BERT,
         HUBERT,
         *EMOTION_REFERENCES,
     ]
+    if include_v4:
+        required.extend((PROXY_SCRIPT, V4_GPT, V4_SOVITS))
     missing = [str(path) for path in required if not path.exists()]
 
     result = {
@@ -87,9 +90,10 @@ def validate_files() -> dict[str, Any]:
         "gpt_sovits_root": str(GSV_ROOT),
         "required_paths": len(required),
         "missing_paths": missing,
-        "v4br1_weights": [str(V4_GPT), str(V4_SOVITS)],
         "v2_weights": [str(V2_GPT), str(V2_SOVITS)],
     }
+    if include_v4:
+        result["v4br1_weights"] = [str(V4_GPT), str(V4_SOVITS)]
     return result
 
 
@@ -263,7 +267,7 @@ def save_state(mode: str, records: list[dict[str, Any]]) -> None:
 
 
 def switch(mode: str) -> None:
-    validation = validate_files()
+    validation = validate_files(include_v4=mode == "v4br1")
     if not validation["ok"]:
         raise RuntimeError(
             "保留文件检查未通过：\n"
