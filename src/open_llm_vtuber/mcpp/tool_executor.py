@@ -326,7 +326,6 @@ class ToolExecutor:
 
         # ========== 博查 Web Search 专用处理 ==========
         if tool_name == "search":
-            import json
             #请在这里填写你的博查 API Key
             BOCHA_API_KEY = os.getenv("BOCHA_API_KEY", "")
 

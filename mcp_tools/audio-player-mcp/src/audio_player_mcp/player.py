@@ -13,8 +13,6 @@ from mcp.server.fastmcp import FastMCP, Context
 import pygame.mixer
 import json
 from pathlib import Path
-from typing import Optional
-import asyncio
 
 # Configure logging to stderr
 logging.basicConfig(
@@ -51,7 +49,7 @@ class AudioState:
 state = AudioState()
 
 @mcp.resource("audio://files")
-def list_audio_files() -> str:
+def list_audio_files_resource() -> str:
     """List available audio files"""
     try:
         files = [

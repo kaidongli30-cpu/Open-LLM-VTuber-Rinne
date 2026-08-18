@@ -4,7 +4,7 @@ import json
 import time
 from datetime import datetime, timezone
 import os
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict
 
 import httpx
 from loguru import logger

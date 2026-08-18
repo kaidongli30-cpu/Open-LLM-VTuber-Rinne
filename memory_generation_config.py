@@ -1,9 +1,10 @@
-import os
 """周记和月记生成器的 API 配置。
 
 默认沿用日记生成器的 API、地址和模型，也可以通过 MEMORY_LLM_* 环境变量
 为周记和月记单独覆盖。这样公开仓库不需要保存任何私人密钥。
 """
+
+import os
 
 import diary_generator
 

@@ -299,5 +299,5 @@ if __name__ == "__main__":
             target = datetime.strptime(args[0], "%Y-%m-%d")
             generate_for_date(target)
         except ValueError:
-            print(f"日期格式不对，请用 YYYY-MM-DD，例如：python diary_generator.py 2026-05-19")
+            print("日期格式不对，请用 YYYY-MM-DD，例如：python diary_generator.py 2026-05-19")
             sys.exit(1)

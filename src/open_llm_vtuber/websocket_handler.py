@@ -1,4 +1,3 @@
-from .proactive_observer import ProactiveObserver
 from typing import Dict, List, Optional, Callable, TypedDict
 from fastapi import WebSocket, WebSocketDisconnect
 import asyncio
@@ -726,10 +725,8 @@ class WebSocketHandler:
 
     async def _proactive_window_watcher(self, client_uid: str):
         """定时检查窗口变化，触发主动回复（对话结束后的陪伴版，含自然时间感知）"""
-        import os
         import time as time_module
         from pathlib import Path
-        from datetime import datetime
 
         change_file = Path("temp/window_changed.txt")
         last_proactive_time = 0
@@ -825,12 +822,6 @@ class WebSocketHandler:
                 # 更新主动观察冷却时间
                 last_proactive_time = now_time
 
-                # 获取当前系统时间（用于提示，但不强制报时）
-                now = datetime.now()
-                current_time = now.strftime("%Y年%m月%d日 %H:%M")
-                weekday_names = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
-                weekday = weekday_names[now.weekday()]
-
                 # 构建历史记录（防止重复）
                 history_text = ""
                 if proactive_history:
@@ -894,7 +885,7 @@ class WebSocketHandler:
                             "images": []
                         }
                     )
-                    logger.info(f"主动观察消息已成功触发回复流程")
+                    logger.info("主动观察消息已成功触发回复流程")
 
                 except Exception as e:
                     logger.warning(f"主动观察失败: {e}")
