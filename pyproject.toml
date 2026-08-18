@@ -65,8 +65,16 @@ cudatoolkit = ">=11.0,<12"
 target-version = "py310"
 
 [tool.ruff.lint]
-# Ignore E402 (module level import not at top of file) for the run_bilibili_live.py script
-per-file-ignores = { "scripts/run_bilibili_live.py" = ["E402"] }
+# Ruff 0.16 expanded its default rule set. Keep this legacy v1 codebase on the
+# original, focused baseline so CI catches syntax/import errors without forcing
+# a risky repository-wide modernization during stable releases.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# These entry points intentionally adjust sys.path before importing runtime modules.
+"scripts/run_bilibili_live.py" = ["E402"]
+"mcp_tools/audio-player-mcp/src/audio_player_mcp/player.py" = ["E402"]
+"mcp_tools/sing-mcp/src/player.py" = ["E402"]
 
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple"

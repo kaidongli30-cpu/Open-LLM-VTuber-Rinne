@@ -1,4 +1,3 @@
-import os
 import json
 import re
 import time
@@ -51,7 +50,7 @@ class ProactiveObserver:
                     with open(screen_text_file, "r", encoding="utf-8") as f:
                         data = json.load(f)
                     return data
-                except:
+                except (OSError, json.JSONDecodeError):
                     pass
             time.sleep(0.2)
         return None
