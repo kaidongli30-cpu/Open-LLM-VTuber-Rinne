@@ -1,16 +1,6 @@
 name: Docker Build & Push (Blacksmith)
 
-on:
-  push:
-    branches:
-      - main
-    tags:
-      - "v*"
-      - "*.*.*"
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:
+on: workflow_dispatch
 
 concurrency:
   group: docker-blacksmith-${{ github.ref }}

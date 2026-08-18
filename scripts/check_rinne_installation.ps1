@@ -43,7 +43,7 @@ function Get-CommandVersion {
 
 Write-Host "Rinne Windows installation preflight" -ForegroundColor Cyan
 Write-Host "Project: $projectRoot"
-Write-Host "This script only reports whether API variables exist; it never prints their values.`n"
+Write-Host "This script checks local programs and required files. It never prints API Key values.`n"
 
 $os64 = [Environment]::Is64BitOperatingSystem
 Show-Check $os64 "64-bit Windows" ([Environment]::OSVersion.VersionString)
@@ -80,22 +80,12 @@ foreach ($relativePath in $requiredProjectFiles) {
     Show-Check (Test-Path -LiteralPath $fullPath) $relativePath $fullPath
 }
 
-$apiVariables = @(
-    "RINNE_LLM_BASE_URL",
-    "RINNE_LLM_API_KEY",
-    "RINNE_LLM_MODEL",
-    "DIARY_LLM_API_URL",
-    "DIARY_LLM_API_KEY",
-    "DIARY_LLM_MODEL"
-)
-
-foreach ($name in $apiVariables) {
-    $present = -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name, "Process"))
-    Show-Check $present $name ($(if ($present) { "set in this PowerShell session" } else { "not set in this PowerShell session" }))
-}
-
 if (-not $SkipVoice) {
-    $defaultVoiceRoot = Join-Path $projectRoot "GPT-SoVITS-v2pro-20250604\GPT-SoVITS-v2pro-20250604"
+    $defaultVoiceRoot = Join-Path $projectRoot "GPT-SoVITS-v2pro-20250604"
+    $nestedVoiceRoot = Join-Path $defaultVoiceRoot "GPT-SoVITS-v2pro-20250604"
+    if (-not (Test-Path -LiteralPath (Join-Path $defaultVoiceRoot "runtime\python.exe"))) {
+        $defaultVoiceRoot = $nestedVoiceRoot
+    }
     $voiceRoot = [Environment]::GetEnvironmentVariable("RINNE_GPT_SOVITS_ROOT", "Process")
     if ([string]::IsNullOrWhiteSpace($voiceRoot)) {
         $voiceRoot = $defaultVoiceRoot
@@ -105,9 +95,7 @@ if (-not $SkipVoice) {
         "runtime\python.exe",
         "api_v2.py",
         "GPT_weights_v2\rinne_e15.ckpt",
-        "SoVITS_weights_v2\rinne_e8_s456.pth",
-        "GPT_weights_v4\rinne_v4-e10.ckpt",
-        "SoVITS_weights_v4\rinne_v4_e1_s1297_l32.pth"
+        "SoVITS_weights_v2\rinne_e8_s456.pth"
     )
 
     foreach ($relativePath in $voiceFiles) {
