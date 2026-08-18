@@ -1,0 +1,73 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "rinne.moc3",
+		"Textures": [
+			"rinne.2048/texture_00.png"
+		],
+		"DisplayInfo": "rinne.cdi3.json",
+		"Expressions": [
+			{
+				"Name": "expression_ambitious.exp3.json",
+				"File": "expressions/expression_ambitious.exp3.json"
+			},
+			{
+				"Name": "expression_angry.exp3.json",
+				"File": "expressions/expression_angry.exp3.json"
+			},
+			{
+				"Name": "expression_awkward.exp3.json",
+				"File": "expressions/expression_awkward.exp3.json"
+			},
+			{
+				"Name": "expression_confused.exp3.json",
+				"File": "expressions/expression_confused.exp3.json"
+			},
+			{
+				"Name": "expression_happy.exp3.json",
+				"File": "expressions/expression_happy.exp3.json"
+			},
+			{
+				"Name": "expression_sad.exp3.json",
+				"File": "expressions/expression_sad.exp3.json"
+			},
+			{
+				"Name": "expression_shy.exp3.json",
+				"File": "expressions/expression_shy.exp3.json"
+			},
+			{
+				"Name": "expression_surprise.exp3.json",
+				"File": "expressions/expression_surprise.exp3.json"
+			},
+			{
+				"Name": "expression_worried.exp3.json",
+				"File": "expressions/expression_worried.exp3.json"
+			}
+		],
+		"Motions": {
+			"Idle": [
+				{
+					"File": "motions/rinne_idle.motion3.json"
+				}
+			]
+		}
+	},
+	"Groups": [
+		{
+			"Target": "Parameter",
+			"Name": "EyeBlink",
+			"Ids": [
+				"ParamEyeLOpen",
+				"ParamEyeROpen"
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Name": "LipSync",
+			"Ids": [
+				"ParamMouthOpenY"
+			]
+		}
+	],
+	"HitAreas": []
+}

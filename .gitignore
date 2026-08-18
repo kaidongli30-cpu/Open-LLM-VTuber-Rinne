@@ -9,6 +9,7 @@ conf.yaml
 /live2d-models/*
 !/live2d-models/mao_pro
 !/live2d-models/shizuku
+!/live2d-models/rinne
 
 # ignore non-default character configs
 /characters/*
@@ -17,6 +18,7 @@ conf.yaml
 
 # ignore avatars
 avatars/*
+!/avatars/rinne.jpg
 
 # macOS system files
 .DS_Store
@@ -81,4 +83,11 @@ mcp_servers.json
 问题记录.txt
 # Local runtime and model assets
 /GPT-SoVITS-v2pro-20250604/
-/Rinne_model/
+/Rinne_model/*
+!/Rinne_model/rinne_voice_runtime_bundle/
+!/Rinne_model/rinne_voice_runtime_bundle/**
+/Rinne_model/rinne_voice_runtime_bundle/configs/
+/Rinne_model/rinne_voice_runtime_bundle/logs/
+/Rinne_model/rinne_voice_runtime_bundle/配置备份/
+/Rinne_model/rinne_voice_runtime_bundle/runtime_state.json
+/local_config/

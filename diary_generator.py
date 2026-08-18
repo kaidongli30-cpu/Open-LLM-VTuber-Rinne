@@ -24,11 +24,11 @@ CHAT_HISTORY_DIR = Path("chat_history/rinne_01")   # 聊天记录文件夹
 DIARY_DIR = CHAT_HISTORY_DIR / "diaries"           # 日记存放文件夹
 
 # LLM API 配置（兼容 DeepSeek / OpenAI-compatible 等接口）
-# 你可以直接在这里填写，也可以用环境变量覆盖：
+# 公开版不保存服务商地址、模型或密钥，请设置：
 #   DIARY_LLM_API_KEY / DIARY_LLM_API_URL / DIARY_LLM_MODEL
 LLM_API_KEY = os.getenv("DIARY_LLM_API_KEY", "")
-LLM_API_URL = os.getenv("DIARY_LLM_API_URL", "https://xingjiabiapi.org/v1/chat/completions")
-LLM_MODEL   = os.getenv("DIARY_LLM_MODEL", "claude-sonnet-4-6")
+LLM_API_URL = os.getenv("DIARY_LLM_API_URL", "")
+LLM_MODEL   = os.getenv("DIARY_LLM_MODEL", "")
 
 # 日记的最大字数（token 层面的软限制，不是硬截断）
 DIARY_MAX_TOKENS = 1000
@@ -107,6 +107,13 @@ def format_for_llm(messages: list) -> str:
 
 def call_llm_api(chat_text: str, date_label: str) -> str:
     """调用通用 LLM API，生成日记内容。"""
+
+    if not LLM_API_KEY or not LLM_API_URL or not LLM_MODEL:
+        print(
+            "  [错误] 日记 API 未配置完整，请按 README.md 设置 "
+            "DIARY_LLM_API_KEY / DIARY_LLM_API_URL / DIARY_LLM_MODEL"
+        )
+        return ""
 
     # 如果今天完全没有聊天记录
     if not chat_text.strip():

@@ -145,7 +145,7 @@ character_config:
         llm_provider: 'openai_compatible_llm'
         # let ai speak as soon as the first comma is received on the first sentence
         # to reduced latency.
-        faster_first_response: True
+        faster_first_response: False
         # Method for segmenting sentences: 'regex' or 'pysbd'
         segment_method: 'pysbd'
         # Use MCP (Model Context Protocol) Plus to let the LLM have the ability to use tools
@@ -189,11 +189,13 @@ character_config:
 
       # OpenAI Compatible inference backend
       openai_compatible_llm:
-        base_url: 'https://xingjiabiapi.org/v1'
-        llm_api_key: ''
+        # You can either replace these three values directly or set the matching
+        # environment variables before starting the backend.
+        base_url: '${RINNE_LLM_BASE_URL}'
+        llm_api_key: '${RINNE_LLM_API_KEY}'
         organization_id: null
         project_id: null
-        model: 'claude-sonnet-4-6'
+        model: '${RINNE_LLM_MODEL}'
         temperature: 1.0 # value between 0 to 2
         max_concurrent_requests: 1 # set to 1 if your backend only allows one request at a time
         interrupt_method: 'user'
@@ -442,7 +444,7 @@ character_config:
       # put ref audio to root path of GPT-Sovits, or set the path here
       api_url: 'http://127.0.0.1:9880/tts'
       text_lang: 'ja'
-      ref_audio_path: './path/to/reference.wav'
+      ref_audio_path: 'Rinne_model/rinne_voice_runtime_bundle/emotion_references/rinne_default.wav'
       prompt_lang: 'ja'
       prompt_text: 'そんなことないよ。私も教えてもらったの'
       text_split_method: 'cut5'
@@ -453,21 +455,21 @@ character_config:
       # All other emotions (including happy and sad) keep the default reference above.
       emotion_references:
         surprise:
-          ref_audio_path: './path/to/reference.wav'
+          ref_audio_path: 'Rinne_model/rinne_voice_runtime_bundle/emotion_references/surprise_RINNE_JP_000093.wav'
           aux_ref_audio_paths:
-            - './path/to/reference.wav'
+            - 'Rinne_model/rinne_voice_runtime_bundle/emotion_references/rinne_default.wav'
           prompt_lang: 'ja'
           prompt_text: 'と、十香ちゃん、それはなに？'
         # Every shy expression keeps the default gentle prompt and blends in
         # 1192 as an auxiliary reference. There is no consecutive-shy state.
         shy:
-          ref_audio_path: './path/to/reference.wav'
+          ref_audio_path: 'Rinne_model/rinne_voice_runtime_bundle/emotion_references/shy_RINNE_JP_001192.wav'
           aux_ref_audio_paths:
-            - './path/to/reference.wav'
+            - 'Rinne_model/rinne_voice_runtime_bundle/emotion_references/rinne_default.wav'
           prompt_lang: 'ja'
           prompt_text: 'そんなことないよ。私も教えてもらったの'
         angry:
-          ref_audio_path: './path/to/reference.wav'
+          ref_audio_path: 'Rinne_model/rinne_voice_runtime_bundle/emotion_references/angry_RINNE_JP_000533.wav'
           prompt_lang: 'ja'
           prompt_text: '士道、私怒ってるからね。急に走って逃げて……'
 
@@ -593,12 +595,12 @@ character_config:
 
     translator_config:
       # Like... you speak and read the subtitles in English, and the TTS speaks Japanese or that kind of things
-      translate_audio: True # Warning: you need to deploy DeeplX to use this. Otherwise it's going to crash
+      translate_audio: True # This profile uses the local Ollama translator configured below.
       translate_provider: 'ollama_local'
       ollama_local:
         api_url: 'http://127.0.0.1:11434/api/chat'
         model: 'qwen3.5:4b-q4_K_M'
-        glossary_path: 'models/ollama/qwen3.5-4b-q4_K_M/dynamic-glossary.json'
+        glossary_path: 'assets/rinne_translation_glossary.json'
         timeout_seconds: 20
         keep_alive: '10m'
         num_ctx: 2048
