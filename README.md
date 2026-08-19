@@ -149,6 +149,28 @@ LLM_MODEL = "deepseek-v4-flash"
 
 不要把含有真实 API Key 的 `conf.yaml`、`diary_generator.py` 或 `memory_generation_config.py` 上传到公开仓库。录制演示视频时使用临时 Key，并在录制完成后立即删除该 Key。
 
+### 4. 配置联网搜索（博查 API）
+
+联网搜索使用博查 API。获取博查 API Key 后，打开项目中的：
+
+```text
+src\open_llm_vtuber\mcpp\tool_executor.py
+```
+
+找到下面这一行：
+
+```python
+BOCHA_API_KEY = os.getenv("BOCHA_API_KEY", "")
+```
+
+把它改成下面这样，并将引号中的文字替换成你自己的 Key：
+
+```python
+BOCHA_API_KEY = "把你的博查 API Key 粘贴在这里"
+```
+
+保存文件即可。不要把这个 Key 填到 `conf.yaml`，也不要把填写了真实 Key 的文件再次上传到 GitHub。录制演示视频时可以临时使用一个新 Key，录制完成后立即在博查平台删除或禁用它。
+
 ## 四、安装 GPT-SoVITS 与凛祢语音
 
 ### 1. 下载 GPT-SoVITS 整合包
