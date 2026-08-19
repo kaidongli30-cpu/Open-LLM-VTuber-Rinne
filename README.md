@@ -103,6 +103,22 @@ uv sync
 
 `--recursive` 会同时下载运行需要的 `frontend`。不要使用 GitHub 的“Download ZIP”。
 
+如果后续启动时出现下面的错误，说明 `onnxruntime` 没有完整安装：
+
+```text
+No module named 'onnxruntime.capi.onnxruntime_pybind11_state'
+```
+
+请保持 PowerShell 位于项目根目录，然后执行：
+
+```powershell
+uv cache clean onnxruntime
+uv sync --reinstall-package onnxruntime
+uv run python -c "import onnxruntime; print(onnxruntime.__version__)"
+```
+
+最后一条命令能正常显示版本号（例如 `1.23.2`）就表示修复成功。安装时如果看到 `Failed to hardlink files; falling back to full copy`，只是因为缓存和项目位于不同磁盘，程序已经自动改用普通复制，不是安装失败。
+
 然后打开 [Open-LLM-VTuber Releases](https://github.com/Open-LLM-VTuber/Open-LLM-VTuber/releases)，下载并安装 Windows 的 `open-llm-vtuber-1.2.1-setup.exe`。
 
 ## 三、配置云端 LLM API
@@ -215,6 +231,29 @@ GPT-SoVITS-v2pro-20250604\
 
 ### 3. 启动语音服务
 
+启动前，用记事本打开项目根目录中的 `conf.yaml`，搜索 `gpt_sovits_tts:`。在这一配置块中，将默认语音以及 `surprise`、`shy`、`angry` 下所有以 `Rinne_model/` 开头的 `ref_audio_path` 和 `aux_ref_audio_paths` 改成完整路径。
+
+例如，假设项目位于 `D:\Open-LLM-VTuber-Rinne`，原来是：
+
+```yaml
+ref_audio_path: Rinne_model/rinne_voice_runtime_bundle/emotion_references/rinne_default.wav
+```
+
+需要改成：
+
+```yaml
+ref_audio_path: D:/Open-LLM-VTuber-Rinne/Rinne_model/rinne_voice_runtime_bundle/emotion_references/rinne_default.wav
+```
+
+辅助参考音频也要同样修改，例如：
+
+```yaml
+aux_ref_audio_paths:
+  - D:/Open-LLM-VTuber-Rinne/Rinne_model/rinne_voice_runtime_bundle/emotion_references/rinne_default.wav
+```
+
+请把示例中的 `D:/Open-LLM-VTuber-Rinne` 换成自己实际存放项目的根目录。路径建议使用 `/`，避免 Windows 反斜杠在 YAML 中造成转义问题。
+
 双击：
 
 ```text
@@ -234,7 +273,22 @@ uv run run_server.py
 ```
 
 4. 后端启动完成后，双击桌面的 `open-llm-vtuber` 应用图标。
-5. 第一次加载语音识别模型可能需要等待下载，请保持后端窗口运行。
+5. 第一次启动时会自动下载 SenseVoice 语音识别模型，因此会比之后启动更慢。下载期间请保持后端窗口运行。
+
+如果当前网络线路下载过慢，想切换到更快的网络线路重新下载，请先在后端窗口按 `Ctrl+C` 停止程序，再在项目根目录执行下面两条命令，清除未下载完整的压缩包和解压失败后留下的半成品目录：
+
+```powershell
+Remove-Item ".\models\sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2" -Force
+Remove-Item ".\models\sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17" -Recurse -Force
+```
+
+切换网络线路后，重新执行：
+
+```powershell
+uv run run_server.py
+```
+
+如果日志出现 `Compressed file ended before the end-of-stream marker was reached` 或 `protobuf parsing failed`，同样说明模型文件没有下载完整，按上面的步骤清除后重新下载即可。不要删除整个 `models` 文件夹。
 
 ### 验收清单
 
