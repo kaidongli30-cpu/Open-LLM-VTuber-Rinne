@@ -21,9 +21,9 @@
 
 本仓库直接公开后端代码、记忆系统、配置模板、Live2D 运行资源、参考音频和语音管理脚本。
 
-`Open-LLM-VTuber-Web` 的前端源码不在本仓库重复发布。`frontend` 是一个 Git submodule（子模块，可以理解为“指向另一个 Git 仓库特定版本的引用”），指向上游公开的前端 **build 分支**。后端需要这些构建好的网页文件，因此克隆时必须带 `--recursive`。
+`Open-LLM-VTuber-Web` 的前端源码不在本仓库重复发布。`frontend` 是一个 Git submodule（子模块，可以理解为“指向另一个 Git 仓库特定版本的引用”），指向本项目发布的[前端编译文件](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)。该构建基于上游前端，并包含已经验证过的麦克风、按钮、拖拽和 Live2D 表情修复。后端需要这些构建好的网页文件，因此克隆时必须带 `--recursive`。
 
-桌面 `.exe` 不在本仓库重复打包。请从上游 [Open-LLM-VTuber Releases](https://github.com/Open-LLM-VTuber/Open-LLM-VTuber/releases) 下载 Windows 安装程序。
+Windows 桌面客户端由本项目单独打包并放在 [GitHub Releases](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases) 中。请使用本项目提供的 Rinne 桌面客户端，不要再安装上游 `open-llm-vtuber-1.2.1-setup.exe`；本项目安装包额外包含 Pet mode 鼠标穿透、麦克风、按钮、拖拽和 Live2D 表情修复。
 
 ## 一、安装前确认
 
@@ -119,7 +119,19 @@ uv run python -c "import onnxruntime; print(onnxruntime.__version__)"
 
 最后一条命令能正常显示版本号（例如 `1.23.2`）就表示修复成功。安装时如果看到 `Failed to hardlink files; falling back to full copy`，只是因为缓存和项目位于不同磁盘，程序已经自动改用普通复制，不是安装失败。
 
-然后打开 [Open-LLM-VTuber Releases](https://github.com/Open-LLM-VTuber/Open-LLM-VTuber/releases)，下载并安装 Windows 的 `open-llm-vtuber-1.2.1-setup.exe`。
+然后打开 [Rinne 桌面客户端发布页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases/tag/desktop-v1.2.1-rinne.1)，下载并安装：
+
+```text
+Open-LLM-VTuber-Rinne-Desktop-1.2.1-setup.exe
+```
+
+安装包 SHA-256：
+
+```text
+10838DA372B61497A9D46E941FDCBF1C3CABEA7FE3E41C1FDD057290BB300B53
+```
+
+当前安装包没有购买商业代码签名证书，因此 Windows 可能显示“未知发布者”。请确认文件名和上面的 SHA-256 一致，再继续安装。
 
 ## 三、配置云端 LLM API
 
@@ -384,6 +396,8 @@ git submodule sync --recursive
 git submodule update --init --recursive
 ```
 
+`frontend` 应来自 `kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend`。如果旧版项目仍指向上游前端，请先执行上面的 `git submodule sync --recursive`，再更新子模块。
+
 ### API 报 401/403
 
 检查 `conf.yaml` 中选择的 `llm_provider`、对应配置块里的 Key 和模型名是否正确。不要在 Issue 中粘贴完整 Key。
@@ -440,7 +454,7 @@ git log -1 --oneline
 - 当前记忆方案会把聊天记录、日记、周记、月记发送给你配置的云端 LLM。使用前请自行确认服务商的隐私政策。
 - Live2D 相关资源还受仓库内 `LICENSE-Live2D.txt` 约束。
 - 项目代码沿用上游许可证，详见 `LICENSE.txt`。
-- GPT-SoVITS、上游桌面客户端及其模型/资源各自遵循原项目许可；请在再分发前分别核对。
+- GPT-SoVITS、上游前端及其模型/资源各自遵循原项目许可；Rinne 前端编译仓库保留了上游许可证和来源说明。
 
 ## 致谢与上游项目
 

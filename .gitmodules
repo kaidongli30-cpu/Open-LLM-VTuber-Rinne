@@ -1,4 +1,4 @@
 [submodule "frontend"]
 	path = frontend
-	url = https://github.com/Open-LLM-VTuber/Open-LLM-VTuber-Web
-	branch = build
+	url = https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend.git
+	branch = main
