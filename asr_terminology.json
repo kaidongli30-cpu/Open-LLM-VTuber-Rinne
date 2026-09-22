@@ -1,0 +1,17 @@
+{
+  "terms": [
+    "Live2D",
+    "约会大作战",
+    "园神凛祢",
+    "凛祢"
+  ],
+  "replacements": {
+    "live 2D": "Live2D",
+    "Live 2d": "Live2D",
+    "live2d": "Live2D",
+    "LIVE2D": "Live2D",
+    "約會大作戰": "约会大作战",
+    "園神凜祢": "园神凛祢",
+    "園神凛祢": "园神凛祢"
+  }
+}

@@ -28,6 +28,7 @@ from .asr import (
     FunASRConfig,
     SherpaOnnxASRConfig,
     GroqWhisperASRConfig,
+    Qwen3ASRConfig,
 )
 from .tts import (
     TTSConfig,
@@ -99,6 +100,7 @@ __all__ = [
     "FunASRConfig",
     "SherpaOnnxASRConfig",
     "GroqWhisperASRConfig",
+    "Qwen3ASRConfig",
     # TTS related classes
     "TTSConfig",
     "AzureTTSConfig",

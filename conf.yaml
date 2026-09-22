@@ -271,7 +271,7 @@ character_config:
 
   # === Automatic Speech Recognition ===
   asr_config:
-    # speech to text model options: 'faster_whisper', 'whisper_cpp', 'whisper', 'azure_asr', 'fun_asr', 'groq_whisper_asr', 'sherpa_onnx_asr'
+    # speech to text model options: 'faster_whisper', 'whisper_cpp', 'whisper', 'azure_asr', 'fun_asr', 'groq_whisper_asr', 'sherpa_onnx_asr', 'qwen3_asr'
     asr_model: 'sherpa_onnx_asr'
 
     azure_asr:
@@ -287,6 +287,18 @@ character_config:
       device: 'auto' # cpu, cuda, or auto. faster-whisper doesn't support mps
       compute_type: 'int8'
       prompt: '' # You can put a prompt here to help the model understand the context of the audio
+
+    qwen3_asr:
+      model_path: './models/Qwen3-ASR-0.6B'
+      worker_python: './.venv-qwen3-asr/Scripts/python.exe'
+      device: 'cuda:0'
+      dtype: 'bfloat16'
+      language: ''
+      context: ''
+      terminology_path: './asr_terminology.json'
+      max_new_tokens: 256
+      startup_timeout_seconds: 180
+      request_timeout_seconds: 120
 
     whisper_cpp:
       # all available models are listed on https://abdeladim-s.github.io/pywhispercpp/#pywhispercpp.constants.AVAILABLE_MODELS
@@ -346,6 +358,7 @@ character_config:
       # For other models, you need to download them yourself
       sense_voice: './models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/model.onnx' # Path to the SenseVoice model (e.g., 'path/to/model.onnx')
       tokens: './models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/tokens.txt' # Path to tokens.txt (required for all model types)
+      terminology_path: './asr_terminology.json'
       # --- Optional parameters (with defaults shown) ---
       # hotwords_file: ''     # Path to hotwords file (if using hotwords)
       # hotwords_score: 1.5   # Score for hotwords

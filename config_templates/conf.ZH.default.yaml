@@ -211,7 +211,7 @@ character_config:
 
   # === 自动语音识别 ===
   asr_config:
-    # 语音转文本模型选项：'faster_whisper', 'whisper_cpp', 'whisper', 'azure_asr', 'fun_asr', 'groq_whisper_asr', 'sherpa_onnx_asr'
+    # 语音转文本模型选项：'faster_whisper', 'whisper_cpp', 'whisper', 'azure_asr', 'fun_asr', 'groq_whisper_asr', 'sherpa_onnx_asr', 'qwen3_asr'
     asr_model: 'sherpa_onnx_asr' # 使用的语音识别模型
 
     azure_asr:
@@ -227,6 +227,19 @@ character_config:
       device: 'auto' # 设备，cpu、cuda 或 auto。faster-whisper 不支持 mps
       compute_type: 'int8'
       prompt: '' # 提示词，用于辅助生成正确的文本
+
+    # 本地 Qwen3-ASR 在由 scripts/setup_qwen3_asr.ps1 安装的独立环境中运行
+    qwen3_asr:
+      model_path: './models/Qwen3-ASR-0.6B'
+      worker_python: './.venv-qwen3-asr/Scripts/python.exe'
+      device: 'cuda:0'
+      dtype: 'bfloat16'
+      language: '' # 留空/auto 时自动识别支持的语言
+      context: '' # 可选：口语中可能出现的人名或专业术语
+      terminology_path: './asr_terminology.json' # 词汇提示和精确纠正
+      max_new_tokens: 256
+      startup_timeout_seconds: 180
+      request_timeout_seconds: 120
 
     whisper_cpp:
       # 所有可用模型都列在 https://abdeladim-s.github.io/pywhispercpp/#pywhispercpp.constants.AVAILABLE_MODELS
@@ -284,6 +297,7 @@ character_config:
       # SenseVoice 我写了自动下载模型的逻辑，其他模型要自己手动下载
       sense_voice: './models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/model.int8.onnx' # SenseVoice 模型路径（例如 'path/to/model.onnx'）
       tokens: './models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/tokens.txt' # tokens.txt 路径（所有模型类型都需要）
+      terminology_path: './asr_terminology.json' # 人名与专业术语共用的精确纠正
       # --- 可选参数（显示默认值）---
       # hotwords_file: ''     # 热词文件路径（如果使用热词）
       # hotwords_score: 1.5   # 热词分数

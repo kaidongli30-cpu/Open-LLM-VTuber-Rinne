@@ -207,6 +207,9 @@ class SherpaOnnxASRConfig(I18nMixin):
     fire_red_asr_encoder: Optional[str] = Field(None, alias="fire_red_asr_encoder")
     fire_red_asr_decoder: Optional[str] = Field(None, alias="fire_red_asr_decoder")
     tokens: str = Field(..., alias="tokens")
+    terminology_path: Optional[str] = Field(
+        "./asr_terminology.json", alias="terminology_path"
+    )
     num_threads: int = Field(4, alias="num_threads")
     use_itn: bool = Field(True, alias="use_itn")
     provider: Literal["cpu", "cuda", "rocm"] = Field("cpu", alias="provider")
@@ -249,6 +252,10 @@ class SherpaOnnxASRConfig(I18nMixin):
             en="Path to FireredASR decoder model", zh="FireredASR 解码器模型路径"
         ),
         "tokens": Description(en="Path to tokens file", zh="词元文件路径"),
+        "terminology_path": Description(
+            en="JSON file containing exact ASR terminology corrections",
+            zh="包含 ASR 专有名词精确纠正规则的 JSON 文件",
+        ),
         "num_threads": Description(en="Number of threads to use", zh="使用的线程数"),
         "use_itn": Description(
             en="Enable inverse text normalization", zh="启用反向文本归一化"
@@ -299,12 +306,80 @@ class SherpaOnnxASRConfig(I18nMixin):
                     "sense_voice and tokens must be provided for sense_voice model type"
                 )
         elif model_type == "fire_red_asr":
-            if not all([values.fire_red_asr_encoder, values.fire_red_asr_decoder, values.tokens]):
+            if not all(
+                [
+                    values.fire_red_asr_encoder,
+                    values.fire_red_asr_decoder,
+                    values.tokens,
+                ]
+            ):
                 raise ValueError(
                     "fire_red_asr_encoder, fire_red_asr_decoder, and tokens must be provided for fire_red_asr model type"
                 )
 
         return values
+
+
+class Qwen3ASRConfig(I18nMixin):
+    """Configuration for the local Qwen3-ASR worker."""
+
+    model_path: str = Field("./models/Qwen3-ASR-0.6B", alias="model_path")
+    worker_python: str = Field(
+        "./.venv-qwen3-asr/Scripts/python.exe", alias="worker_python"
+    )
+    device: str = Field("cuda:0", alias="device")
+    dtype: Literal["bfloat16", "float16", "float32"] = Field("bfloat16", alias="dtype")
+    language: Optional[str] = Field(None, alias="language")
+    context: str = Field("", alias="context")
+    terminology_path: Optional[str] = Field(
+        "./asr_terminology.json", alias="terminology_path"
+    )
+    max_new_tokens: int = Field(256, ge=1, alias="max_new_tokens")
+    startup_timeout_seconds: float = Field(180.0, gt=0, alias="startup_timeout_seconds")
+    request_timeout_seconds: float = Field(120.0, gt=0, alias="request_timeout_seconds")
+
+    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
+        "model_path": Description(
+            en="Local Qwen3-ASR model directory",
+            zh="Qwen3-ASR 本地模型目录",
+        ),
+        "worker_python": Description(
+            en="Python executable in the isolated Qwen3-ASR environment",
+            zh="Qwen3-ASR 独立环境中的 Python 程序",
+        ),
+        "device": Description(
+            en="Inference device, such as cuda:0 or cpu",
+            zh="推理设备，例如 cuda:0 或 cpu",
+        ),
+        "dtype": Description(
+            en="Model calculation precision",
+            zh="模型计算精度",
+        ),
+        "language": Description(
+            en="Language name, or empty for automatic multilingual detection",
+            zh="语言名称；留空时自动识别多种语言",
+        ),
+        "context": Description(
+            en="Optional vocabulary context for names and specialist terms",
+            zh="用于人名和专有词的可选词汇提示",
+        ),
+        "terminology_path": Description(
+            en="JSON file containing vocabulary terms and forced ASR corrections",
+            zh="包含词汇提示和强制识别纠正的 JSON 文件",
+        ),
+        "max_new_tokens": Description(
+            en="Maximum transcription tokens for one utterance",
+            zh="单次语音最多生成的转写词元数",
+        ),
+        "startup_timeout_seconds": Description(
+            en="Maximum seconds to wait for the local model to load",
+            zh="等待本地模型载入的最长秒数",
+        ),
+        "request_timeout_seconds": Description(
+            en="Maximum seconds to wait for one transcription",
+            zh="等待单次语音识别的最长秒数",
+        ),
+    }
 
 
 class ASRConfig(I18nMixin):
@@ -318,6 +393,7 @@ class ASRConfig(I18nMixin):
         "fun_asr",
         "groq_whisper_asr",
         "sherpa_onnx_asr",
+        "qwen3_asr",
     ] = Field(..., alias="asr_model")
     azure_asr: Optional[AzureASRConfig] = Field(None, alias="azure_asr")
     faster_whisper: Optional[FasterWhisperConfig] = Field(None, alias="faster_whisper")
@@ -330,6 +406,7 @@ class ASRConfig(I18nMixin):
     sherpa_onnx_asr: Optional[SherpaOnnxASRConfig] = Field(
         None, alias="sherpa_onnx_asr"
     )
+    qwen3_asr: Optional[Qwen3ASRConfig] = Field(None, alias="qwen3_asr")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "asr_model": Description(
@@ -349,6 +426,9 @@ class ASRConfig(I18nMixin):
         ),
         "sherpa_onnx_asr": Description(
             en="Configuration for Sherpa Onnx ASR", zh="Sherpa Onnx ASR 配置"
+        ),
+        "qwen3_asr": Description(
+            en="Configuration for local Qwen3-ASR", zh="本地 Qwen3-ASR 配置"
         ),
     }
 

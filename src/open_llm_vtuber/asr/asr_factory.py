@@ -58,5 +58,9 @@ class ASRFactory:
             from .sherpa_onnx_asr import VoiceRecognition as SherpaOnnxASR
 
             return SherpaOnnxASR(**kwargs)
+        elif system_name == "qwen3_asr":
+            from .qwen3_asr import VoiceRecognition as Qwen3ASR
+
+            return Qwen3ASR(**kwargs)
         else:
             raise ValueError(f"Unknown ASR system: {system_name}")

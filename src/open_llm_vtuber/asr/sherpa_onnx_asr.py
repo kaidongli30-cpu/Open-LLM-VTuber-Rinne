@@ -3,6 +3,7 @@ import numpy as np
 import sherpa_onnx
 from loguru import logger
 from .asr_interface import ASRInterface
+from .terminology import ASRTerminology
 from .utils import download_and_extract, check_and_extract_local_file
 import onnxruntime
 
@@ -24,6 +25,7 @@ class VoiceRecognition(ASRInterface):
         fire_red_asr_encoder: str = None,  # Path to FireRedASR encoder model
         fire_red_asr_decoder: str = None,  # Path to FireRedASR decoder model
         tokens: str = None,  # Path to tokens.txt
+        terminology_path: str = "./asr_terminology.json",  # Exact ASR corrections
         hotwords_file: str = "",  # Path to hotwords file
         hotwords_score: float = 1.5,  # Hotwords score
         modeling_unit: str = "",  # Modeling unit for hotwords
@@ -54,6 +56,12 @@ class VoiceRecognition(ASRInterface):
         self.fire_red_asr_encoder = fire_red_asr_encoder
         self.fire_red_asr_decoder = fire_red_asr_decoder
         self.tokens = tokens
+        self._terminology = ASRTerminology(
+            terminology_path,
+            engine_name=(
+                "SenseVoice" if model_type == "sense_voice" else "Sherpa-Onnx-ASR"
+            ),
+        )
         self.hotwords_file = hotwords_file
         self.hotwords_score = hotwords_score
         self.modeling_unit = modeling_unit
@@ -216,4 +224,4 @@ class VoiceRecognition(ASRInterface):
         stream = self.recognizer.create_stream()
         stream.accept_waveform(self.SAMPLE_RATE, audio)
         self.recognizer.decode_streams([stream])
-        return stream.result.text
+        return self._terminology.correct(stream.result.text)
