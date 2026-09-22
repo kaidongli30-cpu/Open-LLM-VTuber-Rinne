@@ -16,6 +16,7 @@ from .mcpp.tool_manager import ToolManager
 from .mcpp.mcp_client import MCPClient
 from .mcpp.tool_executor import ToolExecutor
 from .mcpp.tool_adapter import ToolAdapter
+from .video_analysis import settings_from_character_config
 
 from .asr.asr_factory import ASRFactory
 from .tts.tts_factory import TTSFactory
@@ -167,7 +168,13 @@ class ServiceContext:
 
             # 5. Initialize ToolExecutor
             if self.mcp_client and self.tool_manager:
-                self.tool_executor = ToolExecutor(self.mcp_client, self.tool_manager)
+                self.tool_executor = ToolExecutor(
+                    self.mcp_client,
+                    self.tool_manager,
+                    media_settings=settings_from_character_config(
+                        self.character_config
+                    ),
+                )
                 logger.info("ToolExecutor initialized for this session.")
             else:
                 logger.warning(

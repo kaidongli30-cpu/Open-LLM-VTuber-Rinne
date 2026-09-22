@@ -1,3 +1,4 @@
+import asyncio
 import os
 import json
 import shutil
@@ -21,6 +22,7 @@ from .file_library import (
     list_library_folders,
     save_upload_path,
 )
+from .video_media import VideoMediaError, prepare_ordinary_video, probe_video
 
 
 def _load_live2d_models_from_model_dict() -> list[dict]:
@@ -253,7 +255,8 @@ def init_library_routes() -> APIRouter:
     async def library_upload(
         file: UploadFile = File(...),
         kind: str = Form("auto"),
-        subdir: str = Form(""),
+        subdir: str = Form("待整理"),
+        video_mode: str = Form("normal"),
     ):
         safe_name = Path(file.filename or "").name
         detected_kind = kind_for_filename(safe_name)
@@ -280,16 +283,44 @@ def init_library_routes() -> APIRouter:
                             f"file exceeds the {size_limit // (1024 * 1024)} MB limit"
                         )
                     output.write(chunk)
-            record = save_upload_path(
-                safe_name,
-                incoming_path,
-                mime_type=file.content_type,
+
+            prepared_path = incoming_path
+            saved_name = safe_name
+            saved_mime = file.content_type
+            if resolved_kind == "video":
+                if detected_kind != "video":
+                    raise ValueError("video filename extension is unsupported")
+                if video_mode not in {"normal", "original"}:
+                    raise ValueError("video_mode must be normal or original")
+                if video_mode == "original":
+                    await asyncio.to_thread(probe_video, incoming_path)
+                else:
+                    prepared_path = incoming_dir / f"prepared-{Path(safe_name).stem}.mp4"
+                    await asyncio.to_thread(
+                        prepare_ordinary_video,
+                        incoming_path,
+                        prepared_path,
+                    )
+                    saved_name = f"{Path(safe_name).stem}.mp4"
+                    saved_mime = "video/mp4"
+
+            record = await asyncio.to_thread(
+                save_upload_path,
+                saved_name,
+                prepared_path,
+                mime_type=saved_mime,
                 kind=resolved_kind,
                 subdir=subdir,
             )
+            if resolved_kind == "video":
+                record["video_mode"] = video_mode
+                record["source_size"] = total
             return {"file": record}
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, VideoMediaError) as exc:
             return JSONResponse({"error": str(exc)}, status_code=400)
+        except Exception as exc:
+            logger.warning(f"Library upload failed: {type(exc).__name__}")
+            return JSONResponse({"error": "library upload failed"}, status_code=500)
         finally:
             await file.close()
             shutil.rmtree(incoming_dir, ignore_errors=True)

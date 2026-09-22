@@ -18,6 +18,7 @@ from .tts_manager import TTSTaskManager
 from .tool_call_feedback import ToolCallFeedbackManager
 from ..chat_history_manager import store_message
 from ..service_context import ServiceContext
+from ..video_analysis import analyze_video_attachments, settings_from_character_config
 
 # Import necessary types from agent outputs
 from ..agent.output_types import SentenceOutput, AudioOutput
@@ -74,6 +75,22 @@ async def process_single_conversation(
         input_text = await process_user_input(
             user_input, context.asr_engine, websocket_send
         )
+
+        if any(item.get("kind") == "video" for item in attachments or []):
+            video_settings = settings_from_character_config(context.character_config)
+            video_context, video_diagnostics = await analyze_video_attachments(
+                attachments or [],
+                video_settings,
+                user_input=input_text,
+            )
+            metadata["video_analysis_context"] = video_context
+            metadata["video_analysis_diagnostics"] = video_diagnostics
+            logger.info(
+                "Video observation completed: status={}, complete={}/{}",
+                video_diagnostics.get("status"),
+                video_diagnostics.get("complete_count", 0),
+                video_diagnostics.get("video_count", 0),
+            )
 
         # Create batch input
         batch_input = create_batch_input(

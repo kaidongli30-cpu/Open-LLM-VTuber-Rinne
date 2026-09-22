@@ -23,6 +23,7 @@ from .types import (
 )
 from ..service_context import ServiceContext
 from ..chat_history_manager import store_message
+from ..video_analysis import analyze_video_attachments, settings_from_character_config
 from .tts_manager import TTSTaskManager
 from .tool_call_feedback import ToolCallFeedbackManager
 
@@ -89,6 +90,18 @@ async def process_group_conversation(
             group_members=group_members,
             initiator_client_uid=initiator_client_uid,
         )
+        metadata = dict(metadata or {})
+        if any(item.get("kind") == "video" for item in attachments or []):
+            video_settings = settings_from_character_config(
+                initiator_context.character_config
+            )
+            video_context, video_diagnostics = await analyze_video_attachments(
+                attachments or [],
+                video_settings,
+                user_input=input_text,
+            )
+            metadata["video_analysis_context"] = video_context
+            metadata["video_analysis_diagnostics"] = video_diagnostics
 
         # Check if we should skip storing this input to history
         skip_history = metadata and metadata.get("skip_history", False)
@@ -109,17 +122,10 @@ async def process_group_conversation(
 
         state.conversation_history = [f"{human_name}: {input_text}"]
 
-        is_first_responder = False
         # Main conversation loop
         while state.group_queue:
             try:
                 current_member_uid = state.group_queue.pop(0)
-
-                # Only pass metadata to the first responder
-                current_metadata = None
-                if is_first_responder:
-                    current_metadata = metadata
-                    is_first_responder = False
 
                 await handle_group_member_turn(
                     current_member_uid=current_member_uid,
@@ -131,7 +137,7 @@ async def process_group_conversation(
                     images=images,
                     attachments=attachments,
                     tts_manager=tts_managers[current_member_uid],
-                    metadata=current_metadata,
+                    metadata=metadata,
                 )
             except Exception as e:
                 logger.error(f"Error in group member turn: {e}")

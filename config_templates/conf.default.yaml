@@ -70,6 +70,18 @@ character_config:
   agent_config:
     conversation_agent_choice: 'basic_memory_agent'
 
+    # Optional video-only observer. Static images go directly to the dialogue model.
+    # Keep the secret in a Git-ignored file; do not write an API key in this YAML.
+    media_analysis:
+      enabled: False
+      provider: 'gemini_native'
+      base_url: 'https://generativelanguage.googleapis.com'
+      model: 'gemini-2.0-flash'
+      api_key_file: 'local_config/gemini_video_api_key.txt'
+      timeout_seconds: 180
+      max_output_tokens: 4096
+      video_segment_seconds: 45
+
     agent_settings:
       basic_memory_agent:
         # The Basic AI Agent. Nothing fancy.

@@ -1,4 +1,4 @@
-"""MCP bridge for local documents and images in the user's own library."""
+"""MCP bridge for local documents, images, and cached video observations."""
 
 from __future__ import annotations
 
@@ -28,6 +28,9 @@ from src.open_llm_vtuber.file_library import (  # noqa: E402
 )
 from src.open_llm_vtuber.library_filename_search import (  # noqa: E402
     default_filename_search,
+)
+from src.open_llm_vtuber.video_analysis import (  # noqa: E402
+    read_cached_video_analysis,
 )
 LIBRARY_ROOT = os.environ.get("RINNE_LIBRARY_ROOT")
 FILENAME_SEARCH = default_filename_search(LIBRARY_ROOT, repo_root=REPO_ROOT)
@@ -173,6 +176,19 @@ def library_view_image(
         data=base64.b64decode(record["data"]),
         format=image_format,
     )
+
+
+@mcp.tool()
+def library_read_video_analysis(
+    file_id_or_path: str = "",
+    file_id: str = "",
+    path: str = "",
+    file_path: str = "",
+) -> dict:
+    """读取已完成并缓存的视频观察；不能根据文件名猜测视频内容。"""
+
+    reference = file_id_or_path or file_id or path or file_path
+    return read_cached_video_analysis(reference, root=LIBRARY_ROOT)
 
 
 if __name__ == "__main__":

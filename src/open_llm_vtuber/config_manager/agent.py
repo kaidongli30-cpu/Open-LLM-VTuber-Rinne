@@ -196,6 +196,50 @@ class AgentSettings(I18nMixin, BaseModel):
     }
 
 
+class MediaAnalysisConfig(I18nMixin, BaseModel):
+    """Isolated Gemini-native observer used only for video analysis."""
+
+    enabled: bool = Field(False, alias="enabled")
+    provider: Literal["gemini_native"] = Field("gemini_native", alias="provider")
+    base_url: str = Field(
+        "https://generativelanguage.googleapis.com", alias="base_url"
+    )
+    model: str = Field("gemini-2.0-flash", alias="model")
+    api_key_file: Optional[str] = Field(None, alias="api_key_file")
+    timeout_seconds: float = Field(
+        180.0, ge=10.0, le=900.0, alias="timeout_seconds"
+    )
+    max_output_tokens: int = Field(
+        4096, ge=512, le=32768, alias="max_output_tokens"
+    )
+    video_segment_seconds: float = Field(
+        45.0, ge=5.0, le=45.0, alias="video_segment_seconds"
+    )
+
+    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
+        "enabled": Description(
+            en="Enable the isolated video observer",
+            zh="启用隔离的视频观察模块",
+        ),
+        "provider": Description(
+            en="Native video-observer protocol",
+            zh="视频观察模块使用的原生协议",
+        ),
+        "base_url": Description(
+            en="Gemini-native provider base URL",
+            zh="Gemini 原生接口提供商的基础地址",
+        ),
+        "model": Description(
+            en="Model used only for video observation",
+            zh="仅用于视频观察的模型",
+        ),
+        "api_key_file": Description(
+            en="Path to a private API-key file",
+            zh="私密 API 密钥文件路径",
+        ),
+    }
+
+
 class AgentConfig(I18nMixin, BaseModel):
     """This class contains all of the configurations related to agent."""
 
@@ -203,6 +247,9 @@ class AgentConfig(I18nMixin, BaseModel):
         "basic_memory_agent", "mem0_agent", "hume_ai_agent", "letta_agent"
     ] = Field(..., alias="conversation_agent_choice")
     agent_settings: AgentSettings = Field(..., alias="agent_settings")
+    media_analysis: MediaAnalysisConfig = Field(
+        default_factory=MediaAnalysisConfig, alias="media_analysis"
+    )
     llm_configs: StatelessLLMConfigs = Field(..., alias="llm_configs")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
@@ -211,6 +258,10 @@ class AgentConfig(I18nMixin, BaseModel):
         ),
         "agent_settings": Description(
             en="Settings for different agent types", zh="不同代理类型的设置"
+        ),
+        "media_analysis": Description(
+            en="Isolated video observer configuration",
+            zh="隔离的视频观察配置",
         ),
         "llm_configs": Description(
             en="Pool of LLM provider configurations", zh="语言模型提供者配置池"

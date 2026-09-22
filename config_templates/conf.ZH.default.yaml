@@ -71,6 +71,18 @@ character_config:
   agent_config:
     conversation_agent_choice: 'basic_memory_agent' # 对话代理选择
 
+    # 可选的视频专用观察模块；静态图片仍直接交给对话模型查看。
+    # 密钥放在 Git 忽略的文件中，不要把密钥直接写入此 YAML。
+    media_analysis:
+      enabled: False
+      provider: 'gemini_native'
+      base_url: 'https://generativelanguage.googleapis.com'
+      model: 'gemini-2.0-flash'
+      api_key_file: 'local_config/gemini_video_api_key.txt'
+      timeout_seconds: 180
+      max_output_tokens: 4096
+      video_segment_seconds: 45
+
     agent_settings:
       basic_memory_agent:
         # 基础 AI 代理，没什么特别的。

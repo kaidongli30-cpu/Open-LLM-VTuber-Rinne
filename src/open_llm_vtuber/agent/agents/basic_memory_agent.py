@@ -262,14 +262,21 @@ class BasicMemoryAgent(AgentInterface):
                     continue
                 name = item.get("name") or item.get("relative_path") or "附件"
                 file_id = item.get("file_id") or item.get("relative_path") or ""
-                attachment_lines.append(f"{name}（file_id: {file_id}）")
+                kind = item.get("kind") or "file"
+                attachment_lines.append(
+                    f"{name}（kind: {kind}, file_id_or_path: {file_id}）"
+                )
             if attachment_lines:
                 message_parts.append(
                     "[本轮用户提供了本地资料库附件："
                     + ", ".join(attachment_lines)
-                    + "。如果需要具体内容或图片，请调用本地资料库 MCP 工具，"
-                    "不要根据文件名猜测正文。]"
+                    + "。文档或历史图片需要具体内容时，请调用本地资料库 MCP 工具；"
+                    "本轮视频只能依据后面的只读视频观察。不要根据文件名猜测内容。]"
                 )
+
+        video_context = (input_data.metadata or {}).get("video_analysis_context")
+        if isinstance(video_context, str) and video_context.strip():
+            message_parts.append(video_context.strip())
 
         return "\n".join(message_parts).strip()
 
@@ -655,6 +662,16 @@ class BasicMemoryAgent(AgentInterface):
             """Process chat with memory and tools."""
             self.reset_interrupt()
             self.prompt_mode_flag = False
+
+            set_media_focus = getattr(self._tool_executor, "set_media_focus", None)
+            if callable(set_media_focus):
+                set_media_focus(
+                    "\n".join(
+                        item.content
+                        for item in input_data.texts
+                        if item.source == TextSource.INPUT and item.content
+                    )
+                )
 
             messages = self._to_messages(input_data)
             tools = None
