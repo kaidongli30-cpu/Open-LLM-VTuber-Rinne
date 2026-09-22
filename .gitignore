@@ -86,8 +86,39 @@ mcp_servers.json
 /Rinne_model/*
 !/Rinne_model/rinne_voice_runtime_bundle/
 !/Rinne_model/rinne_voice_runtime_bundle/**
+/Rinne_model/rinne_voice_runtime_bundle/emotion_references/
 /Rinne_model/rinne_voice_runtime_bundle/configs/
 /Rinne_model/rinne_voice_runtime_bundle/logs/
 /Rinne_model/rinne_voice_runtime_bundle/配置备份/
 /Rinne_model/rinne_voice_runtime_bundle/runtime_state.json
 /local_config/
+
+# Public-release boundary
+# The private repository remains the source of truth for these materials.
+/tests/
+/docs/
+/一些有纪念意义的记忆/
+/rinne_library/*
+!/rinne_library/.gitignore
+!/rinne_library/README.md
+/QQ凛祢维护工具/
+/integrations/astrbot_plugin_rinne_private/
+/characters_conf_yaml/
+
+# User-supplied game resources and derived runtime bundles stay local.
+/undefined/
+/live2d-models/rinne/
+/Rinne_model/rinne_legacy_runtime_bundle/
+/Rinne_model/rinne_spirit_runtime_bundle/
+/Rinne_model/rinne_outfit_runtime_bundle_*/
+/local_game_assets/
+/game_assets/
+/runtime_data/rinne_game/
+
+# Local desktop packages and build outputs
+*.asar
+/release/
+
+# Original outfits may be public, but acceptance composites containing game
+# imagery are local evidence and must not be committed.
+/assets/rinne-original-outfits/**/evidence/
