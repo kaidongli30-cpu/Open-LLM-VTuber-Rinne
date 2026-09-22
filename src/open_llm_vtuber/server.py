@@ -22,6 +22,8 @@ from .routes import (
 )
 from .service_context import ServiceContext
 from .config_manager.utils import Config
+from .rinne_renderer_profile import RinneRuntimeOutfitController
+from .websocket_handler import WebSocketHandler
 
 
 # Create a custom StaticFiles class that adds CORS headers
@@ -76,12 +78,21 @@ class WebSocketServer:
         - Use `clean_cache()` to clear and recreate the local cache directory.
     """
 
-    def __init__(self, config: Config, default_context_cache: ServiceContext = None):
+    def __init__(
+        self,
+        config: Config,
+        default_context_cache: ServiceContext = None,
+        rinne_outfit_controller: RinneRuntimeOutfitController | None = None,
+    ):
         self.app = FastAPI(title="Open-LLM-VTuber Server")  # Added title for clarity
         self.config = config
         self.default_context_cache = (
             default_context_cache or ServiceContext()
         )  # Use provided context or initialize a new empty one waiting to be loaded
+        self.ws_handler = WebSocketHandler(
+            self.default_context_cache,
+            rinne_outfit_controller=rinne_outfit_controller,
+        )
         # It will be populated during the initialize method call
 
         # Add global CORS middleware
@@ -96,7 +107,10 @@ class WebSocketServer:
         # Include routes, passing the context instance
         # The context will be populated during the initialize step
         self.app.include_router(
-            init_client_ws_route(default_context_cache=self.default_context_cache),
+            init_client_ws_route(
+                default_context_cache=self.default_context_cache,
+                ws_handler=self.ws_handler,
+            ),
         )
         self.app.include_router(
             init_webtool_routes(default_context_cache=self.default_context_cache),

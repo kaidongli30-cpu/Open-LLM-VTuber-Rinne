@@ -65,6 +65,20 @@ character_config:
     keep_alive: 600
     unload_at_exit: True
 
+  # Layer-2 user background: off by default because it makes paid cloud calls.
+  # Credentials and proxy are read from agent_config.llm_configs[provider_config_name].
+  layer2_memory_generation:
+    enabled: False
+    inject_into_conversation: True
+    provider_config_name: 'deepseek_llm'
+    model: 'deepseek-chat'
+    reasoning_effort: 'high'
+    temperature: 0.0
+    max_output_tokens: 65536
+    timeout_seconds: 180.0
+    retry_attempts: 3
+    audit_retention_days: 14
+
   #  =================== LLM Backend Settings ===================
 
   agent_config:

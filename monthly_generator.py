@@ -18,10 +18,11 @@ from typing import Callable
 import requests
 
 import memory_generation_config as memory_config
+from src.open_llm_vtuber.data_paths import character_history_root
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-HISTORY_ROOT = PROJECT_ROOT / "chat_history" / "rinne_01"
+HISTORY_ROOT = (PROJECT_ROOT / character_history_root("rinne_01")).resolve()
 DIARY_DIR = HISTORY_ROOT / "diaries"
 MONTHLY_DIR = HISTORY_ROOT / "monthly"
 

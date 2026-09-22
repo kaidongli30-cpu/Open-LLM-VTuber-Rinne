@@ -13,6 +13,12 @@ from upgrade_codes.upgrade_manager import UpgradeManager
 
 from src.open_llm_vtuber.server import WebSocketServer
 from src.open_llm_vtuber.config_manager import Config, read_yaml, validate_config
+from src.open_llm_vtuber.rinne_renderer_profile import (
+    RinneRuntimeOutfitController,
+    apply_rinne_renderer_profile_to_config,
+    prepare_rinne_renderer_startup,
+)
+from src.open_llm_vtuber.data_paths import character_history_root
 
 os.environ["HF_HOME"] = str(Path(__file__).parent / "models")
 os.environ["MODELSCOPE_CACHE"] = str(Path(__file__).parent / "models")
@@ -29,7 +35,7 @@ def _last_complete_memory_day(reference_time: datetime) -> datetime:
 
 def prepare_rinne_memories_on_startup(
     reference_time: datetime | None = None,
-    history_root: str | Path = Path("chat_history/rinne_01"),
+    history_root: str | Path | None = None,
 ) -> None:
     """Run the one-shot diary -> weekly -> monthly startup sequence safely."""
 
@@ -42,7 +48,7 @@ def prepare_rinne_memories_on_startup(
     )
 
     now = reference_time or datetime.now()
-    history_root = Path(history_root)
+    history_root = Path(history_root) if history_root is not None else character_history_root()
     last_complete_day = _last_complete_memory_day(now)
     diary_path = (
         history_root
@@ -95,6 +101,46 @@ def prepare_rinne_memories_on_startup(
     )
     for warning in selection.diagnostics.warnings:
         logger.warning(f"[长期记忆] {warning}")
+
+
+def launch_approved_layer2_backfill(history_root: str | Path) -> None:
+    """Update approved days in a separate process without delaying chat startup."""
+
+    from src.open_llm_vtuber.memory.layer2_backfill import plan_backfill
+
+    plan = plan_backfill(history_root)
+    days = plan["eligible_days"]
+    if not days:
+        if plan["needs_review"]:
+            logger.info("[第二层记忆] 存在尚未验收的日记；未自动处理")
+        return
+    log_path = Path(history_root) / "layer2" / "backfill.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        sys.executable,
+        "-B",
+        "-m",
+        "src.open_llm_vtuber.memory.layer2_backfill",
+        "--history-root",
+        str(Path(history_root).resolve()),
+        "--config-path",
+        str(Path("conf.yaml").resolve()),
+    ]
+    with log_path.open("ab") as output:
+        process = subprocess.Popen(
+            command,
+            cwd=Path(__file__).resolve().parent,
+            stdin=subprocess.DEVNULL,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    logger.info(
+        "[第二层记忆] 已启动已验收日记的后台补齐：{} 天，PID={}，日志={}",
+        len(days),
+        process.pid,
+        log_path,
+    )
 
 
 def get_version() -> str:
@@ -213,18 +259,41 @@ def run(console_log_level: str):
 
     atexit.register(WebSocketServer.clean_cache)
 
-    # Load configurations from yaml file
-    config: Config = validate_config(read_yaml("conf.yaml"))
+    # Load configurations from yaml file. Rinne's renderer selection is applied
+    # in memory; the user's conf.yaml remains untouched.
+    config_data = read_yaml("conf.yaml")
+    rinne_outfit_controller = None
+    if config_data.get("character_config", {}).get("conf_uid") == "rinne_01":
+        renderer_startup = prepare_rinne_renderer_startup(Path(__file__).parent)
+        if renderer_startup.profile.renderer == "rinne":
+            rinne_outfit_controller = RinneRuntimeOutfitController(
+                Path(__file__).parent,
+                config_data,
+                renderer_startup,
+            )
+        config_data = apply_rinne_renderer_profile_to_config(
+            config_data, renderer_startup.profile
+        )
+        logger.info(f"Rinne renderer selected: {renderer_startup.profile.menu_label}")
+    config: Config = validate_config(config_data)
     server_config = config.system_config
 
     if config.character_config.conf_uid == "rinne_01":
         prepare_rinne_memories_on_startup()
+        if config.character_config.layer2_memory_generation.enabled:
+            try:
+                launch_approved_layer2_backfill(character_history_root())
+            except Exception as exc:
+                logger.warning("[第二层记忆] 后台补齐未启动；聊天继续使用原有记忆：{}", exc)
 
     if server_config.enable_proxy:
         logger.info("Proxy mode enabled - /proxy-ws endpoint will be available")
 
     # Initialize the WebSocket server (synchronous part)
-    server = WebSocketServer(config=config)
+    server = WebSocketServer(
+        config=config,
+        rinne_outfit_controller=rinne_outfit_controller,
+    )
 
     # Perform asynchronous initialization (loading context, etc.)
     logger.info("Initializing server context...")

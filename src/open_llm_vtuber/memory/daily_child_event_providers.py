@@ -158,6 +158,7 @@ def _post_json(
     headers: dict[str, str],
     timeout: float,
     response_path: Path,
+    proxy_url: str | None = None,
 ) -> dict[str, Any]:
     request = urllib.request.Request(
         url,
@@ -166,7 +167,14 @@ def _post_json(
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        if proxy_url:
+            opener = urllib.request.build_opener(
+                urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
+            )
+            response_context = opener.open(request, timeout=timeout)
+        else:
+            response_context = urllib.request.urlopen(request, timeout=timeout)
+        with response_context as response:
             raw = response.read()
     except urllib.error.HTTPError as exc:
         raise DailyChildEventProviderError(

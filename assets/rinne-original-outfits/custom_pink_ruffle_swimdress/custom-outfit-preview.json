@@ -1,0 +1,109 @@
+{
+  "asset_count": 1,
+  "assets": [
+    {
+      "byte_length": 1572593,
+      "canvas": [
+        2048,
+        2048
+      ],
+      "file": "layers/body.png",
+      "mode": "RGBA",
+      "role": "body",
+      "sha256": "ba534e26f703d6f974f8bcb4625b4dc44b0a4590f707f868ff587c86f202c899"
+    }
+  ],
+  "canvas": [
+    2048,
+    2048
+  ],
+  "composition": {
+    "body_breath": {
+      "horizontal_motion_pixels": 0,
+      "scale_y_peak": 1.0015,
+      "transform_origin": [
+        0.5,
+        0.82
+      ],
+      "vertical_motion_pixels": 1.5
+    },
+    "desktop_stable_required": true,
+    "layer_order": [
+      "body",
+      "native_head",
+      "shy_mouth"
+    ],
+    "mouth_gain_percent": {
+      "default": 100,
+      "happy": 68,
+      "neutral": 68
+    },
+    "native_head_mask_role": "native_head_mask",
+    "native_hidden_draw_types": [
+      3,
+      4,
+      8,
+      11,
+      15,
+      16,
+      22,
+      24,
+      25
+    ]
+  },
+  "display_name": "粉色蝴蝶结荷叶边裙式泳装",
+  "donor_runtime": {
+    "default_portrait_id": 60102,
+    "expression_labels": [
+      "thinking",
+      "neutral",
+      "confused",
+      "gentle",
+      "awkward",
+      "happy",
+      "worried",
+      "surprised",
+      "dissatisfaction",
+      "flustered",
+      "sad",
+      "embarrassed",
+      "shy",
+      "uneasy",
+      "angry"
+    ],
+    "outfit_number": 1,
+    "portrait_id_range": [
+      60101,
+      60115
+    ],
+    "shy_base_portrait_id": 60113,
+    "shy_mouth_portrait_id": 60104
+  },
+  "format": "rinne-custom-outfit-layered-preview",
+  "outfit_id": "pink-ruffle-swimdress-v1",
+  "provenance": {
+    "generated_face_and_hair_are_not_delivered": true,
+    "native_face_and_hair_are_runtime_donor": true,
+    "source_reference_sha256": "7427c1b36bdafd4fecc1db4dc68fb5958e05cabd48b778fe9ee465f34b728434",
+    "approved_neck_retouch_sha256": "bda5be567c3ce0a58c302b6c114178c67776a506df48d2c02e9b5d37ac5c1a3f",
+    "retouch_scope": "Approved local neck contour and adjoining rear-hair edge; official animated front head and all remaining v33 pixels retained.",
+    "shoulder_retouch": "Only generated shoulder edge strips composited; neck, head and skin interior unchanged from v36. Local edge alpha restored from generated contour.",
+    "shoulder_spot_retouch": "Tiny viewer-right shoulder white spot repaired with locally color-matched imagegen skin; all alpha and all other regions unchanged from v41.",
+    "hand_extension": "Accepted hand preview, isotropic crop placement. Pixels above y=1740 and native head unchanged. Independent extended-canvas preview only."
+  },
+  "source_policy": {
+    "desktop_pet_remains_untouched": true,
+    "original_game_files_remain_read_only": true,
+    "requires_user_acceptance_before_integration": true,
+    "uses_prerendered_frame_sequence": false,
+    "uses_video_playback": false
+  },
+  "stage": "offline-user-acceptance-before-desktop-integration",
+  "version": 1,
+  "preview_body_extension": {
+    "file": "layers/body-extended.png",
+    "width": 2048,
+    "height": 2190,
+    "sha256": "cde207fa70502126add0f2a114ea91b99cdea124ec308fe5d706a05f73b04d70"
+  }
+}

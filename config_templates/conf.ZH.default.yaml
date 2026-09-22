@@ -66,6 +66,20 @@ character_config:
     keep_alive: 600
     unload_at_exit: True
 
+  # 第二层用户背景：默认关闭，启用后会调用付费云端接口。
+  # 密钥与代理从 agent_config.llm_configs[provider_config_name] 读取。
+  layer2_memory_generation:
+    enabled: False
+    inject_into_conversation: True
+    provider_config_name: 'deepseek_llm'
+    model: 'deepseek-chat'
+    reasoning_effort: 'high'
+    temperature: 0.0
+    max_output_tokens: 65536
+    timeout_seconds: 180.0
+    retry_attempts: 3
+    audit_retention_days: 14
+
   #  =================== LLM 后端设置 ===================
 
   agent_config:

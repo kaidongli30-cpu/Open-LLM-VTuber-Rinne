@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rinne layer-two user background daily delta",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_date",
+    "added_facts",
+    "updated_facts",
+    "removed_facts",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.4-atomic-rolling-delta"
+    },
+    "source_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "added_facts": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/fact_change"
+      }
+    },
+    "updated_facts": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/fact_change"
+      }
+    },
+    "removed_facts": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/$defs/fact_removal"
+      }
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 1200
+    }
+  },
+  "$defs": {
+    "fact_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{2,79}$"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "stable_identity",
+        "current_life_state",
+        "ongoing_projects_and_study",
+        "future_plans_and_commitments",
+        "preferences_and_habits",
+        "important_people_and_relationships",
+        "relationship_with_rinne",
+        "values_and_support_preferences",
+        "constraints_and_environment",
+        "recent_changes",
+        "historical_transitions",
+        "unknowns_and_do_not_assume"
+      ]
+    },
+    "fact_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fact_id",
+        "category",
+        "statement",
+        "status",
+        "subject_scope",
+        "temporal_class",
+        "context_bucket",
+        "expected_end_on",
+        "review_after",
+        "evidence_type",
+        "evidence_excerpts",
+        "supersedes_fact_ids",
+        "notes"
+      ],
+      "properties": {
+        "fact_id": {
+          "$ref": "#/$defs/fact_id"
+        },
+        "category": {
+          "$ref": "#/$defs/category"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 800
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "historical", "superseded", "uncertain"]
+        },
+        "subject_scope": {
+          "type": "string",
+          "enum": ["user", "user_rinne_relationship"]
+        },
+        "temporal_class": {
+          "type": "string",
+          "enum": ["persistent", "ongoing", "scheduled", "transient", "historical"]
+        },
+        "context_bucket": {
+          "type": "string",
+          "enum": ["current", "history"]
+        },
+        "expected_end_on": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "review_after": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "evidence_type": {
+          "type": "string",
+          "enum": [
+            "diary_explicit_user_statement",
+            "diary_reported_event",
+            "diary_interpretation"
+          ]
+        },
+        "evidence_excerpts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          }
+        },
+        "supersedes_fact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/fact_id"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 600
+        }
+      }
+    },
+    "fact_removal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fact_id",
+        "category",
+        "removal_basis",
+        "evidence_type",
+        "evidence_excerpts",
+        "reason"
+      ],
+      "properties": {
+        "fact_id": {
+          "$ref": "#/$defs/fact_id"
+        },
+        "category": {
+          "$ref": "#/$defs/category"
+        },
+        "removal_basis": {
+          "type": "string",
+          "enum": [
+            "explicitly_changed",
+            "superseded_by_current_fact",
+            "duplicate_or_invalid",
+            "stale_for_current_context"
+          ]
+        },
+        "evidence_type": {
+          "type": "string",
+          "enum": [
+            "diary_explicit_user_statement",
+            "diary_reported_event",
+            "diary_interpretation",
+            "background_timeline"
+          ]
+        },
+        "evidence_excerpts": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600
+        }
+      }
+    }
+  }
+}

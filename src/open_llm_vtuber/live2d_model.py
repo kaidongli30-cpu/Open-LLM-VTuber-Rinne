@@ -26,10 +26,14 @@ class Live2dModel:
     emo_str: str
 
     def __init__(
-        self, live2d_model_name: str, model_dict_path: str = "model_dict.json"
+        self,
+        live2d_model_name: str,
+        model_dict_path: str = "model_dict.json",
+        emotion_map_override: dict[str, int] | None = None,
     ):
         self.model_dict_path: str = model_dict_path
         self.live2d_model_name: str = live2d_model_name
+        self.emotion_map_override = emotion_map_override
         self.set_model(live2d_model_name)
 
     def set_model(self, model_name: str) -> None:
@@ -45,9 +49,8 @@ class Live2dModel:
         """
 
         self.model_info: dict = self._lookup_model_info(model_name)
-        self.emo_map: dict = {
-            k.lower(): v for k, v in self.model_info["emotionMap"].items()
-        }
+        source_map = self.emotion_map_override or self.model_info["emotionMap"]
+        self.emo_map: dict = {k.lower(): v for k, v in source_map.items()}
         self.emo_str: str = " ".join([f"[{key}]," for key in self.emo_map.keys()])
         # emo_str is a string of the keys in the emoMap dictionary. The keys are enclosed in square brackets.
         # example: `"[fear], [anger], [disgust], [sadness], [joy], [neutral], [surprise]"`

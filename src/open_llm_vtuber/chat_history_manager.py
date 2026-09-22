@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal, List, TypedDict, Optional
 from loguru import logger
+from .data_paths import character_history_root
 
 
 class HistoryMessage(TypedDict):
@@ -45,7 +46,7 @@ def _ensure_conf_dir(conf_uid: str) -> str:
         raise ValueError("conf_uid cannot be empty")
 
     safe_conf_uid = _sanitize_path_component(conf_uid)
-    base_dir = os.path.join("chat_history", safe_conf_uid)
+    base_dir = str(character_history_root(safe_conf_uid))
     os.makedirs(base_dir, exist_ok=True)
     return base_dir
 
@@ -54,7 +55,7 @@ def _get_safe_history_path(conf_uid: str, history_uid: str) -> str:
     """Get sanitized path for history file"""
     safe_conf_uid = _sanitize_path_component(conf_uid)
     safe_history_uid = _sanitize_path_component(history_uid)
-    base_dir = os.path.join("chat_history", safe_conf_uid)
+    base_dir = str(character_history_root(safe_conf_uid))
     full_path = os.path.normpath(os.path.join(base_dir, f"{safe_history_uid}.json"))
     if not full_path.startswith(base_dir):
         raise ValueError("Invalid path: Path traversal detected")

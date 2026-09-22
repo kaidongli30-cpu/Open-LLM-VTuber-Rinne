@@ -11,6 +11,7 @@ from starlette.responses import JSONResponse, FileResponse
 from starlette.websockets import WebSocketDisconnect
 from loguru import logger
 from .service_context import ServiceContext
+from .rinne_renderer_profile import apply_active_rinne_emotion_map
 from .websocket_handler import WebSocketHandler
 from .proxy_handler import ProxyHandler
 from .file_library import (
@@ -33,7 +34,7 @@ def _load_live2d_models_from_model_dict() -> list[dict]:
 
     try:
         with open(model_dict_path, "r", encoding="utf-8") as f:
-            model_entries = json.load(f)
+            model_entries = apply_active_rinne_emotion_map(json.load(f))
     except Exception as e:
         logger.warning(f"Failed to read {model_dict_path}: {e}")
         return []

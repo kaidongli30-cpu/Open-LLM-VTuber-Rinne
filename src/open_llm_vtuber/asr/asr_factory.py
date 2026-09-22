@@ -5,6 +5,10 @@ from .asr_interface import ASRInterface
 class ASRFactory:
     @staticmethod
     def get_asr_system(system_name: str, **kwargs) -> Type[ASRInterface]:
+        if system_name == "text_only":
+            from .text_only_asr import TextOnlyASR
+
+            return TextOnlyASR()
         if system_name == "faster_whisper":
             from .faster_whisper_asr import VoiceRecognition as FasterWhisperASR
 

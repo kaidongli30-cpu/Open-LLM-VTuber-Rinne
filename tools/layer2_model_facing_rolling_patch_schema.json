@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rinne Layer-2 rolling model-facing patch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "as_of_date", "operations", "summary"],
+  "properties": {
+    "schema_version": {
+      "const": "1.0-model-facing-rolling-patch"
+    },
+    "as_of_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "operations": {
+      "type": "array",
+      "maxItems": 36,
+      "items": {
+        "$ref": "#/$defs/operation"
+      }
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    }
+  },
+  "$defs": {
+    "fact_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{2,79}$"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "stable_identity",
+        "current_life_state",
+        "ongoing_projects_and_study",
+        "future_plans_and_commitments",
+        "preferences_and_habits",
+        "important_people_and_relationships",
+        "relationship_with_rinne",
+        "values_and_support_preferences",
+        "constraints_and_environment",
+        "recent_changes",
+        "unknowns_and_do_not_assume"
+      ]
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "target_bullet_id", "category", "text", "source_fact_ids", "reason"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["add", "update", "remove"]
+        },
+        "target_bullet_id": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "category": {
+          "$ref": "#/$defs/category"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1200
+        },
+        "source_fact_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/fact_id"
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600
+        }
+      }
+    }
+  }
+}

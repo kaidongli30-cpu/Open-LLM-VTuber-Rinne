@@ -1,0 +1,102 @@
+{
+  "asset_count": 1,
+  "assets": [
+    {
+      "byte_length": 1392038,
+      "canvas": [
+        2048,
+        2048
+      ],
+      "file": "layers/body.png",
+      "mode": "RGBA",
+      "role": "body",
+      "sha256": "dcc40443d3ab40cedf9f4f90cd4a43be9a6a53d618035154f7d724375fe603e4"
+    }
+  ],
+  "canvas": [
+    2048,
+    2048
+  ],
+  "composition": {
+    "body_breath": {
+      "horizontal_motion_pixels": 0.0,
+      "scale_y_peak": 1.0015,
+      "transform_origin": [
+        0.5,
+        0.82
+      ],
+      "vertical_motion_pixels": 1.5
+    },
+    "desktop_stable_required": true,
+    "layer_order": [
+      "body",
+      "native_head",
+      "shy_mouth"
+    ],
+    "mouth_gain_percent": {
+      "default": 100,
+      "happy": 68,
+      "neutral": 68
+    },
+    "native_head_mask_role": "native_head_mask",
+    "body_translation_pixels": [
+      -8,
+      -8
+    ],
+    "native_hidden_draw_types": [
+      3,
+      4,
+      8,
+      11,
+      15,
+      16,
+      22,
+      24,
+      25
+    ]
+  },
+  "display_name": "作者自制：藏青水手服JK短裙装",
+  "donor_runtime": {
+    "default_portrait_id": 60102,
+    "expression_labels": [
+      "thinking",
+      "neutral",
+      "confused",
+      "gentle",
+      "awkward",
+      "happy",
+      "worried",
+      "surprised",
+      "dissatisfaction",
+      "flustered",
+      "sad",
+      "embarrassed",
+      "shy",
+      "uneasy",
+      "angry"
+    ],
+    "outfit_number": 1,
+    "portrait_id_range": [
+      60101,
+      60115
+    ],
+    "shy_base_portrait_id": 60113,
+    "shy_mouth_portrait_id": 60104
+  },
+  "format": "rinne-custom-outfit-layered-preview",
+  "outfit_id": "navy-sailor-jk-skirt-v1",
+  "provenance": {
+    "generated_face_and_hair_are_not_delivered": true,
+    "native_face_and_hair_are_runtime_donor": true,
+    "source_reference_sha256": "9108b8847655c72af19a7c10db94b6875f8bf4b6330844a949157ae3dc8b77c7"
+  },
+  "source_policy": {
+    "desktop_pet_remains_untouched": true,
+    "original_game_files_remain_read_only": true,
+    "requires_user_acceptance_before_integration": true,
+    "uses_prerendered_frame_sequence": false,
+    "uses_video_playback": false
+  },
+  "stage": "offline-user-acceptance-before-desktop-integration",
+  "version": 1
+}

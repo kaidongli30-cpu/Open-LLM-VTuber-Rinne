@@ -1,466 +1,141 @@
 # Open-LLM-VTuber-Rinne
 
-这是一个以 **Open-LLM-VTuber** 为基础整理出的凛祢桌宠版本。它保留了当前可运行状态中的 Live2D、云端 LLM 对话、语音识别、GPT-SoVITS 日语语音、表情参考音频，以及“聊天记录 + 日记 + 周记 + 月记”长期记忆流程。
+凛祢桌面伙伴的公开代码版：对话、日记与第二层背景、游戏原画渲染及换装。项目基于 Open-LLM-VTuber；前端源码和网页构建位于 [前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)，本仓库的 `frontend` 是指向它的 Git 子模块。
 
-本仓库不包含任何作者的 API Key、私人聊天记录、私人日记/周记/月记或个人电脑绝对路径。第一次安装时，你需要填入自己的 API，并下载 GPT-SoVITS 与凛祢语音权重。
+公开仓库**不附带**游戏原文件或转换后的凛祢模型、作者的 API Key、个人聊天与日记、`rinne_library` 数据、私人语音参考文件和本机代理设置。你需要使用自己持有的游戏源文件，在**自己的电脑上**运行导入器。作者自制服装与程序代码分开授权；服装为 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md)，不能未经另行授权用于商业用途。
 
-> 本教程目前以 **Windows 10/11 64 位** 为主要验收环境。macOS/Linux 用户请参考上游项目文档。
+本指南以 Windows PowerShell 和 CMD 为主。初次安装的最小目标是“能看到游戏原画凛祢、输入文字并得到回复”；麦克风、语音克隆及第二层背景是后续可选功能。不要把私人运行目录或密钥上传到 Git。
 
-## 你会得到什么
+## 必要术语
 
-- 凛祢 Live2D 模型、头像与表情映射
-- 凛祢桌面客户端与透明桌宠模式
-- DeepSeek、OpenAI、Claude、Gemini、智谱、Ollama、LM Studio 等多种 LLM 接口
-- 本地 SenseVoice 语音识别（首次使用时可能自动下载模型）
-- GPT-SoVITS V2 日语语音
-- 中文回复先经本地 Ollama 翻译成日语，再交给 GPT-SoVITS
-- 聊天记录、日记、周记、月记全部作为云端 LLM 上下文的当前稳定记忆方案
-- 局域网或 HTTPS 隧道访问，方便手机聊天
+- **API Key**：你自己的模型服务凭据，像密码一样保管。DeepSeek 网页聊天和 DeepSeek API 不是同一套配置。
+- **CMD / PowerShell**：Windows 的两种命令窗口。下面分别给出写法；不要把 PowerShell 的 `$env:` 命令粘到 CMD。
+- **Git 子模块**：后端仓库记录前端仓库的一个确定版本。因此克隆和更新都要带 `--recurse-submodules`。
+- **PCK / SDK / 运行包**：PCK 是你本机游戏的源文件；仓库附带的自制 SDK 负责只读转换；生成的运行包只留在你电脑上，不进入公开仓库。
+- **第二层背景**：从你审核过的日记提炼出的长期背景。它不同于原始日记；没有日记或尚未审核时不会凭空生成。
 
-## 仓库内容说明
+## 1. 准备软件
 
-本仓库直接公开后端代码、记忆系统、配置模板、Live2D 运行资源、参考音频和语音管理脚本。
+需要 Git、[uv](https://docs.astral.sh/uv/getting-started/installation/) 和 Python 3.10–3.12（推荐 3.12）。确认：
 
-`Open-LLM-VTuber-Web` 的前端源码不在本仓库重复发布。`frontend` 是一个 Git submodule（子模块，可以理解为“指向另一个 Git 仓库特定版本的引用”），指向本项目发布的[前端编译文件](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)。该构建基于上游前端，并包含已经验证过的麦克风、按钮、拖拽和 Live2D 表情修复。后端需要这些构建好的网页文件，因此克隆时必须带 `--recursive`。
+PowerShell 或 CMD：
 
-Windows 桌面客户端由本项目单独打包并放在 [GitHub Releases](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases) 中。请使用本项目提供的 Rinne 桌面客户端，不要再安装上游 `open-llm-vtuber-1.2.1-setup.exe`；本项目安装包额外包含 Pet mode 鼠标穿透、麦克风、按钮、拖拽和 Live2D 表情修复。
-
-## 一、安装前确认
-
-### 1. 建议硬件
-
-- Windows 10/11 64 位
-- 至少 16 GB 内存更稳妥
-- 至少预留 15 GB 磁盘空间（GPT-SoVITS 整合包、依赖与模型会占用较多空间）
-- 推荐 NVIDIA 显卡运行 GPT-SoVITS；无 CUDA 时可以使用 CPU，但语音生成会明显变慢
-- 麦克风和扬声器/耳机
-
-### 2. 检查前置软件
-
-打开 PowerShell，逐条执行：
-
-```powershell
+```text
 git --version
 uv --version
-ffmpeg -version
-```
-
-如果命令能正常显示版本，说明程序已进入 PATH。
-
-#### Git
-
-从 [Git for Windows](https://git-scm.com/download/win) 安装，或执行：
-
-```powershell
-winget install --id Git.Git -e
-```
-
-安装后关闭并重新打开 PowerShell。
-
-#### uv 与 Python
-
-本项目要求 Python `>=3.10,<3.13`，推荐用 uv 安装 Python 3.12，不需要自己维护虚拟环境。
-
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 uv python install 3.12
 ```
 
-uv 的官方安装说明见 [Astral uv 文档](https://docs.astral.sh/uv/getting-started/installation/)。
+若命令不存在，请先从 [Git for Windows](https://git-scm.com/download/win) 安装 Git、从 uv 官方文档安装 uv，然后重新打开命令窗口。前端桌面源码构建还需要 Node.js 和 npm；只运行后端不需要它们。
 
-#### FFmpeg
+## 2. 全新部署
 
-可以先查找可用的软件包，再安装：
+PowerShell：
 
 ```powershell
-winget search ffmpeg
-winget install --id Gyan.FFmpeg -e
+git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git
+Set-Location .\Open-LLM-VTuber-Rinne
+uv sync
+Copy-Item .\config_templates\conf.rinne.public.yaml .\conf.yaml
+$env:RINNE_DEEPSEEK_API_KEY = '填入你自己的 DeepSeek API Key'
 ```
 
-也可以从 [FFmpeg 官方下载页](https://ffmpeg.org/download.html) 选择 Windows 构建。安装后再次运行 `ffmpeg -version`。
+CMD：
 
-#### Ollama（完整日语语音需要）
-
-从 [Ollama Windows 下载页](https://ollama.com/download/windows) 安装。安装完成后打开新的 PowerShell：
-
-```powershell
-ollama --version
-ollama pull qwen3.5:4b-q4_K_M
-ollama list
-```
-
-当前 `conf.yaml` 默认启用 Ollama 翻译。如果只想先验证文字聊天，可以临时把 `translator_config` 下的 `translate_audio: True` 改为 `False`；这时中文回复不会先翻译成日语，不建议把它当作最终语音效果。
-
-## 二、下载项目并安装 Python 依赖
-
-打开 PowerShell，依次执行：
-
-```powershell
-git clone --recursive https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git
+```bat
+git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git
 cd Open-LLM-VTuber-Rinne
+uv sync
+copy config_templates\conf.rinne.public.yaml conf.yaml
+set "RINNE_DEEPSEEK_API_KEY=填入你自己的 DeepSeek API Key"
+```
+
+`conf.yaml` 被 Git 忽略；公开模板通过 `RINNE_DEEPSEEK_API_KEY` 环境变量读取凭据。上述临时变量只在当前命令窗口及从它启动的程序中生效。长期保存凭据应使用自己掌控的私有配置方式，**不要把 Key 写进受 Git 跟踪的源码或提交记录**。公开模板默认用 DeepSeek 对话、文字输入、Edge TTS；无需先下载语音识别或语音克隆模型。若不需要 TTS，可以在私人 `conf.yaml` 中另选受支持的语音引擎。
+
+在同一个窗口启动后端：
+
+```text
+uv run run_server.py
+```
+
+默认网页地址通常是 `http://127.0.0.1:12393`。但游戏原画渲染与本地资源读取需要桌面前端；仅打开网页不代表桌宠的衣服已可用。
+
+### 把自己的游戏源文件导入
+
+先在游戏目录里找到包含 `MP060101.pck` 等文件的 `Data\Data\Mp\1st` 文件夹。项目不提供这些 PCK，也不自动下载。默认第一套的 PowerShell 示例：
+
+```powershell
+uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\1st'
+uv run python setup_rinne_game_assets.py status
+```
+
+CMD：
+
+```bat
+uv run python setup_rinne_game_assets.py build "D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\1st"
+uv run python setup_rinne_game_assets.py status
+```
+
+把示例路径换成你实际的游戏目录。也可以运行 `uv run python setup_rinne_game_assets.py build --gui` 打开文件夹选择窗口。导入器会把转换结果放入本机应用数据目录，并在被忽略的 `local_config` 建立指针；不会修改 PCK。第 2–4 套、手动配置、状态检查与安全移除见 [游戏资源导入说明](public_docs/GAME_ASSET_SETUP.md)。第一套转换要处理 15 个肖像，可能需要一些时间。导入完成后应完全退出并重新启动桌面前端。
+
+### 从源码启动桌面前端
+
+仓库的 `frontend` 是已编译网页；桌面客户端源码在另一个公开仓库。要使用当前源码的 Live Mode、Pet Mode 与本机游戏资源接口，可自行构建：
+
+```powershell
+git clone https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend.git
+Set-Location .\Open-LLM-VTuber-Rinne-Frontend\source
+npm ci
+npm run build:unpack
+```
+
+CMD 中把 `Set-Location` 换成 `cd`，其余命令相同。构建完成后，在 `source\release\1.2.1\win-unpacked` 中启动 `open-llm-vtuber-electron.exe`。请保持上一步启动的后端窗口运行。如果构建输出目录随版本变化，以实际 `win-unpacked` 目录为准。不要把旧版安装包的 `app.asar` 当作当前源码；本项目不会自动替换用户已安装客户端。
+
+验收顺序：`status` 显示本地资源完整 → 桌面前端显示凛祢 → Live Mode 选择服装无闪退 → 输入文字能取得回复 → 关闭重启后仍能继续对话。若首次无画面，先检查导入器状态与桌面客户端是否彻底重启。
+
+## 3. 代理仅按需设置
+
+公开模板中 DeepSeek 的 `proxy_url: null` 表示**直接连接**，没有作者的 Clash Verge 地址或端口。大多数能直接访问 DeepSeek 的用户无需改动。确实需要代理时，只改私人 `conf.yaml` 中 `agent_config.llm_configs.deepseek_llm.proxy_url`，填写自己可用的 HTTP 代理地址；第二层背景会沿用该 DeepSeek 配置。代理软件必须自行运行，填了地址并不代表连接一定通过。不要把个人网络规则或凭据提交到仓库。
+
+## 4. 已有用户升级而不是重装
+
+升级前先备份私人 `conf.yaml` 与整个 `chat_history`，并停掉旧后端。不要运行会覆盖私人文件的复制命令。
+
+- **原目录内升级**：更新代码和子模块，保留未受 Git 跟踪的 `conf.yaml`、`chat_history` 和 `local_config`；检查 `conf_uid` 仍是 `rinne_01`。代码默认继续使用 `chat_history\rinne_01`，不会清空旧记忆。
+- **换到新目录**：把私人数据复制到新目录的 `chat_history`，或在启动窗口设置 `RINNE_DATA_ROOT` 为一个独立、绝对的数据目录，程序会在其下读写 `chat_history\rinne_01`。不要把两个正在运行的后端同时指向同一份数据；先在副本上验证，再切换。
+
+PowerShell 更新代码：
+
+```powershell
+git pull --ff-only
+git submodule update --init --recursive
 uv sync
 ```
 
-`--recursive` 会同时下载运行需要的 `frontend`。不要使用 GitHub 的“Download ZIP”。
+CMD 中命令相同。私人 `conf.yaml` 不应被模板覆盖；需要新选项时，对照 `config_templates/conf.rinne.public.yaml` 在私人文件中增补。日记、聊天和 `rinne_library` 数据不属于代码升级包，也不能提交到 GitHub。
 
-如果后续启动时出现下面的错误，说明 `onnxruntime` 没有完整安装：
+### 用已审核日记建立或续写第二层背景
 
-```text
-No module named 'onnxruntime.capi.onnxruntime_pybind11_state'
-```
-
-请保持 PowerShell 位于项目根目录，然后执行：
+启用前，在私人 `conf.yaml` 把 `character_config.layer2_memory_generation.enabled` 改为 `True`。这会调用你配置的模型 API，产生请求费用。先查看哪些历史日记有资格处理：
 
 ```powershell
-uv cache clean onnxruntime
-uv sync --reinstall-package onnxruntime
-uv run python -c "import onnxruntime; print(onnxruntime.__version__)"
+uv run python -m src.open_llm_vtuber.memory.layer2_backfill --dry-run
 ```
 
-最后一条命令能正常显示版本号（例如 `1.23.2`）就表示修复成功。安装时如果看到 `Failed to hardlink files; falling back to full copy`，只是因为缓存和项目位于不同磁盘，程序已经自动改用普通复制，不是安装失败。
-
-然后打开 [Rinne 桌面客户端发布页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases/tag/desktop-v1.2.1-rinne.1)，下载并安装：
-
-```text
-Open-LLM-VTuber-Rinne-Desktop-1.2.1-setup.exe
-```
-
-安装包 SHA-256：
-
-```text
-10838DA372B61497A9D46E941FDCBF1C3CABEA7FE3E41C1FDD057290BB300B53
-```
-
-当前安装包没有购买商业代码签名证书，因此 Windows 可能显示“未知发布者”。请确认文件名和上面的 SHA-256 一致，再继续安装。
-
-## 三、配置云端 LLM API
-
-API 是程序调用云端大模型的接口。凛祢需要通过 API 把用户输入和记忆发送给大模型，再取得回复。
-
-本项目支持多种 LLM 接口。下面以 DeepSeek 为例；如果使用其他服务商，请在 `conf.yaml` 中选择对应的 `llm_provider`，并填写对应配置块。
-
-### 1. 获取 DeepSeek API Key
-
-打开 [DeepSeek API Key 管理页面](https://platform.deepseek.com/api_keys)，登录后创建一个新的 API Key。Key 只会完整显示一次，请复制并妥善保存。
-
-### 2. 配置凛祢的主体大脑
-
-用记事本打开项目根目录的 `conf.yaml`，找到 `basic_memory_agent`，把服务商改成：
-
-```yaml
-llm_provider: 'deepseek_llm'
-```
-
-继续向下找到 `deepseek_llm`，填入刚刚申请的 Key：
-
-```yaml
-deepseek_llm:
-  llm_api_key: '把你的 API Key 粘贴在这里'
-  model: 'deepseek-v4-flash'
-```
-
-DeepSeek 的接口地址已经由程序配置好，普通用户不需要另外填写。其他服务商的配置方法相同：选择对应的 `llm_provider`，再填写该服务商配置块中的 Key 和模型名。
-
-### 3. 配置日记、周记和月记
-
-打开项目根目录的 `diary_generator.py`，找到“LLM API 配置”，填写：
-
-```python
-LLM_API_KEY = "把你的 API Key 粘贴在这里"
-LLM_API_URL = "https://api.deepseek.com/chat/completions"
-LLM_MODEL = "deepseek-v4-flash"
-```
-
-区别是：主体大脑使用项目内置的服务商接口；日记生成器会直接发送网络请求，所以必须填写完整的 `/chat/completions` 地址。
-
-周记和月记默认沿用上面的日记 API，不需要重复填写。如果希望周记和月记单独使用另一个 API，请打开 `memory_generation_config.py`，把 `API_KEY`、`BASE_URL` 和 `MODEL` 三项替换成另一套服务商信息；其中 `BASE_URL` 同样要填写完整的 `/chat/completions` 地址。
-
-不要把含有真实 API Key 的 `conf.yaml`、`diary_generator.py` 或 `memory_generation_config.py` 上传到公开仓库。录制演示视频时使用临时 Key，并在录制完成后立即删除该 Key。
-
-### 4. 配置联网搜索（博查 API）
-
-联网搜索使用博查 API。获取博查 API Key 后，打开项目中的：
-
-```text
-src\open_llm_vtuber\mcpp\tool_executor.py
-```
-
-找到下面这一行：
-
-```python
-BOCHA_API_KEY = os.getenv("BOCHA_API_KEY", "")
-```
-
-把它改成下面这样，并将引号中的文字替换成你自己的 Key：
-
-```python
-BOCHA_API_KEY = "把你的博查 API Key 粘贴在这里"
-```
-
-保存文件即可。不要把这个 Key 填到 `conf.yaml`，也不要把填写了真实 Key 的文件再次上传到 GitHub。录制演示视频时可以临时使用一个新 Key，录制完成后立即在博查平台删除或禁用它。
-
-## 四、安装 GPT-SoVITS 与凛祢语音
-
-### 1. 下载 GPT-SoVITS 整合包
-
-打开 [GPT-SoVITS 官方 Release](https://github.com/RVC-Boss/GPT-SoVITS/releases/tag/20250606v2pro)：
-
-- 普通 NVIDIA 显卡下载第一个 `windows 7z package download`；
-- RTX 50 系显卡下载第二个 `windows 7z package (for 50x0 Nvidia GPU) download`。
-
-下载完成后解压即可。整合包已经包含 GPT-SoVITS 所需的 Python 运行环境，不需要再单独安装依赖。
-
-把解压得到的 `GPT-SoVITS-v2pro-20250604` 文件夹放到本项目根目录。确认里面可以看到 `runtime` 文件夹和 `api_v2.py`：
-
-```text
-Open-LLM-VTuber-Rinne\
-└─ GPT-SoVITS-v2pro-20250604\
-   ├─ runtime\python.exe
-   ├─ api_v2.py
-   └─ GPT_SoVITS\
-```
-
-如果解压软件额外生成了一层同名文件夹，启动脚本也会自动识别。
-
-### 2. 下载两个凛祢 V2 权重
-
-分别下载：
-
-- [下载 rinne_e15.ckpt](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Assets/releases/download/rinne-voice-v1/rinne_e15.ckpt)
-- [下载 rinne_e8_s456.pth](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Assets/releases/download/rinne-voice-v1/rinne_e8_s456.pth)
-
-把两个文件分别放到：
-
-```text
-GPT-SoVITS-v2pro-20250604\
-├─ GPT_weights_v2\
-│  └─ rinne_e15.ckpt
-└─ SoVITS_weights_v2\
-   └─ rinne_e8_s456.pth
-```
-
-运行需要的参考音频已经包含在本仓库中，不需要再下载原始游戏音频或训练数据。
-
-### 3. 启动语音服务
-
-启动前，用记事本打开项目根目录中的 `conf.yaml`，搜索 `gpt_sovits_tts:`。在这一配置块中，将默认语音以及 `surprise`、`shy`、`angry` 下所有以 `Rinne_model/` 开头的 `ref_audio_path` 和 `aux_ref_audio_paths` 改成完整路径。
-
-例如，假设项目位于 `D:\Open-LLM-VTuber-Rinne`，原来是：
-
-```yaml
-ref_audio_path: Rinne_model/rinne_voice_runtime_bundle/emotion_references/rinne_default.wav
-```
-
-需要改成：
-
-```yaml
-ref_audio_path: D:/Open-LLM-VTuber-Rinne/Rinne_model/rinne_voice_runtime_bundle/emotion_references/rinne_default.wav
-```
-
-辅助参考音频也要同样修改，例如：
-
-```yaml
-aux_ref_audio_paths:
-  - D:/Open-LLM-VTuber-Rinne/Rinne_model/rinne_voice_runtime_bundle/emotion_references/rinne_default.wav
-```
-
-请把示例中的 `D:/Open-LLM-VTuber-Rinne` 换成自己实际存放项目的根目录。路径建议使用 `/`，避免 Windows 反斜杠在 YAML 中造成转义问题。
-
-双击：
-
-```text
-Rinne_model\rinne_voice_runtime_bundle\启动凛祢语音服务.bat
-```
-
-脚本显示“切换完成：v2”后，保持窗口运行。需要停止时，双击同一目录下的 `停止凛祢语音服务.bat`。
-
-## 五、第一次启动并开始聊天
-
-1. 打开 Ollama，确认 `ollama list` 中存在 `qwen3.5:4b-q4_K_M`。
-2. 双击 `Rinne_model\rinne_voice_runtime_bundle\启动凛祢语音服务.bat`。
-3. 在项目根目录打开 PowerShell，运行：
+只有已验收、具备匹配批准标记的日记才会自动补齐。若需要逐篇在终端确认：
 
 ```powershell
-uv run run_server.py
+uv run python -m src.open_llm_vtuber.memory.layer2_backfill --approve-interactively
 ```
 
-4. 后端启动完成后，双击桌面的 `open-llm-vtuber` 应用图标。
-5. 第一次启动时会自动下载 SenseVoice 语音识别模型，因此会比之后启动更慢。下载期间请保持后端窗口运行。
+命令会按日期顺序处理；缺失内容不会被猜测或补写。成功后新对话读取已发布的第二层背景，原始私人日记仍留在本地。后台启动时也只会补齐**已批准**的日记；未审核的日记不会被自动批准。周记/月记沿原有独立生成流程，不要把它们误认为第二层背景由 DeepSeek 生成。
 
-如果当前网络线路下载过慢，想切换到更快的网络线路重新下载，请先在后端窗口按 `Ctrl+C` 停止程序，再在项目根目录执行下面两条命令，清除未下载完整的压缩包和解压失败后留下的半成品目录：
+## 5. 范围与常见问题
 
-```powershell
-Remove-Item ".\models\sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2" -Force
-Remove-Item ".\models\sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17" -Recurse -Force
-```
+- **换装菜单没有某套**：先运行该套 `build --outfit-number N` 并用 `status` 验证；菜单只展示完整可用的资源。作者自制服装的本地游戏头部合成也依赖用户自己的原画运行包。
+- **API 连接失败**：先检查自己的 Key、额度与网络；只有确实受网络限制时才设置私人代理。公开项目不会替你启动 Clash Verge。
+- **运行时找不到前端**：执行 `git submodule update --init --recursive`，确认 `frontend\index.html` 存在。
+- **旧记忆没出现**：确认正在启动的是正确的后端目录、`conf_uid=rinne_01`、`RINNE_DATA_ROOT` 没指错；不要删除旧 `chat_history`。
+- **TypeScript 检查报警**：当前前端附带的旧 WebSDK 类型定义尚有历史报错。以构建和实际交互验收为准，并把新发现的独立问题单独报告；不能据此宣称所有功能已通过。
 
-切换网络线路后，重新执行：
-
-```powershell
-uv run run_server.py
-```
-
-如果日志出现 `Compressed file ended before the end-of-stream marker was reached` 或 `protobuf parsing failed`，同样说明模型文件没有下载完整，按上面的步骤清除后重新下载即可。不要删除整个 `models` 文件夹。
-
-### 验收清单
-
-按顺序确认：
-
-- 桌面客户端能显示凛祢 Live2D，而不是空白或默认角色
-- 输入文字后，云端 LLM 能返回回复
-- 回复字幕正常，能够听到日语语音
-- 点击麦克风并授权后，语音能被识别为文字
-- `chat_history` 下产生新的本地会话数据
-- 达到日记/周记/月记生成条件后，文件只写入本机；API 请求成功
-- 关闭并重新启动后，历史会话仍能继续，记忆上下文能够进入新对话
-
-如果桌面客户端能够显示凛祢，并且输入文字后能收到回复，就已经完成最基本的安装。
-
-## 六、Windows 桌面客户端说明
-
-第二章已经要求安装上游桌面客户端。它只是桌面显示和交互界面；LLM、记忆、TTS 和凛祢角色配置仍由本仓库后端提供。
-
-第一次聊天成功后，可以在桌面客户端中切换到透明背景的桌宠模式。
-
-## 七、手机部署
-
-### 方案 A：同一局域网，先验证页面与文字聊天
-
-电脑和手机连接同一个路由器。电脑执行：
-
-```powershell
-ipconfig
-```
-
-找到电脑的 IPv4 地址，例如 `192.168.1.20`。允许 Windows 防火墙中 Python/本项目通过专用网络后，手机打开：
-
-```text
-http://192.168.1.20:12393
-```
-
-因为浏览器通常只允许在 `https` 或 `localhost` 安全环境使用麦克风，所以局域网 HTTP 更适合先验证页面和文字聊天；手机语音请用下面的 HTTPS 方案。
-
-### 方案 B：Cloudflare Quick Tunnel，适合首次测试
-
-安装 [cloudflared](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/)，保持后端运行，然后执行：
-
-```powershell
-cloudflared tunnel --url http://localhost:12393
-```
-
-终端会显示一个随机 `https://xxxx.trycloudflare.com` 地址。用手机打开该地址；若前端要求单独填写服务器地址：
-
-- Base URL：`https://xxxx.trycloudflare.com`
-- WebSocket：`wss://xxxx.trycloudflare.com/client-ws`
-
-手机第一次进入页面后点击一次页面，并允许麦克风权限，这也能解除移动浏览器的自动播放限制。
-
-Quick Tunnel 是临时测试通道：地址每次可能改变，终端关闭后失效，不适合长期公开服务。官方说明见 [Cloudflare Quick Tunnels](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/)。
-
-### 方案 C：固定域名的 Named Tunnel
-
-长期使用需要 Cloudflare 账号及一个接入 Cloudflare 的域名：
-
-```powershell
-cloudflared tunnel login
-cloudflared tunnel create rinne
-cloudflared tunnel route dns rinne rinne.你的域名.com
-```
-
-在 `%USERPROFILE%\.cloudflared\config.yml` 写入创建命令返回的 Tunnel ID 和凭据路径：
-
-```yaml
-tunnel: 你的-Tunnel-ID
-credentials-file: C:\Users\你的用户名\.cloudflared\你的-Tunnel-ID.json
-
-ingress:
-  - hostname: rinne.你的域名.com
-    service: http://localhost:12393
-  - service: http_status:404
-```
-
-启动：
-
-```powershell
-cloudflared tunnel run rinne
-```
-
-然后手机访问 `https://rinne.你的域名.com`。不要把 `.cloudflared` 中的凭据文件上传到 GitHub。
-
-## 八、常见问题
-
-### 页面空白或 frontend 目录为空
-
-```powershell
-git submodule sync --recursive
-git submodule update --init --recursive
-```
-
-`frontend` 应来自 `kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend`。如果旧版项目仍指向上游前端，请先执行上面的 `git submodule sync --recursive`，再更新子模块。
-
-### API 报 401/403
-
-检查 `conf.yaml` 中选择的 `llm_provider`、对应配置块里的 Key 和模型名是否正确。不要在 Issue 中粘贴完整 Key。
-
-### 日记生成失败但主对话正常
-
-主对话和日记使用的 URL 形式不同。确认 `diary_generator.py` 中的 `LLM_API_URL` 是完整 `/chat/completions` 地址，并检查 `LLM_API_KEY` 与 `LLM_MODEL`。
-
-### 9880 端口被占用
-
-```powershell
-Get-NetTCPConnection -LocalPort 9880 -ErrorAction SilentlyContinue
-```
-
-不要直接结束不明进程。先确认它是否是你已启动的 GPT-SoVITS；若是本项目语音管理器启动的实例，使用 `停止凛祢语音服务.bat`。
-
-### 没有日语语音
-
-依次检查：
-
-```powershell
-ollama list
-Get-NetTCPConnection -LocalPort 9880 -ErrorAction SilentlyContinue
-```
-
-同时查看语音服务和后端窗口是否出现翻译超时、权重缺失或参考音频路径错误。
-
-### 手机能打开但麦克风不可用
-
-不要使用普通局域网 HTTP 做最终语音测试。改用 Cloudflare Tunnel 等 HTTPS 入口，并在浏览器地址栏权限中允许麦克风。
-
-## 九、更新、备份与回退
-
-更新前先备份自己的本地数据：
-
-- `chat_history`
-- 本地日记/周记/月记文件
-- 自己修改过的 `conf.yaml`
-- 自己填写过 API 的 `diary_generator.py` 和 `memory_generation_config.py`
-
-查看当前版本：
-
-```powershell
-git status
-git log -1 --oneline
-```
-
-不要在有未提交私人改动时直接强制重置。若只想安全试用新版本，重新克隆到另一个目录，再把本地配置和记忆复制过去。
-
-## 十、隐私与开源资源说明
-
-- API Key 只应保存在自己的本机配置中，不要上传、截图或提交到公开仓库。
-- 聊天记录和日记类文件默认属于用户私人数据，不应提交到公开仓库。
-- 当前记忆方案会把聊天记录、日记、周记、月记发送给你配置的云端 LLM。使用前请自行确认服务商的隐私政策。
-- Live2D 相关资源还受仓库内 `LICENSE-Live2D.txt` 约束。
-- 项目代码沿用上游许可证，详见 `LICENSE.txt`。
-- GPT-SoVITS、上游前端及其模型/资源各自遵循原项目许可；Rinne 前端编译仓库保留了上游许可证和来源说明。
-
-## 致谢与上游项目
-
-- [Open-LLM-VTuber](https://github.com/Open-LLM-VTuber/Open-LLM-VTuber)
-- [Open-LLM-VTuber-Web](https://github.com/Open-LLM-VTuber/Open-LLM-VTuber-Web)
-- [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS)
-- 安装教程结构参考：[Open-LLM-VTuber-ATRI](https://github.com/ZL-Tian/Open-LLM-VTuber-ATRI)
-
-这个仓库是可继续研究的开源基线，不代表上游项目的官方角色发行版。
+若要开发或反馈问题，请只提供脱敏的日志和复现步骤，不上传 API Key、游戏 PCK、转换后的资源、私人聊天或日记。使用本地文件、游戏资源和第三方服务时，请自行遵守其使用条款。

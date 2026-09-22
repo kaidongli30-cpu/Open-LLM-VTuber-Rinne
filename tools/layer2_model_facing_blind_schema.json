@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rinne Layer-2 blind model-facing overview",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "as_of_date",
+    "overview_sections",
+    "lifecycle_changes",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0-model-facing-overview-blind"
+    },
+    "as_of_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "overview_sections": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 11,
+      "items": {
+        "$ref": "#/$defs/overview_section"
+      }
+    },
+    "lifecycle_changes": {
+      "type": "array",
+      "maxItems": 80,
+      "items": {
+        "$ref": "#/$defs/lifecycle_change"
+      }
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1200
+    }
+  },
+  "$defs": {
+    "fact_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{2,79}$"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "stable_identity",
+        "current_life_state",
+        "ongoing_projects_and_study",
+        "future_plans_and_commitments",
+        "preferences_and_habits",
+        "important_people_and_relationships",
+        "relationship_with_rinne",
+        "values_and_support_preferences",
+        "constraints_and_environment",
+        "recent_changes",
+        "unknowns_and_do_not_assume"
+      ]
+    },
+    "overview_bullet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "source_fact_ids"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "source_fact_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/fact_id"
+          }
+        }
+      }
+    },
+    "overview_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "bullets"],
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/category"
+        },
+        "bullets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 24,
+          "items": {
+            "$ref": "#/$defs/overview_bullet"
+          }
+        }
+      }
+    },
+    "lifecycle_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fact_id", "action", "reason"],
+      "properties": {
+        "fact_id": {
+          "$ref": "#/$defs/fact_id"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "move_to_history",
+            "omit_from_direct_context",
+            "needs_human_review"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600
+        }
+      }
+    }
+  }
+}

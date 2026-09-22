@@ -14,19 +14,21 @@
 import json
 import time
 import sys
+import os
 from datetime import datetime, timedelta
-from pathlib import Path
 import requests
+from src.open_llm_vtuber.data_paths import character_history_root
 
 # ===================== 配置区（按需修改） =====================
-CHAT_HISTORY_DIR = Path("chat_history/rinne_01")   # 聊天记录文件夹
+CHAT_HISTORY_DIR = character_history_root("rinne_01")   # 聊天记录文件夹
 DIARY_DIR = CHAT_HISTORY_DIR / "diaries"           # 日记存放文件夹
 
 # LLM API 配置（下面以 DeepSeek 为例）
-# 请把自己的 Key 粘贴到引号内，不要把包含真实 Key 的文件上传到公开仓库。
-LLM_API_KEY = ""
-LLM_API_URL = "https://api.deepseek.com/chat/completions"
-LLM_MODEL = "deepseek-v4-flash"
+# 仅从运行环境读取密钥，不要把真实密钥写进源码。
+LLM_API_KEY = os.getenv("DIARY_LLM_API_KEY") or os.getenv("RINNE_DEEPSEEK_API_KEY", "")
+LLM_API_URL = os.getenv("DIARY_LLM_API_URL", "https://api.deepseek.com/chat/completions")
+LLM_MODEL = os.getenv("DIARY_LLM_MODEL", "deepseek-chat")
+LLM_PROXY_URL = os.getenv("DIARY_LLM_PROXY_URL", "").strip()
 
 # 日记的最大字数（token 层面的软限制，不是硬截断）
 DIARY_MAX_TOKENS = 1000
@@ -109,7 +111,7 @@ def call_llm_api(chat_text: str, date_label: str) -> str:
     if not LLM_API_KEY or not LLM_API_URL or not LLM_MODEL:
         print(
             "  [错误] 日记 API 未配置完整，请按 README.md 设置 "
-            "diary_generator.py 中的 LLM_API_KEY / LLM_API_URL / LLM_MODEL"
+            "DIARY_LLM_API_KEY 或 RINNE_DEEPSEEK_API_KEY 环境变量"
         )
         return ""
 
@@ -143,7 +145,10 @@ def call_llm_api(chat_text: str, date_label: str) -> str:
             LLM_API_URL,
             json=payload,
             headers=headers,
-            timeout=60
+            timeout=60,
+            proxies={"http": LLM_PROXY_URL, "https": LLM_PROXY_URL}
+            if LLM_PROXY_URL
+            else None,
         )
         resp.raise_for_status()
         result  = resp.json()

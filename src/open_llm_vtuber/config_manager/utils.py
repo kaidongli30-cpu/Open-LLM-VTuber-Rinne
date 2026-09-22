@@ -68,10 +68,9 @@ def validate_config(config_data: dict) -> Config:
     try:
         return Config(**config_data)
     except ValidationError as e:
-        logger.critical(f"Error validating configuration: {e}")
-        logger.error("Configuration data:")
-        logger.error(config_data)
-        raise e
+        locations = [".".join(map(str, item["loc"])) for item in e.errors(include_input=False)]
+        logger.critical("Configuration validation failed at: {}", ", ".join(locations))
+        raise ValueError("Configuration validation failed at: " + ", ".join(locations)) from None
 
 
 def load_text_file_with_guess_encoding(file_path: str) -> str | None:

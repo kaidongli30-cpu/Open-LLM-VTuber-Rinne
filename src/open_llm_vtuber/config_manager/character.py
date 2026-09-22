@@ -7,6 +7,7 @@ from .tts import TTSConfig
 from .vad import VADConfig
 from .tts_preprocessor import TTSPreprocessorConfig
 from .daily_child_event import DailyChildEventGenerationConfig
+from .layer2_memory import Layer2MemoryGenerationConfig
 
 from .agent import AgentConfig
 
@@ -24,6 +25,10 @@ class CharacterConfig(I18nMixin):
     daily_child_event_generation: DailyChildEventGenerationConfig = Field(
         default_factory=DailyChildEventGenerationConfig,
         alias="daily_child_event_generation",
+    )
+    layer2_memory_generation: Layer2MemoryGenerationConfig = Field(
+        default_factory=Layer2MemoryGenerationConfig,
+        alias="layer2_memory_generation",
     )
     agent_config: AgentConfig = Field(..., alias="agent_config")
     asr_config: ASRConfig = Field(..., alias="asr_config")
@@ -53,6 +58,10 @@ class CharacterConfig(I18nMixin):
         "daily_child_event_generation": Description(
             en="Independent diary-to-child-event model configuration",
             zh="独立的日记到子事件模型配置",
+        ),
+        "layer2_memory_generation": Description(
+            en="Daily Layer-2 user-background update and injection settings",
+            zh="每日第二层用户背景更新与注入配置",
         ),
         "agent_config": Description(
             en="Configuration for the conversation agent", zh="对话代理配置"

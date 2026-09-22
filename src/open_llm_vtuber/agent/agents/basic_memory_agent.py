@@ -328,10 +328,19 @@ class BasicMemoryAgent(AgentInterface):
 
         return messages
 
+    def _system_for_turn(self, metadata: Dict[str, Any] | None) -> str:
+        """Use the latest validated background without persisting it as chat history."""
+
+        layer2_context = (metadata or {}).get("layer2_user_background")
+        if isinstance(layer2_context, str) and layer2_context.strip():
+            return f"{self._system}\n\n{layer2_context.strip()}"
+        return self._system
+
     async def _claude_tool_interaction_loop(
         self,
         initial_messages: List[Dict[str, Any]],
         tools: List[Dict[str, Any]],
+        system_prompt: str,
     ) -> AsyncIterator[Union[str, Dict[str, Any]]]:
         """Handle Claude interaction loop with tool support."""
         messages = initial_messages.copy()
@@ -341,7 +350,7 @@ class BasicMemoryAgent(AgentInterface):
         last_tool_results_for_llm: List[Dict[str, Any]] = []
 
         while True:
-            stream = self._llm.chat_completion(messages, self._system, tools=tools)
+            stream = self._llm.chat_completion(messages, system_prompt, tools=tools)
             pending_tool_calls.clear()
             current_assistant_message_content.clear()
 
@@ -450,26 +459,27 @@ class BasicMemoryAgent(AgentInterface):
         self,
         initial_messages: List[Dict[str, Any]],
         tools: List[Dict[str, Any]],
+        system_prompt: str,
     ) -> AsyncIterator[Union[str, Dict[str, Any]]]:
         """Handle OpenAI interaction with tool support."""
         messages = initial_messages.copy()
         current_turn_text = ""
         pending_tool_calls: Union[List[ToolCallObject], List[Dict[str, Any]]] = []
-        current_system_prompt = self._system
+        current_system_prompt = system_prompt
         last_tool_results_for_llm: List[Dict[str, Any]] = []
 
         while True:
             if self.prompt_mode_flag:
                 if self._mcp_prompt_string:
                     current_system_prompt = (
-                        f"{self._system}\n\n{self._mcp_prompt_string}"
+                        f"{system_prompt}\n\n{self._mcp_prompt_string}"
                     )
                 else:
                     logger.warning("Prompt mode active but mcp_prompt_string is empty!")
-                    current_system_prompt = self._system
+                    current_system_prompt = system_prompt
                 tools_for_api = None
             else:
-                current_system_prompt = self._system
+                current_system_prompt = system_prompt
                 tools_for_api = tools
 
             stream = self._llm.chat_completion(
@@ -674,6 +684,7 @@ class BasicMemoryAgent(AgentInterface):
                 )
 
             messages = self._to_messages(input_data)
+            turn_system = self._system_for_turn(input_data.metadata)
             tools = None
             tool_mode = None
             llm_supports_native_tools = False
@@ -703,7 +714,7 @@ class BasicMemoryAgent(AgentInterface):
                     f"Starting Claude tool interaction loop with {len(tools)} tools."
                 )
                 async for output in self._claude_tool_interaction_loop(
-                    messages, tools if tools else []
+                    messages, tools if tools else [], turn_system
                 ):
                     yield output
                 return
@@ -712,13 +723,13 @@ class BasicMemoryAgent(AgentInterface):
                     f"Starting OpenAI tool interaction loop with {len(tools)} tools."
                 )
                 async for output in self._openai_tool_interaction_loop(
-                    messages, tools if tools else []
+                    messages, tools if tools else [], turn_system
                 ):
                     yield output
                 return
             else:
                 logger.info("Starting simple chat completion.")
-                token_stream = self._llm.chat_completion(messages, self._system)
+                token_stream = self._llm.chat_completion(messages, turn_system)
                 complete_response = ""
                 async for event in token_stream:
                     text_chunk = ""

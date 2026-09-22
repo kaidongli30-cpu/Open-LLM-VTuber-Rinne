@@ -2,9 +2,9 @@
 
 这里的程序只负责把用户自己持有的游戏源文件接入公开版凛祢。程序不会下载、上传、改写或提交游戏资源。
 
-支持两种输入：
+项目已附带自制转换 SDK，不需要普通用户另行下载。支持两种输入：
 
-- `build`：调用用户本机另行取得的 `rinne_legacy_runtime` SDK，从 `Data\Data\Mp\1st` 中的 15 个第一套服装 PCK 生成运行包，然后安装。
+- `build`：调用项目内附带的 `rinne_legacy_runtime` SDK，从用户选择的游戏 PCK 生成运行包并安装；默认第 1 套，也可选择第 2–4 套。
 - `install`：导入 SDK 已经生成完成的 `first-outfit-manifest.json` 运行包；也可以只建立就地引用，不复制大文件。
 
 默认安装到 `%LOCALAPPDATA%\Open-LLM-VTuber-Rinne\game-assets\mp_summer_uniform`，不进入 Git 仓库。项目内只生成一个被 `.gitignore` 排除的 `local_config\rinne_game_assets.json` 指针；桌面客户端设置写入 `%APPDATA%\open-llm-vtuber\rinne-legacy-renderer.json`。

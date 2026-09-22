@@ -34,6 +34,7 @@ class DailyChildEventGenerationConfig(I18nMixin, BaseModel):
         "ollama_llm", alias="llm_provider"
     )
     base_url: str = Field("http://localhost:11434/v1", alias="base_url")
+    proxy_url: str | None = Field(None, alias="proxy_url")
     llm_api_key: str = Field("default_api_key", alias="llm_api_key")
     model: str = Field("mistral-small3.2:24b", alias="model")
     organization_id: str | None = Field(None, alias="organization_id")
@@ -64,6 +65,10 @@ class DailyChildEventGenerationConfig(I18nMixin, BaseModel):
         "base_url": Description(
             en="API endpoint for the selected provider.",
             zh="所选接口的 API 地址。",
+        ),
+        "proxy_url": Description(
+            en="Optional HTTP proxy for this provider request.",
+            zh="此接口请求使用的可选 HTTP 代理。",
         ),
         "llm_api_key": Description(
             en="API key for the selected provider.",

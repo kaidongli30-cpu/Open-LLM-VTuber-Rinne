@@ -5,7 +5,6 @@ import json
 from enum import Enum
 import numpy as np
 from loguru import logger
-from pathlib import Path
 
 from .service_context import ServiceContext
 from .chat_group import (
@@ -28,6 +27,8 @@ from .conversations.conversation_handler import (
     handle_group_interrupt,
     handle_individual_interrupt,
 )
+from .rinne_renderer_profile import RinneRuntimeOutfitController
+from .data_paths import character_history_root
 
 
 class MessageType(Enum):
@@ -56,13 +57,18 @@ class WSMessage(TypedDict, total=False):
     images: Optional[List[str]]
     history_uid: Optional[str]
     file: Optional[str]
+    profile_id: Optional[str]
     display_text: Optional[dict]
 
 
 class WebSocketHandler:
     """Handles WebSocket connections and message routing"""
 
-    def __init__(self, default_context_cache: ServiceContext):
+    def __init__(
+        self,
+        default_context_cache: ServiceContext,
+        rinne_outfit_controller: RinneRuntimeOutfitController | None = None,
+    ):
         """Initialize the WebSocket handler with default context"""
         self.client_connections: Dict[str, WebSocket] = {}
         self.client_contexts: Dict[str, ServiceContext] = {}
@@ -70,6 +76,8 @@ class WebSocketHandler:
         self.current_conversation_tasks: Dict[str, Optional[asyncio.Task]] = {}
         self.default_context_cache = default_context_cache
         self.received_data_buffers: Dict[str, np.ndarray] = {}
+        self.rinne_outfit_controller = rinne_outfit_controller
+        self._rinne_outfit_switch_lock = asyncio.Lock()
 
         # Message handlers mapping
         self._message_handlers = self._init_message_handlers()
@@ -97,6 +105,8 @@ class WebSocketHandler:
             "audio-play-start": self._handle_audio_play_start,
             "request-init-config": self._handle_init_config_request,
             "heartbeat": self._handle_heartbeat,
+            "fetch-rinne-outfits": self._handle_fetch_rinne_outfits,
+            "switch-rinne-outfit": self._handle_switch_rinne_outfit,
         }
 
     async def handle_new_connection(
@@ -232,7 +242,7 @@ class WebSocketHandler:
 
                 # 本地模式额外加载“当天聊天记录”作为短期记忆
                 # 不读取 diaries 文件夹，不读取过去日期聊天记录
-                history_dir = Path("chat_history") / session_service_context.character_config.conf_uid
+                history_dir = character_history_root(session_service_context.character_config.conf_uid)
                 from .memory.long_term_archive import load_today_messages
 
                 today_messages = load_today_messages(history_dir)
@@ -247,7 +257,7 @@ class WebSocketHandler:
 
             ##本地模型修改结束
 
-            history_dir = Path("chat_history") / session_service_context.character_config.conf_uid
+            history_dir = character_history_root(session_service_context.character_config.conf_uid)
 
             if history_dir.exists() and hasattr(session_service_context.agent_engine, '_memory'):
                 session_service_context.agent_engine._memory = []
@@ -722,6 +732,84 @@ class WebSocketHandler:
             await websocket.send_json({"type": "heartbeat-ack"})
         except Exception as e:
             logger.error(f"Error sending heartbeat acknowledgment: {e}")
+
+    async def _handle_fetch_rinne_outfits(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """Return the installed outfit catalog without exposing asset paths."""
+
+        if self.rinne_outfit_controller is None:
+            payload: dict[str, object] = {
+                "available": False,
+                "current_profile_id": None,
+                "profiles": [],
+                "error": "当前角色或渲染器不支持运行中换装",
+            }
+        else:
+            payload = self.rinne_outfit_controller.catalog_payload()
+        await websocket.send_text(
+            json.dumps({"type": "rinne-outfit-catalog", **payload}, ensure_ascii=False)
+        )
+
+    async def _handle_switch_rinne_outfit(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """Persist and apply one installed outfit while the client is idle."""
+
+        controller = self.rinne_outfit_controller
+        profile_id = str(data.get("profile_id", "")).strip()
+        active_task = self.current_conversation_tasks.get(client_uid)
+        if active_task is not None and not active_task.done():
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "rinne-outfit-switch-result",
+                        "success": False,
+                        "profile_id": profile_id,
+                        "error": "凛祢还在说话，请等本轮播放结束后再换装",
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return
+        if controller is None:
+            error = "当前角色或渲染器不支持运行中换装"
+            success = False
+        elif self._rinne_outfit_switch_lock.locked():
+            error = "上一项换装还在处理中，请稍后再试"
+            success = False
+        else:
+            async with self._rinne_outfit_switch_lock:
+                try:
+                    target = controller.switch(
+                        profile_id,
+                        tts_engines=[
+                            self.default_context_cache.tts_engine,
+                            *(
+                                context.tts_engine
+                                for context in self.client_contexts.values()
+                            ),
+                        ],
+                    )
+                    profile_id = target.profile_id
+                    error = None
+                    success = True
+                    logger.info("凛祢运行中换装完成：{}", target.menu_label)
+                except Exception as exc:
+                    error = str(exc)
+                    success = False
+                    logger.warning("凛祢运行中换装失败：{}", error)
+        await websocket.send_text(
+            json.dumps(
+                {
+                    "type": "rinne-outfit-switch-result",
+                    "success": success,
+                    "profile_id": profile_id,
+                    "error": error,
+                },
+                ensure_ascii=False,
+            )
+        )
 
     async def _proactive_window_watcher(self, client_uid: str):
         """定时检查窗口变化，触发主动回复（对话结束后的陪伴版，含自然时间感知）"""

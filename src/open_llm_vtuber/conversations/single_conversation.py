@@ -19,6 +19,8 @@ from .tool_call_feedback import ToolCallFeedbackManager
 from ..chat_history_manager import store_message
 from ..service_context import ServiceContext
 from ..video_analysis import analyze_video_attachments, settings_from_character_config
+from ..data_paths import character_history_root
+from ..memory.layer2_context import load_current_layer2_context
 
 # Import necessary types from agent outputs
 from ..agent.output_types import SentenceOutput, AudioOutput
@@ -75,6 +77,19 @@ async def process_single_conversation(
         input_text = await process_user_input(
             user_input, context.asr_engine, websocket_send
         )
+
+        layer2_settings = context.character_config.layer2_memory_generation
+        if layer2_settings.enabled and layer2_settings.inject_into_conversation:
+            layer2_result = await asyncio.to_thread(
+                load_current_layer2_context,
+                character_history_root(context.character_config.conf_uid),
+            )
+            if layer2_result.context:
+                metadata["layer2_user_background"] = layer2_result.context
+            logger.info(
+                "Layer-2 context status: {}",
+                layer2_result.diagnostics.get("status"),
+            )
 
         if any(item.get("kind") == "video" for item in attachments or []):
             video_settings = settings_from_character_config(context.character_config)

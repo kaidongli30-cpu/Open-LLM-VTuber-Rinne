@@ -13,6 +13,7 @@ from .daily_child_event import (
     DailyChildEventGenerationConfig,
     DailyChildEventProvider,
 )
+from .layer2_memory import Layer2MemoryGenerationConfig, Layer2ProviderConfigName
 from .live import LiveConfig, BiliBiliLiveConfig
 from .stateless_llm_models import (
     OpenAICompatibleConfig,
@@ -77,6 +78,8 @@ __all__ = [
     "CharacterConfig",
     "DailyChildEventGenerationConfig",
     "DailyChildEventProvider",
+    "Layer2MemoryGenerationConfig",
+    "Layer2ProviderConfigName",
     "LiveConfig",
     "BiliBiliLiveConfig",
     # LLM related classes

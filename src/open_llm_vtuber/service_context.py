@@ -6,6 +6,7 @@ from fastapi import WebSocket
 
 from prompts import prompt_loader
 from .live2d_model import Live2dModel
+from .rinne_renderer_profile import active_rinne_emotion_map
 from .asr.asr_interface import ASRInterface
 from .tts.tts_interface import TTSInterface
 from .vad.vad_interface import VADInterface
@@ -320,7 +321,9 @@ class ServiceContext:
         import os
         try:
             # 确定历史记录文件夹路径
-            history_dir = os.path.join("chat_history", config.character_config.conf_uid)
+            from .data_paths import character_history_root
+
+            history_dir = str(character_history_root(config.character_config.conf_uid))
             if os.path.exists(history_dir):
                 # 获取所有 JSON 文件并按修改时间排序
                 files = glob.glob(os.path.join(history_dir, "*.json"))
@@ -346,7 +349,10 @@ class ServiceContext:
     def init_live2d(self, live2d_model_name: str) -> None:
         logger.info(f"Initializing Live2D: {live2d_model_name}")
         try:
-            self.live2d_model = Live2dModel(live2d_model_name)
+            self.live2d_model = Live2dModel(
+                live2d_model_name,
+                emotion_map_override=active_rinne_emotion_map(live2d_model_name),
+            )
             self.character_config.live2d_model_name = live2d_model_name
         except Exception as e:
             logger.critical(f"Error initializing Live2D: {e}")
