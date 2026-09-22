@@ -11,7 +11,6 @@ from .checked_binary import BinaryBoundsError
 from .gpu_outfit_family import RINNE_GPU_OUTFIT_BUNDLE_FILENAMES
 from .io_safety import write_new_bytes
 from .spirit_expression_semantics import (
-    SPIRIT_EXPRESSION_LABELS,
     SPIRIT_EXPRESSION_SEMANTICS,
     SpiritExpressionSemantic,
 )
