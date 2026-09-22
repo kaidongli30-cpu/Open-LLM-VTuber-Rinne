@@ -26,6 +26,24 @@ CONFIG_VERSION = 1
 INSTALL_MARKER = ".rinne-local-install.json"
 FAMILY_MANIFEST = "first-outfit-manifest.json"
 EXPECTED_PORTRAIT_IDS = tuple(range(60101, 60116))
+OUTFIT_PROFILES = {
+    1: ("mp_summer_uniform", "rinne-legacy-gpu-first-outfit", FAMILY_MANIFEST),
+    2: (
+        "mp_red_white_ruffled_casual",
+        "rinne-legacy-gpu-outfit-family",
+        "outfit-manifest.json",
+    ),
+    3: (
+        "mp_red_cardigan_brown_skirt",
+        "rinne-legacy-gpu-outfit-family",
+        "outfit-manifest.json",
+    ),
+    4: (
+        "mp_dark_navy_winter_uniform",
+        "rinne-legacy-gpu-outfit-family",
+        "outfit-manifest.json",
+    ),
+}
 EXPECTED_RUNTIME_FILES = frozenset(
     {
         "manifest.json",
@@ -49,6 +67,8 @@ class AssetSetupError(RuntimeError):
 @dataclass(frozen=True)
 class BundleValidation:
     root: Path
+    profile_id: str
+    outfit_number: int
     manifest_sha256: str
     portrait_count: int
     total_bytes: int
@@ -72,6 +92,9 @@ def default_config_path(root: str | Path | None = None) -> Path:
 
 def default_asset_root(environ: Mapping[str, str] | None = None) -> Path:
     values = os.environ if environ is None else environ
+    explicit = values.get("RINNE_GAME_ASSET_ROOT", "").strip()
+    if explicit:
+        return Path(explicit).expanduser().resolve()
     local_app_data = values.get("LOCALAPPDATA")
     if local_app_data:
         return (
@@ -84,6 +107,9 @@ def default_asset_root(environ: Mapping[str, str] | None = None) -> Path:
 
 def desktop_settings_path(environ: Mapping[str, str] | None = None) -> Path:
     values = os.environ if environ is None else environ
+    explicit = values.get("RINNE_RENDERER_SETTINGS_PATH", "").strip()
+    if explicit:
+        return Path(explicit).expanduser().resolve()
     app_data = values.get("APPDATA")
     if app_data:
         return Path(app_data) / "open-llm-vtuber" / "rinne-legacy-renderer.json"
@@ -126,20 +152,27 @@ def _safe_member(root: Path, relative: str) -> Path:
 def validate_first_outfit_bundle(
     bundle_directory: str | Path,
     *,
+    outfit_number: int = 1,
     verify_hashes: bool = True,
 ) -> BundleValidation:
-    """Validate the SDK's complete fifteen-portrait local runtime bundle."""
+    """Validate one SDK-produced fifteen-portrait local runtime bundle."""
 
     root = Path(bundle_directory).expanduser().resolve()
     if not root.is_dir():
         raise AssetSetupError(f"运行资源目录不存在：{root}")
-    manifest_path = root / FAMILY_MANIFEST
+    if outfit_number not in OUTFIT_PROFILES:
+        raise AssetSetupError(f"不支持的服装编号：{outfit_number}")
+    profile_id, format_name, manifest_name = OUTFIT_PROFILES[outfit_number]
+    expected_ids = tuple(range(60000 + outfit_number * 100 + 1, 60000 + outfit_number * 100 + 16))
+    manifest_path = root / manifest_name
     manifest = _load_json(manifest_path, label="凛祢运行资源清单")
-    if manifest.get("format") != "rinne-legacy-gpu-first-outfit":
-        raise AssetSetupError("不是受支持的凛祢第一套服装运行资源格式")
+    if manifest.get("format") != format_name:
+        raise AssetSetupError(f"不是受支持的第 {outfit_number} 套服装运行资源格式")
+    if outfit_number > 1 and manifest.get("outfit_number") != outfit_number:
+        raise AssetSetupError("运行资源清单的服装编号不匹配")
     if manifest.get("version") != 1:
         raise AssetSetupError(f"不支持的运行资源版本：{manifest.get('version')!r}")
-    if manifest.get("portrait_count") != len(EXPECTED_PORTRAIT_IDS):
+    if manifest.get("portrait_count") != len(expected_ids):
         raise AssetSetupError("运行资源必须完整包含 15 个表情肖像")
     source_policy = manifest.get("source_policy")
     if not isinstance(source_policy, dict) or not all(
@@ -163,11 +196,11 @@ def validate_first_outfit_bundle(
         if not isinstance(portrait_id, int) or portrait_id in by_id:
             raise AssetSetupError("运行资源清单包含重复或无效肖像编号")
         by_id[portrait_id] = raw
-    if tuple(sorted(by_id)) != EXPECTED_PORTRAIT_IDS:
-        raise AssetSetupError("运行资源的肖像编号必须是 MP060101 至 MP060115")
+    if tuple(sorted(by_id)) != expected_ids:
+        raise AssetSetupError(f"运行资源的肖像编号不符合第 {outfit_number} 套服装")
 
     total_bytes = manifest_path.stat().st_size
-    for portrait_id in EXPECTED_PORTRAIT_IDS:
+    for portrait_id in expected_ids:
         entry = by_id[portrait_id]
         expected_directory = f"MP{portrait_id:06d}"
         if entry.get("directory") != expected_directory:
@@ -213,10 +246,24 @@ def validate_first_outfit_bundle(
 
     return BundleValidation(
         root=root,
+        profile_id=profile_id,
+        outfit_number=outfit_number,
         manifest_sha256=_sha256(manifest_path),
-        portrait_count=len(EXPECTED_PORTRAIT_IDS),
+        portrait_count=len(expected_ids),
         total_bytes=total_bytes,
     )
+
+
+def detect_outfit_number(bundle_directory: str | Path) -> int:
+    root = Path(bundle_directory).expanduser().resolve()
+    first = root / FAMILY_MANIFEST
+    if first.is_file():
+        return 1
+    manifest = _load_json(root / "outfit-manifest.json", label="服装运行资源清单")
+    number = manifest.get("outfit_number")
+    if isinstance(number, bool) or not isinstance(number, int) or number not in OUTFIT_PROFILES:
+        raise AssetSetupError("运行资源清单包含不支持的服装编号")
+    return number
 
 
 def load_local_asset_config(path: str | Path | None = None) -> dict[str, Any]:
@@ -259,18 +306,21 @@ def _public_config_payload(
     validation: BundleValidation,
     *,
     managed: bool,
+    current: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
+    existing = dict(current or {})
+    old_assets = existing.get("assets")
+    assets = dict(old_assets) if isinstance(old_assets, dict) else {}
+    assets[validation.profile_id] = {
+        "kind": "legacy_first_outfit" if validation.outfit_number == 1 else "legacy_outfit_family",
+        "path": str(validation.root),
+        "managed_by_setup": managed,
+        **validation.public_payload(),
+    }
     return {
         "version": CONFIG_VERSION,
         "updated_at": datetime.now(timezone.utc).isoformat(),
-        "assets": {
-            "mp_summer_uniform": {
-                "kind": "legacy_first_outfit",
-                "path": str(validation.root),
-                "managed_by_setup": managed,
-                **validation.public_payload(),
-            }
-        },
+        "assets": assets,
     }
 
 
@@ -283,9 +333,9 @@ def _desktop_settings_payload(
     payload.update(
         {
             "version": 2,
-            "profile_id": "mp_summer_uniform",
+            "profile_id": validation.profile_id,
             "renderer": "rinne",
-            "outfit_id": "mp_summer_uniform",
+            "outfit_id": validation.profile_id,
             "outfit_dir": normalized,
             "first_outfit_dir": normalized,
             "asset_kind": "outfit",
@@ -331,7 +381,11 @@ def _write_runtime_pointers(
 ) -> None:
     _write_json_atomic(
         config_path,
-        _public_config_payload(validation, managed=managed),
+        _public_config_payload(
+            validation,
+            managed=managed,
+            current=_existing_json_or_empty(config_path),
+        ),
     )
     _write_json_atomic(
         settings_path,
@@ -348,14 +402,17 @@ def install_prepared_bundle(
     destination: str | Path | None = None,
     use_in_place: bool = False,
     replace: bool = False,
+    outfit_number: int | None = None,
     verify_hashes: bool = True,
     config_path: str | Path | None = None,
     settings_path: str | Path | None = None,
 ) -> BundleValidation:
     """Install or point at a complete SDK-produced runtime bundle atomically."""
 
+    selected_number = outfit_number or detect_outfit_number(bundle_directory)
     source = validate_first_outfit_bundle(
         bundle_directory,
+        outfit_number=selected_number,
         verify_hashes=verify_hashes,
     )
     local_config = default_config_path() if config_path is None else Path(config_path).resolve()
@@ -372,7 +429,7 @@ def install_prepared_bundle(
         return source
 
     final = (
-        default_asset_root() / "mp_summer_uniform"
+        default_asset_root() / source.profile_id
         if destination is None
         else Path(destination).expanduser().resolve()
     )
@@ -389,10 +446,16 @@ def install_prepared_bundle(
     settings_snapshot = _file_snapshot(desktop_config)
     try:
         shutil.copytree(source.root, staging, copy_function=shutil.copy2)
-        installed = validate_first_outfit_bundle(staging, verify_hashes=verify_hashes)
+        installed = validate_first_outfit_bundle(
+            staging,
+            outfit_number=selected_number,
+            verify_hashes=verify_hashes,
+        )
         marker = {
             "version": 1,
             "managed_by": "rinne_game_asset_setup",
+            "profile_id": installed.profile_id,
+            "install_path": str(final),
             "installed_at": datetime.now(timezone.utc).isoformat(),
             "manifest_sha256": installed.manifest_sha256,
         }
@@ -404,6 +467,8 @@ def install_prepared_bundle(
         final_installed = True
         final_validation = BundleValidation(
             root=final,
+            profile_id=installed.profile_id,
+            outfit_number=installed.outfit_number,
             manifest_sha256=installed.manifest_sha256,
             portrait_count=installed.portrait_count,
             total_bytes=installed.total_bytes,
@@ -431,21 +496,30 @@ def install_prepared_bundle(
 
 def build_from_game_source(
     game_directory: str | Path,
-    sdk_directory: str | Path,
+    sdk_directory: str | Path | None = None,
     *,
     output_directory: str | Path,
+    outfit_number: int = 1,
     python_executable: str | Path | None = None,
 ) -> Path:
-    """Run the separately obtained open SDK against the user's read-only PCKs."""
+    """Run the bundled open SDK against the user's read-only PCKs."""
 
     source = Path(game_directory).expanduser().resolve()
-    sdk_root = Path(sdk_directory).expanduser().resolve()
+    sdk_root = (
+        Path(sdk_directory).expanduser().resolve()
+        if sdk_directory is not None
+        else Path(__file__).resolve().parent / "sdk"
+    )
     output = Path(output_directory).expanduser().resolve()
-    expected = tuple(source / f"MP{portrait_id:06d}.pck" for portrait_id in EXPECTED_PORTRAIT_IDS)
+    if outfit_number not in OUTFIT_PROFILES:
+        raise AssetSetupError(f"不支持的服装编号：{outfit_number}")
+    expected_ids = range(60000 + outfit_number * 100 + 1, 60000 + outfit_number * 100 + 16)
+    expected = tuple(source / f"MP{portrait_id:06d}.pck" for portrait_id in expected_ids)
     missing = [item.name for item in expected if not item.is_file()]
     if missing:
         raise AssetSetupError(
-            "所选目录缺少第一套服装的 15 个 PCK：" + ", ".join(missing[:5])
+            f"所选目录缺少第 {outfit_number} 套服装的 15 个 PCK："
+            + ", ".join(missing[:5])
         )
     exporter = sdk_root / "tools" / "export_rinne_gpu_first_outfit_bundle.py"
     package = sdk_root / "rinne_legacy_runtime" / "__init__.py"
@@ -455,19 +529,27 @@ def build_from_game_source(
         raise AssetSetupError(f"SDK 输出目录必须尚不存在：{output}")
     output.parent.mkdir(parents=True, exist_ok=True)
     executable = str(python_executable or sys.executable)
-    command = [executable, str(exporter), str(source), str(output)]
+    command = [
+        executable,
+        str(exporter),
+        str(source),
+        str(output),
+        "--outfit-number",
+        str(outfit_number),
+    ]
     try:
         subprocess.run(command, cwd=sdk_root, check=True)
     except (OSError, subprocess.CalledProcessError) as exc:
         if output.exists():
             shutil.rmtree(output, ignore_errors=True)
         raise AssetSetupError(f"本地 SDK 转换失败：{type(exc).__name__}") from exc
-    validate_first_outfit_bundle(output)
+    validate_first_outfit_bundle(output, outfit_number=outfit_number)
     return output
 
 
 def remove_installed_bundle(
     *,
+    profile_id: str = "mp_summer_uniform",
     config_path: str | Path | None = None,
     settings_path: str | Path | None = None,
     remove_data: bool = False,
@@ -480,16 +562,41 @@ def remove_installed_bundle(
     )
     configured: Path | None = None
     managed = False
+    remaining_assets: dict[str, Any] = {}
     if local_config.is_file():
         config = load_local_asset_config(local_config)
-        entry = config["assets"].get("mp_summer_uniform")
+        remaining_assets = dict(config["assets"])
+        entry = remaining_assets.pop(profile_id, None)
         if isinstance(entry, dict) and isinstance(entry.get("path"), str):
             configured = Path(entry["path"]).expanduser().resolve()
             managed = entry.get("managed_by_setup") is True
-    if local_config.exists():
-        local_config.unlink()
+        if remove_data and configured is not None:
+            marker = configured / INSTALL_MARKER
+            if not managed or not marker.is_file():
+                raise AssetSetupError("拒绝删除未由本工具管理的目录；配置尚未更改")
+            marker_payload = _load_json(marker, label="本地安装标记")
+            if (
+                marker_payload.get("managed_by") != "rinne_game_asset_setup"
+                or marker_payload.get("profile_id") != profile_id
+                or marker_payload.get("install_path") != str(configured)
+                or configured == Path(configured.anchor).resolve()
+                or configured == Path.home().resolve()
+                or configured == project_root().resolve()
+            ):
+                raise AssetSetupError("安装标记或目标路径不匹配；配置尚未更改")
+        if remaining_assets:
+            _write_json_atomic(
+                local_config,
+                {
+                    "version": CONFIG_VERSION,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "assets": remaining_assets,
+                },
+            )
+        else:
+            local_config.unlink()
     current = _existing_json_or_empty(desktop_config)
-    if current.get("renderer") == "rinne" and current.get("profile_id") == "mp_summer_uniform":
+    if current.get("renderer") == "rinne" and current.get("profile_id") == profile_id:
         for key in (
             "outfit_id",
             "outfit_dir",
@@ -498,17 +605,34 @@ def remove_installed_bundle(
             "custom_outfit_dir",
         ):
             current.pop(key, None)
-        current.update({"version": 2, "profile_id": "live2d", "renderer": "live2d"})
+        replacement = next(
+            (
+                (key, value)
+                for key, value in remaining_assets.items()
+                if key in {entry[0] for entry in OUTFIT_PROFILES.values()}
+                and isinstance(value, dict)
+                and isinstance(value.get("path"), str)
+            ),
+            None,
+        )
+        if replacement is None:
+            current.update({"version": 2, "profile_id": "live2d", "renderer": "live2d"})
+        else:
+            next_id, next_entry = replacement
+            normalized = Path(next_entry["path"]).expanduser().resolve().as_posix()
+            current.update(
+                {
+                    "version": 2,
+                    "profile_id": next_id,
+                    "renderer": "rinne",
+                    "outfit_id": next_id,
+                    "outfit_dir": normalized,
+                    "first_outfit_dir": normalized,
+                    "asset_kind": "outfit",
+                }
+            )
         _write_json_atomic(desktop_config, current)
     if remove_data and configured is not None:
-        marker = configured / INSTALL_MARKER
-        if not managed or not marker.is_file():
-            raise AssetSetupError(
-                "拒绝删除未由本工具管理的目录；已仅移除配置指针"
-            )
-        marker_payload = _load_json(marker, label="本地安装标记")
-        if marker_payload.get("managed_by") != "rinne_game_asset_setup":
-            raise AssetSetupError("安装标记不匹配；已仅移除配置指针")
         shutil.rmtree(configured)
     return configured
 
@@ -545,28 +669,49 @@ def _parser() -> argparse.ArgumentParser:
     build = subparsers.add_parser("build", help="调用本机 SDK 从原版 PCK 生成并安装")
     build.add_argument("game_directory", nargs="?", type=Path)
     build.add_argument("--sdk-directory", type=Path)
+    build.add_argument("--outfit-number", type=int, choices=(1, 2, 3, 4), default=1)
     build.add_argument("--destination", type=Path)
     build.add_argument("--replace", action="store_true")
     build.add_argument("--gui", action="store_true")
 
     status = subparsers.add_parser("status", help="检查当前配置和资源完整性")
     status.add_argument("--fast", action="store_true")
+    status.add_argument("--profile", choices=[item[0] for item in OUTFIT_PROFILES.values()])
 
     remove = subparsers.add_parser("remove", help="移除本地配置或工具生成的数据")
+    remove.add_argument("--profile", choices=[item[0] for item in OUTFIT_PROFILES.values()], default="mp_summer_uniform")
     remove.add_argument("--delete-generated-data", action="store_true")
     remove.add_argument("--yes", action="store_true", help="确认删除工具生成的数据")
     return parser
 
 
-def _status(*, verify_hashes: bool) -> int:
-    configured = configured_bundle_path()
-    if configured is None:
+def _status(*, verify_hashes: bool, profile_id: str | None = None) -> int:
+    selected = (
+        [profile_id]
+        if profile_id is not None
+        else [profile[0] for profile in OUTFIT_PROFILES.values()]
+    )
+    count = 0
+    for candidate in selected:
+        configured = configured_bundle_path(candidate)
+        if configured is None:
+            continue
+        outfit_number = next(
+            number
+            for number, values in OUTFIT_PROFILES.items()
+            if values[0] == candidate
+        )
+        result = validate_first_outfit_bundle(
+            configured,
+            outfit_number=outfit_number,
+            verify_hashes=verify_hashes,
+        )
+        print(f"{candidate}: {result.root} ({result.portrait_count} 肖像)")
+        print(f"清单 SHA-256：{result.manifest_sha256}")
+        count += 1
+    if count == 0:
         print("未配置本地游戏凛祢资源。")
         return 1
-    result = validate_first_outfit_bundle(configured, verify_hashes=verify_hashes)
-    print(f"资源可用：{result.root}")
-    print(f"肖像数量：{result.portrait_count}")
-    print(f"清单 SHA-256：{result.manifest_sha256}")
     return 0
 
 
@@ -593,10 +738,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             game_directory = args.game_directory
             sdk_directory = args.sdk_directory
             if args.gui:
-                game_directory = _select_directory("选择游戏 Data\\Data\\Mp\\1st 目录")
-                sdk_directory = _select_directory("选择 rinne_legacy_runtime SDK 根目录")
-            if game_directory is None or sdk_directory is None:
-                raise AssetSetupError("必须同时选择游戏 PCK 目录和 SDK 目录")
+                game_directory = _select_directory("选择包含该套服装 MP060x01.pck 的目录")
+            if game_directory is None:
+                raise AssetSetupError("必须选择游戏 PCK 目录")
             build_parent = default_asset_root().parent
             build_parent.mkdir(parents=True, exist_ok=True)
             with tempfile.TemporaryDirectory(
@@ -608,22 +752,25 @@ def main(argv: Sequence[str] | None = None) -> int:
                     game_directory,
                     sdk_directory,
                     output_directory=generated,
+                    outfit_number=args.outfit_number,
                 )
                 result = install_prepared_bundle(
                     generated,
                     destination=args.destination,
                     replace=args.replace,
+                    outfit_number=args.outfit_number,
                     verify_hashes=True,
                 )
             print(f"转换并安装完成：{result.root}")
             print("请完全退出并重新启动凛祢桌面客户端。")
             return 0
         if args.command == "status":
-            return _status(verify_hashes=not args.fast)
+            return _status(verify_hashes=not args.fast, profile_id=args.profile)
         if args.command == "remove":
             if args.delete_generated_data and not args.yes:
                 raise AssetSetupError("删除生成数据必须同时使用 --yes")
             removed = remove_installed_bundle(
+                profile_id=args.profile,
                 remove_data=args.delete_generated_data,
             )
             if args.delete_generated_data and removed is not None:
