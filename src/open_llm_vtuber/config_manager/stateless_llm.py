@@ -11,9 +11,7 @@ class StatelessLLMBaseConfig(I18nMixin):
     interrupt_method: Literal["system", "user"] = Field(
         "user", alias="interrupt_method"
     )
-    max_concurrent_requests: int = Field(
-        1, alias="max_concurrent_requests", ge=1
-    )
+    max_concurrent_requests: int = Field(1, alias="max_concurrent_requests", ge=1)
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {
         "interrupt_method": Description(
             en="""The method to use for prompting the interruption signal.
@@ -71,6 +69,16 @@ class OpenAICompatibleConfig(StatelessLLMBaseConfig):
     organization_id: str | None = Field(None, alias="organization_id")
     project_id: str | None = Field(None, alias="project_id")
     temperature: float = Field(1.0, alias="temperature")
+    upstream_warning_seconds: float = Field(
+        30.0, ge=1.0, le=300.0, alias="upstream_warning_seconds"
+    )
+    upstream_first_data_timeout_seconds: float = Field(
+        90.0, ge=5.0, le=300.0, alias="upstream_first_data_timeout_seconds"
+    )
+    upstream_stream_idle_timeout_seconds: float = Field(
+        90.0, ge=5.0, le=300.0, alias="upstream_stream_idle_timeout_seconds"
+    )
+    upstream_max_attempts: int = Field(2, ge=1, le=2, alias="upstream_max_attempts")
 
     _OPENAI_COMPATIBLE_DESCRIPTIONS: ClassVar[dict[str, Description]] = {
         "base_url": Description(en="Base URL for the API endpoint", zh="API的URL端点"),
@@ -179,6 +187,7 @@ class DeepseekConfig(OpenAICompatibleConfig):
     """Configuration for Deepseek API."""
 
     base_url: str = Field("https://api.deepseek.com/v1", alias="base_url")
+    proxy_url: str | None = Field(None, alias="proxy_url")
 
 
 class GroqConfig(OpenAICompatibleConfig):

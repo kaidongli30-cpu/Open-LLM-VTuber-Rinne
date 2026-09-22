@@ -145,6 +145,10 @@ character_config:
         project_id: null # 项目 ID
         model: 'qwen2.5:latest' # 使用的模型
         temperature: 1.0 # 温度，介于 0 到 2 之间
+        upstream_warning_seconds: 30 # 上游迟迟未开始回复时记录警告
+        upstream_first_data_timeout_seconds: 90 # 未收到任何数据时停止并重试
+        upstream_stream_idle_timeout_seconds: 90 # 流式回复开始后长时间无数据则停止
+        upstream_max_attempts: 2 # 最多重试一次，且只在尚未收到回复数据时重试
         interrupt_method: 'user'
         # 用于表示中断信号的方法(提示词模式)。
         # 如果LLM支持在聊天记忆中的任何位置插入系统提示词，请使用'system'。
@@ -192,6 +196,7 @@ character_config:
       deepseek_llm:
         llm_api_key: ''
         model: 'deepseek-chat' # 使用的模型
+        proxy_url: null # 可选：仅 DeepSeek 请求使用的 HTTP 代理
         temperature: 0.7 # 注意，DeepSeek 的温度范围是 0 到 1
 
       mistral_llm:
@@ -522,6 +527,14 @@ character_config:
         secret_id: ''
         secret_key: ''
         region: 'ap-guangzhou'
+        source_lang: 'zh'
+        target_lang: 'ja'
+
+      deepseek:
+        api_key: ''
+        model: 'deepseek-chat'
+        api_url: 'https://api.deepseek.com/v1/chat/completions'
+        proxy_url: null # 可选：仅 DeepSeek 翻译请求使用的 HTTP 代理
         source_lang: 'zh'
         target_lang: 'ja'
 

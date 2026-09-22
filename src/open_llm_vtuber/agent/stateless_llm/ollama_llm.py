@@ -14,6 +14,11 @@ class OllamaLLM(AsyncLLM):
         project_id: str = "z",
         temperature: float = 1.0,
         max_concurrent_requests: int = 1,
+        min_request_interval_seconds: float = 0.0,
+        upstream_warning_seconds: float = 30.0,
+        upstream_first_data_timeout_seconds: float = 90.0,
+        upstream_stream_idle_timeout_seconds: float = 90.0,
+        upstream_max_attempts: int = 2,
         keep_alive: float = -1,
         unload_at_exit: bool = True,
     ):
@@ -28,6 +33,11 @@ class OllamaLLM(AsyncLLM):
             project_id=project_id,
             temperature=temperature,
             max_concurrent_requests=max_concurrent_requests,
+            min_request_interval_seconds=min_request_interval_seconds,
+            upstream_warning_seconds=upstream_warning_seconds,
+            upstream_first_data_timeout_seconds=(upstream_first_data_timeout_seconds),
+            upstream_stream_idle_timeout_seconds=(upstream_stream_idle_timeout_seconds),
+            upstream_max_attempts=upstream_max_attempts,
         )
         try:
             # preload model

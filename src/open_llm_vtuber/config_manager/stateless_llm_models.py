@@ -12,9 +12,7 @@ class StatelessLLMBaseConfig(I18nMixin):
     interrupt_method: Literal["system", "user"] = Field(
         "user", alias="interrupt_method"
     )
-    max_concurrent_requests: int = Field(
-        1, alias="max_concurrent_requests", ge=1
-    )
+    max_concurrent_requests: int = Field(1, alias="max_concurrent_requests", ge=1)
     min_request_interval_seconds: float = Field(
         0.0, alias="min_request_interval_seconds", ge=0.0
     )
@@ -112,6 +110,16 @@ class OpenAICompatibleConfig(StatelessLLMBaseConfig):
     organization_id: str | None = Field(None, alias="organization_id")
     project_id: str | None = Field(None, alias="project_id")
     temperature: float = Field(1.0, alias="temperature")
+    upstream_warning_seconds: float = Field(
+        30.0, ge=1.0, le=300.0, alias="upstream_warning_seconds"
+    )
+    upstream_first_data_timeout_seconds: float = Field(
+        90.0, ge=5.0, le=300.0, alias="upstream_first_data_timeout_seconds"
+    )
+    upstream_stream_idle_timeout_seconds: float = Field(
+        90.0, ge=5.0, le=300.0, alias="upstream_stream_idle_timeout_seconds"
+    )
+    upstream_max_attempts: int = Field(2, ge=1, le=2, alias="upstream_max_attempts")
 
     _COMMON_DESCRIPTIONS: ClassVar[dict[str, Description]] = {
         "base_url": Description(
@@ -137,6 +145,22 @@ class OpenAICompatibleConfig(StatelessLLMBaseConfig):
         "temperature": Description(
             en="Sampling temperature, typically between 0 and 2.",
             zh="Sampling temperature, typically between 0 and 2.",
+        ),
+        "upstream_warning_seconds": Description(
+            en="Seconds before logging that the provider has not started responding.",
+            zh="上游模型尚未开始回复时，经过多少秒记录慢响应警告。",
+        ),
+        "upstream_first_data_timeout_seconds": Description(
+            en="Maximum seconds to wait for response headers and first response data.",
+            zh="等待上游响应头和首个回复数据的最长秒数。",
+        ),
+        "upstream_stream_idle_timeout_seconds": Description(
+            en="Maximum seconds to wait between chunks after streaming begins.",
+            zh="流式回复开始后，连续两个数据块之间允许等待的最长秒数。",
+        ),
+        "upstream_max_attempts": Description(
+            en="Maximum attempts before any response data arrives (1 or 2).",
+            zh="收到任何回复数据之前允许的请求次数（1 或 2）。",
         ),
     }
 
@@ -232,6 +256,15 @@ class DeepseekConfig(OpenAICompatibleConfig):
     """Configuration for DeepSeek."""
 
     base_url: str = Field("https://api.deepseek.com/v1", alias="base_url")
+    proxy_url: str | None = Field(None, alias="proxy_url")
+
+    DESCRIPTIONS: ClassVar[dict[str, Description]] = {
+        **OpenAICompatibleConfig.DESCRIPTIONS,
+        "proxy_url": Description(
+            en="Optional HTTP proxy used only for DeepSeek requests.",
+            zh="仅用于 DeepSeek 请求的可选 HTTP 代理。",
+        ),
+    }
 
 
 class GroqConfig(OpenAICompatibleConfig):

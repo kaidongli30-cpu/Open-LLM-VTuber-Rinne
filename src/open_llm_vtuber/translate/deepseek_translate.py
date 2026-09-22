@@ -14,6 +14,7 @@ class DeepSeekTranslate(TranslateInterface):
             "api_url", "https://api.deepseek.com/v1/chat/completions"
         )
         self.api_key = config.get("api_key", "")
+        self.proxy_url = config.get("proxy_url")
         self.model = config.get("model", "deepseek-v4-pro")
         self.source_lang = config.get("source_lang", "zh")
         self.target_lang = config.get("target_lang", "ja")
@@ -60,7 +61,10 @@ class DeepSeekTranslate(TranslateInterface):
         for attempt in range(2):
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    self.api_url, json=payload, headers=headers
+                    self.api_url,
+                    json=payload,
+                    headers=headers,
+                    proxy=self.proxy_url,
                 ) as resp:
                     if resp.status != 200:
                         error_text = await resp.text()

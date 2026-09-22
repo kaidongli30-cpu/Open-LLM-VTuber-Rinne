@@ -147,6 +147,10 @@ character_config:
         model: 'qwen2.5:latest'
         temperature: 1.0 # value between 0 to 2
         max_concurrent_requests: 1 # set to 1 if your backend only allows one request at a time
+        upstream_warning_seconds: 30 # log a warning if the provider has not started responding
+        upstream_first_data_timeout_seconds: 90 # stop/retry if no response data arrives
+        upstream_stream_idle_timeout_seconds: 90 # stop if an active stream becomes idle
+        upstream_max_attempts: 2 # retry at most once, and only before response data arrives
         interrupt_method: 'user'
         # This is the method to use for prompting the interruption signal. 
         # If the provider supports inserting system prompt anywhere in the chat memory, use 'system'. 
@@ -200,6 +204,7 @@ character_config:
       deepseek_llm:
         llm_api_key: ''
         model: 'deepseek-chat'
+        proxy_url: null # optional HTTP proxy used only for DeepSeek requests
         temperature: 0.7 # note that deepseek's temperature ranges from 0 to 1
         max_concurrent_requests: 1 # set to 1 if your backend only allows one request at a time
       
@@ -536,6 +541,14 @@ character_config:
         secret_id: ''
         secret_key: ''
         region: 'ap-guangzhou'
+        source_lang: 'zh'
+        target_lang: 'ja'
+
+      deepseek:
+        api_key: ''
+        model: 'deepseek-chat'
+        api_url: 'https://api.deepseek.com/v1/chat/completions'
+        proxy_url: null # optional HTTP proxy used only for DeepSeek translation
         source_lang: 'zh'
         target_lang: 'ja'
 

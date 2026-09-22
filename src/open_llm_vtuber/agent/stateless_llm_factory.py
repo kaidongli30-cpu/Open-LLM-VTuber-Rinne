@@ -40,9 +40,16 @@ class LLMFactory:
                 project_id=kwargs.get("project_id"),
                 temperature=kwargs.get("temperature"),
                 max_concurrent_requests=kwargs.get("max_concurrent_requests"),
-                min_request_interval_seconds=kwargs.get(
-                    "min_request_interval_seconds"
+                min_request_interval_seconds=kwargs.get("min_request_interval_seconds"),
+                upstream_warning_seconds=kwargs.get("upstream_warning_seconds", 30.0),
+                upstream_first_data_timeout_seconds=kwargs.get(
+                    "upstream_first_data_timeout_seconds", 90.0
                 ),
+                upstream_stream_idle_timeout_seconds=kwargs.get(
+                    "upstream_stream_idle_timeout_seconds", 90.0
+                ),
+                upstream_max_attempts=kwargs.get("upstream_max_attempts", 2),
+                proxy_url=kwargs.get("proxy_url"),
             )
         if llm_provider == "stateless_llm_with_template":
             return StatelessLLMWithTemplate(
@@ -54,9 +61,7 @@ class LLMFactory:
                 project_id=kwargs.get("project_id"),
                 temperature=kwargs.get("temperature"),
                 max_concurrent_requests=kwargs.get("max_concurrent_requests"),
-                min_request_interval_seconds=kwargs.get(
-                    "min_request_interval_seconds"
-                ),
+                min_request_interval_seconds=kwargs.get("min_request_interval_seconds"),
             )
         if llm_provider == "ollama_llm":
             return OllamaLLM(
@@ -67,9 +72,15 @@ class LLMFactory:
                 project_id=kwargs.get("project_id"),
                 temperature=kwargs.get("temperature"),
                 max_concurrent_requests=kwargs.get("max_concurrent_requests"),
-                min_request_interval_seconds=kwargs.get(
-                    "min_request_interval_seconds"
+                min_request_interval_seconds=kwargs.get("min_request_interval_seconds"),
+                upstream_warning_seconds=kwargs.get("upstream_warning_seconds", 30.0),
+                upstream_first_data_timeout_seconds=kwargs.get(
+                    "upstream_first_data_timeout_seconds", 90.0
                 ),
+                upstream_stream_idle_timeout_seconds=kwargs.get(
+                    "upstream_stream_idle_timeout_seconds", 90.0
+                ),
+                upstream_max_attempts=kwargs.get("upstream_max_attempts", 2),
                 keep_alive=kwargs.get("keep_alive"),
                 unload_at_exit=kwargs.get("unload_at_exit"),
             )
@@ -87,9 +98,7 @@ class LLMFactory:
                 model=kwargs.get("model"),
                 llm_api_key=kwargs.get("llm_api_key"),
                 max_concurrent_requests=kwargs.get("max_concurrent_requests"),
-                min_request_interval_seconds=kwargs.get(
-                    "min_request_interval_seconds"
-                ),
+                min_request_interval_seconds=kwargs.get("min_request_interval_seconds"),
             )
         else:
             raise ValueError(f"Unsupported LLM provider: {llm_provider}")
