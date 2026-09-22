@@ -29,6 +29,7 @@ async def process_single_conversation(
     client_uid: str,
     user_input: Union[str, np.ndarray],
     images: Optional[List[Dict[str, Any]]] = None,
+    attachments: Optional[List[Dict[str, Any]]] = None,
     session_emoji: str = np.random.choice(EMOJI_LIST),
     metadata: Optional[Dict[str, Any]] = None,
 ) -> str:
@@ -40,12 +41,17 @@ async def process_single_conversation(
         client_uid: Client unique identifier
         user_input: Text or audio input from user
         images: Optional list of image data
+        attachments: Optional validated local-library references
         session_emoji: Emoji identifier for the conversation
         metadata: Optional metadata for special processing flags
 
     Returns:
         str: Complete response text
     """
+    metadata = dict(metadata or {})
+    if attachments:
+        metadata.setdefault("file_attachments", attachments)
+
     # Create TTSTaskManager for this conversation
     tts_manager = TTSTaskManager()
     tool_feedback_manager = ToolCallFeedbackManager(
@@ -86,6 +92,7 @@ async def process_single_conversation(
                 role="human",
                 content=input_text,
                 name=context.character_config.human_name,
+                attachments=attachments,
             )
 
         if skip_history:

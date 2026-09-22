@@ -29,6 +29,15 @@
       "args": [
         "mcp_tools/sing-mcp/src/player.py"
       ]
+    },
+    "rinne-library": {
+      "command": ".venv/Scripts/python.exe",
+      "args": [
+        "mcp_tools/rinne-library-mcp/server.py"
+      ],
+      "env": {
+        "RINNE_LIBRARY_ROOT": "rinne_library/rinne_01"
+      }
     }
   }
 }

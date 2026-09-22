@@ -3,7 +3,7 @@ import re
 import json
 import uuid
 from datetime import datetime
-from typing import Literal, List, TypedDict, Optional
+from typing import Any, Literal, List, TypedDict, Optional
 from loguru import logger
 
 
@@ -14,6 +14,7 @@ class HistoryMessage(TypedDict):
     # Optional display information for the message
     name: Optional[str]
     avatar: Optional[str]
+    attachments: list[dict[str, Any]]
 
 
 def _is_safe_filename(filename: str) -> bool:
@@ -97,6 +98,7 @@ def store_message(
     content: str,
     name: str | None = None,
     avatar: str | None = None,
+    attachments: list[dict[str, Any]] | None = None,
 ):
     """Store a message in a specific history file
 
@@ -107,6 +109,7 @@ def store_message(
         content: Message content
         name: Optional display name (default None)
         avatar: Optional avatar URL (default None)
+        attachments: Optional validated local-library references
     """
     if not conf_uid or not history_uid:
         if not conf_uid:
@@ -139,6 +142,8 @@ def store_message(
         new_item["name"] = name
     if avatar is not None:
         new_item["avatar"] = avatar
+    if attachments:
+        new_item["attachments"] = attachments
 
     history_data.append(new_item)
 

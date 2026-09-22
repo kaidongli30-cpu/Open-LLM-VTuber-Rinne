@@ -1,15 +1,26 @@
 import os
 import json
+import shutil
+from pathlib import Path
 from uuid import uuid4
 import numpy as np
 from datetime import datetime
-from fastapi import APIRouter, WebSocket, UploadFile, File, Response
+from fastapi import APIRouter, WebSocket, UploadFile, File, Form, Response
 from starlette.responses import JSONResponse, FileResponse
 from starlette.websockets import WebSocketDisconnect
 from loguru import logger
 from .service_context import ServiceContext
 from .websocket_handler import WebSocketHandler
 from .proxy_handler import ProxyHandler
+from .file_library import (
+    MAX_FILE_BYTES,
+    MAX_VIDEO_FILE_BYTES,
+    ensure_library_structure,
+    kind_for_filename,
+    list_library_files,
+    list_library_folders,
+    save_upload_path,
+)
 
 
 def _load_live2d_models_from_model_dict() -> list[dict]:
@@ -195,6 +206,93 @@ def init_proxy_route(server_url: str) -> APIRouter:
         except Exception as e:
             logger.error(f"Error in proxy connection: {e}")
             raise
+
+    return router
+
+
+def init_library_routes() -> APIRouter:
+    """Create local-only file library routes without exposing library contents."""
+
+    router = APIRouter(prefix="/library", tags=["library"])
+
+    @router.get("/files")
+    async def library_files(
+        kind: str = "all",
+        folder: str = "",
+        name_contains: str = "",
+    ):
+        try:
+            return {
+                "files": list_library_files(
+                    kind=kind,
+                    folder=folder,
+                    name_contains=name_contains,
+                )
+            }
+        except (OSError, ValueError) as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+
+    @router.get("/folders")
+    async def library_folders(
+        kind: str = "all",
+        folder: str = "",
+        recursive: bool = False,
+    ):
+        try:
+            return {
+                "folders": list_library_folders(
+                    kind=kind,
+                    folder=folder,
+                    recursive=recursive,
+                )
+            }
+        except (OSError, ValueError) as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+
+    @router.post("/upload")
+    async def library_upload(
+        file: UploadFile = File(...),
+        kind: str = Form("auto"),
+        subdir: str = Form(""),
+    ):
+        safe_name = Path(file.filename or "").name
+        detected_kind = kind_for_filename(safe_name)
+        resolved_kind = detected_kind if kind == "auto" else kind
+        if resolved_kind not in {"document", "image", "video"}:
+            return JSONResponse(
+                {"error": "unsupported library file type"},
+                status_code=400,
+            )
+
+        size_limit = (
+            MAX_VIDEO_FILE_BYTES if resolved_kind == "video" else MAX_FILE_BYTES
+        )
+        incoming_dir = ensure_library_structure() / ".incoming" / str(uuid4())
+        incoming_dir.mkdir(parents=True, exist_ok=False)
+        incoming_path = incoming_dir / (safe_name or "upload.bin")
+        total = 0
+        try:
+            with incoming_path.open("wb") as output:
+                while chunk := await file.read(1024 * 1024):
+                    total += len(chunk)
+                    if total > size_limit:
+                        raise ValueError(
+                            f"file exceeds the {size_limit // (1024 * 1024)} MB limit"
+                        )
+                    output.write(chunk)
+            record = save_upload_path(
+                safe_name,
+                incoming_path,
+                mime_type=file.content_type,
+                kind=resolved_kind,
+                subdir=subdir,
+            )
+            return {"file": record}
+        except (OSError, ValueError) as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        finally:
+            await file.close()
+            shutil.rmtree(incoming_dir, ignore_errors=True)
 
     return router
 

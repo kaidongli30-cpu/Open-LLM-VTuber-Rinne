@@ -56,6 +56,7 @@ def create_batch_input(
                 source=ImageSource(img["source"]),
                 data=img["data"],
                 mime_type=img["mime_type"],
+                persist=bool(img.get("persist", False)),
             )
             for img in (images or [])
         ]

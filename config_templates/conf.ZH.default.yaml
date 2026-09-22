@@ -88,7 +88,7 @@ character_config:
         # 是否使用 MCP（Model Context Protocol） Plus 以使 LLM 获得使用工具的能力（默认：False）
         # 'Plus' 意味着它包含了通过 OpenAI API 调用工具的能力。
         use_mcpp: False
-        mcp_enabled_servers: ["time", "ddg-search"] # 启用的 MCP 服务器
+        mcp_enabled_servers: ["time", "ddg-search", "rinne-library"] # 启用的 MCP 服务器
         # 可选：向云端提供近期上下文和按需长期记忆工具。默认关闭。
         long_term_memory_retrieval:
           enabled: False

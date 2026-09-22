@@ -10,6 +10,7 @@ from loguru import logger
 
 from ..chat_group import ChatGroupManager
 from ..chat_history_manager import store_message
+from ..file_library import normalize_attachment, save_data_url
 from ..service_context import ServiceContext
 from .group_conversation import process_group_conversation
 from .single_conversation import process_single_conversation
@@ -30,6 +31,36 @@ def _register_conversation_task(
             current_conversation_tasks.pop(task_key, None)
 
     task.add_done_callback(_cleanup_task)
+
+
+def _prepare_library_attachments(
+    images: list[dict] | None,
+    attachments: list[dict] | None,
+) -> list[dict]:
+    """Persist explicitly marked captures and validate local-library refs."""
+
+    validated: list[dict] = []
+    for attachment in attachments or []:
+        record = normalize_attachment(attachment)
+        if record is not None:
+            validated.append(record)
+        else:
+            logger.warning("Ignoring an attachment that is not in the local library")
+
+    for image in images or []:
+        if not isinstance(image, dict) or not image.get("persist"):
+            continue
+        source = image.get("source")
+        if source not in {"camera", "screen"}:
+            continue
+        try:
+            validated.append(save_data_url(image.get("data", ""), source=source))
+        except (TypeError, ValueError, OSError) as exc:
+            logger.warning(
+                "Failed to persist an explicitly requested capture: "
+                f"{type(exc).__name__}"
+            )
+    return validated
 
 
 async def handle_conversation_trigger(
@@ -91,6 +122,9 @@ async def handle_conversation_trigger(
     metadata["_request_received_at"] = request_received_at
 
     images = data.get("images")
+    attachments = _prepare_library_attachments(images, data.get("attachments"))
+    if attachments:
+        metadata["file_attachments"] = attachments
     session_emoji = np.random.choice(EMOJI_LIST)
 
     group = chat_group_manager.get_client_group(client_uid)
@@ -114,6 +148,7 @@ async def handle_conversation_trigger(
                         initiator_client_uid=client_uid,
                         user_input=user_input,
                         images=images,
+                        attachments=attachments,
                         session_emoji=session_emoji,
                         metadata=metadata,
                     )
@@ -142,6 +177,7 @@ async def handle_conversation_trigger(
                     client_uid=client_uid,
                     user_input=user_input,
                     images=images,
+                    attachments=attachments,
                     session_emoji=session_emoji,
                     metadata=metadata,
                 )

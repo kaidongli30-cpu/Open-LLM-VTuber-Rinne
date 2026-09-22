@@ -151,7 +151,7 @@ character_config:
         # Use MCP (Model Context Protocol) Plus to let the LLM have the ability to use tools
         # 'Plus' means that it has the ability to call tools by using OpenAI API.
         use_mcpp: True
-        mcp_enabled_servers: ["ddg-search", "audio-player", "sing-server"] # Enabled MCP servers
+        mcp_enabled_servers: ["ddg-search", "audio-player", "sing-server", "rinne-library"] # Enabled MCP servers
       letta_agent:
         host: 'localhost' # Host address
         port: 8283 # Port number

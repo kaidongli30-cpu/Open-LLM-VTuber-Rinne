@@ -186,6 +186,18 @@ class BasicMemoryAgent(AgentInterface):
         for msg in messages:
             role = "user" if msg["role"] == "human" else "assistant"
             content = msg["content"]
+            attachments = msg.get("attachments")
+            if attachments:
+                attachment_names = ", ".join(
+                    str(item.get("name") or item.get("relative_path") or "附件")
+                    for item in attachments
+                    if isinstance(item, dict)
+                )
+                if attachment_names:
+                    content = (
+                        f"{content}\n[本轮附件：{attachment_names}；"
+                        "如需再次查看，请调用本地资料库工具。]"
+                    )
             if isinstance(content, str) and content:
                 self._memory.append(
                     {
@@ -241,6 +253,23 @@ class BasicMemoryAgent(AgentInterface):
 
         if input_data.images:
             message_parts.append("\n[User has also provided images]")
+
+        attachments = (input_data.metadata or {}).get("file_attachments")
+        if attachments:
+            attachment_lines = []
+            for item in attachments:
+                if not isinstance(item, dict):
+                    continue
+                name = item.get("name") or item.get("relative_path") or "附件"
+                file_id = item.get("file_id") or item.get("relative_path") or ""
+                attachment_lines.append(f"{name}（file_id: {file_id}）")
+            if attachment_lines:
+                message_parts.append(
+                    "[本轮用户提供了本地资料库附件："
+                    + ", ".join(attachment_lines)
+                    + "。如果需要具体内容或图片，请调用本地资料库 MCP 工具，"
+                    "不要根据文件名猜测正文。]"
+                )
 
         return "\n".join(message_parts).strip()
 
@@ -560,6 +589,7 @@ class BasicMemoryAgent(AgentInterface):
                     )
 
                 tool_results_for_llm = []
+                media_messages_for_llm = []
                 if not self._tool_executor:
                     logger.error(
                         "OpenAI Tool interaction requested but ToolExecutor/MCPClient is not available."
@@ -576,6 +606,7 @@ class BasicMemoryAgent(AgentInterface):
                         update = await anext(tool_executor_iterator)
                         if update.get("type") == "final_tool_results":
                             tool_results_for_llm = update.get("results", [])
+                            media_messages_for_llm = update.get("media_messages", [])
                             break
                         else:
                             yield update
@@ -587,6 +618,8 @@ class BasicMemoryAgent(AgentInterface):
                 if tool_results_for_llm:
                     last_tool_results_for_llm = list(tool_results_for_llm)
                     messages.extend(tool_results_for_llm)
+                if media_messages_for_llm:
+                    messages.extend(media_messages_for_llm)
                 continue
 
             else:

@@ -33,6 +33,7 @@ class ImageData:
     source: ImageSource
     data: str  # Base64 encoded or URL
     mime_type: str
+    persist: bool = False
 
 
 @dataclass

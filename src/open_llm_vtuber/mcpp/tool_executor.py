@@ -161,6 +161,7 @@ class ToolExecutor:
     ) -> AsyncIterator[Dict[str, Any]]:
         """Execute tools and yield status updates."""
         tool_results_for_llm = []
+        media_messages_for_llm = []
 
         logger.info(f"Executing {len(tool_calls)} tool(s) for {caller_mode} caller.")
         for call in tool_calls:
@@ -173,7 +174,7 @@ class ToolExecutor:
                 parse_error,
             ) = self.parse_tool_call(call)
 
-            logger.info(f"Executing tool: {call}")
+            logger.info(f"Executing tool '{tool_name}' (ID: {tool_id})")
 
             if parse_error:
                 logger.warning(
@@ -268,6 +269,33 @@ class ToolExecutor:
                         )  # Use blocks or empty string
                     elif caller_mode in ["OpenAI", "Prompt"]:
                         llm_formatted_content = status_content
+                        if caller_mode == "OpenAI":
+                            image_blocks = []
+                            if text_content:
+                                image_blocks.append(
+                                    {"type": "text", "text": text_content}
+                                )
+                            for item in image_items:
+                                data = item.get("data")
+                                mime_type = item.get("mimeType", "image/png")
+                                if isinstance(data, str) and data:
+                                    image_blocks.append(
+                                        {
+                                            "type": "image_url",
+                                            "image_url": {
+                                                "url": (
+                                                    data
+                                                    if data.startswith("data:")
+                                                    else f"data:{mime_type};base64,{data}"
+                                                ),
+                                                "detail": "auto",
+                                            },
+                                        }
+                                    )
+                            if image_blocks:
+                                media_messages_for_llm.append(
+                                    {"role": "user", "content": image_blocks}
+                                )
 
             # Prepare and yield tool call status update
             status_update = {
@@ -301,7 +329,11 @@ class ToolExecutor:
         logger.info(
             f"Finished executing tools with {len(tool_results_for_llm)} results."
         )
-        yield {"type": "final_tool_results", "results": tool_results_for_llm}
+        yield {
+            "type": "final_tool_results",
+            "results": tool_results_for_llm,
+            "media_messages": media_messages_for_llm,
+        }
 
     @staticmethod
     def _build_success_summary(tool_name: str, metadata: Dict[str, Any]) -> str:
