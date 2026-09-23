@@ -38,6 +38,7 @@ import layer2_model_facing_background as model_facing  # noqa: E402
 from open_llm_vtuber.config_manager.daily_child_event import (  # noqa: E402
     DailyChildEventGenerationConfig,
 )
+from open_llm_vtuber.config_manager.utils import read_yaml  # noqa: E402
 from open_llm_vtuber.memory import (  # noqa: E402
     daily_child_event_providers as provider_adapter,
 )
@@ -301,7 +302,7 @@ def _load_cloud_settings(
     deepseek_max_output_tokens: int = DEEPSEEK_THINKING_MAX_OUTPUT_TOKENS,
 ) -> tuple[DailyChildEventGenerationConfig, dict[str, Any]]:
     try:
-        raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        raw = read_yaml(str(config_path)) or {}
         agent = raw["character_config"]["agent_config"]
         provider = (
             provider_name
@@ -318,7 +319,11 @@ def _load_cloud_settings(
             f"provider, got {provider!r}"
         )
     api_key = str(provider_config.get("llm_api_key", "")).strip()
-    if not api_key or api_key in {"z", "default_api_key", "your_api_key_here"}:
+    if (
+        not api_key
+        or api_key in {"z", "default_api_key", "your_api_key_here"}
+        or (api_key.startswith("${") and api_key.endswith("}"))
+    ):
         raise ExperimentError("Selected cloud provider has no usable API key")
     values = {
         "enabled": True,
