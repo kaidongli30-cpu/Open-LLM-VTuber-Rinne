@@ -1,6 +1,6 @@
 # Open-LLM-VTuber-Rinne
 
-更新版凛祢桌宠：对话、日记与第二层背景、游戏原画渲染及换装。项目基于 Open-LLM-VTuber；前端源码和网页构建位于 [前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)，本仓库的 `frontend` 是指向它的 Git 子模块。
+凛祢桌面客户端：对话、日记与第二层背景、游戏原画渲染及换装。项目基于 Open-LLM-VTuber；桌面客户端源码位于 [前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)，本仓库的 `frontend` 是指向它的 Git 子模块。
 
 仓库不附带《凛祢乌托邦》与《凛绪轮回》的游戏原文件、转换后的凛祢游戏模型，也不包含 API Key、聊天记录、日记或 `rinne_library` 数据。GPT-SoVITS V2 参考 WAV 已包含在仓库中，两份语音权重由安装脚本从项目 Release 下载。请使用自己持有的游戏源文件，在本机运行肖像导入器。项目自制服装按 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md) 授权，商业使用需另行获得许可。
 
@@ -39,6 +39,9 @@ Set-Location .\Open-LLM-VTuber-Rinne
 uv sync
 Copy-Item .\config_templates\conf.rinne.public.yaml .\conf.yaml
 $env:RINNE_DEEPSEEK_API_KEY = '填入你自己的 DeepSeek API Key'
+$env:RINNE_APINEBULA_API_KEY = '填入你自己的 APINebula API Key'
+$env:RINNE_MEDIA_GEMINI_API_KEY = '填入可调用 Gemini 的 API Key'
+$env:BOCHA_API_KEY = '填入你自己的博查 API Key'
 ```
 
 CMD：
@@ -49,9 +52,12 @@ cd Open-LLM-VTuber-Rinne
 uv sync
 copy config_templates\conf.rinne.public.yaml conf.yaml
 set "RINNE_DEEPSEEK_API_KEY=填入你自己的 DeepSeek API Key"
+set "RINNE_APINEBULA_API_KEY=填入你自己的 APINebula API Key"
+set "RINNE_MEDIA_GEMINI_API_KEY=填入可调用 Gemini 的 API Key"
+set "BOCHA_API_KEY=填入你自己的博查 API Key"
 ```
 
-`conf.yaml` 被 Git 忽略；配置通过 `RINNE_DEEPSEEK_API_KEY` 环境变量读取凭据。上述变量只在当前命令窗口及从它启动的程序中生效。不要把 Key 写进 Git 仓库。默认使用 DeepSeek 对话、GPT-SoVITS V2 合成语音，并由本地 Ollama 翻译成日语。
+`conf.yaml` 被 Git 忽略。默认使用 APINebula 的 `claude-opus-4-6` 对话、DeepSeek 生成第二层背景、Gemini 观察视频和屏幕、博查搜索、GPT-SoVITS V2 合成语音，以及本地 Ollama 翻译。以上 Key 分别由对应功能读取；使用这些功能需持有相应服务的凭据。若 Gemini 也通过 APINebula 调用，可按服务提供的说明使用相应 Key。环境变量只在当前命令窗口及从它启动的程序中生效，不要把 Key 写进 Git 仓库。
 
 ### 安装 V2 语音
 
@@ -63,7 +69,7 @@ ollama pull mistral-small3.2:24b
 ollama list
 ```
 
-最后一行应能看到两个模型。`mistral-small3.2:24b` 用于每日子事件；如果机器内存或磁盘不足，可在本地 `conf.yaml` 把 `character_config.daily_child_event_generation.enabled` 改成 `False`。接着在**后端项目根目录**安装凛祢 V2 权重。把下面的语音目录示例换成你的实际解压路径。
+最后一行应能看到两个模型。`mistral-small3.2:24b` 用于每日子事件。接着在**后端项目根目录**安装凛祢 V2 权重。把下面的语音目录示例换成你的实际解压路径。
 
 PowerShell：
 
@@ -95,13 +101,13 @@ runtime\python.exe api_v2.py -c rinne_public_v2_tts_infer.yaml
 
 让这个语音窗口保持运行，默认监听本机 `9880`，与 `conf.yaml` 中的语音地址一致。若端口已被占用，可启动语音服务时指定其他端口，并同步修改 `gpt_sovits_tts.api_url`。参考 WAV 已包含在仓库中，无需从游戏提取。
 
-回到最初设置了 `RINNE_DEEPSEEK_API_KEY` 的项目窗口启动后端，并让它保持运行。下面的游戏资源导入和桌面客户端构建命令请**另开命令窗口**执行；在运行 `uv run` 前先进入刚克隆的后端项目根目录。
+回到最初设置了各项 API Key 的项目窗口启动后端，并让它保持运行。下面的游戏资源导入和桌面客户端构建命令请**另开命令窗口**执行；在运行 `uv run` 前先进入刚克隆的后端项目根目录。
 
 ```text
 uv run run_server.py
 ```
 
-默认网页地址通常是 `http://127.0.0.1:12393`。但游戏原画渲染与本地资源读取需要桌面前端；仅打开网页不代表桌宠的衣服或语音已可用。
+后端默认在本机 `127.0.0.1:12393` 提供接口。请使用后文的桌面客户端完成对话和换装。
 
 首次启动时会下载 SenseVoice 识别模型以及记忆检索所需的 `BAAI/bge-base-zh-v1.5`、`BAAI/bge-reranker-base`。保持网络连接并等待下载完成。搜索、音乐与 Library 工具也会随程序启动；新安装的 Library 为空。
 
@@ -160,13 +166,25 @@ git submodule update --init --recursive
 uv sync
 ```
 
-CMD 中命令相同。私人 `conf.yaml` 不应被模板覆盖；需要新选项时，对照 `config_templates/conf.rinne.public.yaml` 在私人文件中增补。日记、聊天和 `rinne_library` 数据不属于代码升级包，也不能提交到 GitHub。
+CMD 中命令相同。接着在原项目目录预览配置更新：
 
-已有用户升级 V2 语音时，仍按本节保留原有数据，**不要**用模板覆盖自己的 `conf.yaml`。先按“安装 V2 语音”一节配置语音服务；然后将模板中的 `character_config.tts_config.tts_model`、`gpt_sovits_tts` 和 `tts_preprocessor_config.translator_config` 相关设置合并到本地配置。若已有自己的翻译词表，保留其路径和词条。确认 `ollama list` 有指定模型，重启后端和桌面客户端，检查日常与灵装语音。
+```text
+uv run python scripts/update_rinne_config.py
+```
+
+确认列出的设置后，再执行：
+
+```text
+uv run python scripts/update_rinne_config.py --apply
+```
+
+脚本会先把原有 `conf.yaml` 备份为同目录下带日期的文件，然后在原文件中更新模型、语音、翻译和记忆设置；保留原有 API Key、代理、个人称呼及提示词、角色 ID、本机路径和语音参考文件。聊天、日记、背景与 `rinne_library` 不会被移动或清空。请在启动窗口设置对话、第二层和媒体功能所需的 Key。日记、聊天和 `rinne_library` 数据不能提交到 GitHub。
+
+已有用户也按“安装 V2 语音”一节配置语音服务，再使用上述脚本更新原 `conf.yaml`。若已有自己的翻译词表和参考音，脚本会保留其路径；确认 `ollama list` 有指定模型，重启后端和桌面客户端，检查日常与灵装语音。
 
 ### 用已审核日记建立或续写第二层背景
 
-公开模板默认已经将 `character_config.layer2_memory_generation.enabled` 设为 `True`；已有用户的私人配置若尚未启用，需手动改为 `True`。只有处理已审核日记时才会调用配置的 DeepSeek API 并产生请求费用。先查看哪些历史日记有资格处理：
+配置更新后，`character_config.layer2_memory_generation.enabled` 为 `True`。只有处理已审核日记时才会调用配置的 DeepSeek API 并产生请求费用。先查看哪些历史日记有资格处理：
 
 ```powershell
 uv run python -m src.open_llm_vtuber.memory.layer2_backfill --dry-run

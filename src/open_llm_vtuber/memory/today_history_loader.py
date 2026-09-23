@@ -8,6 +8,7 @@ from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from pathlib import Path
 from typing import Any
 
+from ..data_paths import resolve_character_history_root
 from .current_conversation import CurrentConversationState
 from .types import (
     ConversationTurn,
@@ -69,14 +70,14 @@ class TodayHistoryLoader:
 
     def __init__(
         self,
-        history_root: str | Path = Path("chat_history/rinne_01"),
+        history_root: str | Path | None = None,
         *,
         local_timezone: tzinfo | None = None,
         boundary_hour: int = 3,
     ) -> None:
         if not 0 <= boundary_hour <= 23:
             raise ValueError("boundary_hour must be between 0 and 23")
-        self.history_root = Path(history_root)
+        self.history_root = resolve_character_history_root(history_root)
         self.local_timezone = local_timezone or datetime.now().astimezone().tzinfo
         if self.local_timezone is None:
             raise ValueError("A local timezone is required")
@@ -174,6 +175,17 @@ class TodayHistoryLoader:
                 continue
 
             diagnostics.parsed_files += 1
+            source_channel = "desktop"
+            for candidate in records:
+                if not isinstance(candidate, dict):
+                    continue
+                if str(candidate.get("role", "")).casefold() != "metadata":
+                    continue
+                candidate_source = candidate.get("source_channel")
+                if isinstance(candidate_source, str) and candidate_source.strip():
+                    source_channel = candidate_source.strip().casefold()
+                break
+
             for index, record in enumerate(records):
                 diagnostics.parsed_records += 1
                 if not isinstance(record, dict):
@@ -220,6 +232,7 @@ class TodayHistoryLoader:
                         "history_file": path.name,
                         "record_index": index,
                         "original_role": raw_role,
+                        "source_channel": source_channel,
                     },
                 )
                 if not state.add_turn(turn):

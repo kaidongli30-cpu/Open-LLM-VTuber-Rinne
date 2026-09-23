@@ -2,6 +2,7 @@ import re
 import unicodedata
 from loguru import logger
 from ..translate.translate_interface import TranslateInterface
+from ..privacy_logging import text_log_fields
 
 
 def tts_filter(
@@ -41,7 +42,7 @@ def tts_filter(
             text = filter_asterisks(text)
         except Exception as e:
             logger.warning(f"Error ignoring asterisks: {e}")
-            logger.warning(f"Text: {text}")
+            logger.warning("Text metadata: {}", text_log_fields(text))
             logger.warning("Skipping...")
 
     if ignore_brackets:
@@ -49,37 +50,37 @@ def tts_filter(
             text = filter_brackets(text)
         except Exception as e:
             logger.warning(f"Error ignoring brackets: {e}")
-            logger.warning(f"Text: {text}")
+            logger.warning("Text metadata: {}", text_log_fields(text))
             logger.warning("Skipping...")
     if ignore_parentheses:
         try:
             text = filter_parentheses(text)
         except Exception as e:
             logger.warning(f"Error ignoring parentheses: {e}")
-            logger.warning(f"Text: {text}")
+            logger.warning("Text metadata: {}", text_log_fields(text))
             logger.warning("Skipping...")
     if ignore_angle_brackets:
         try:
             text = filter_angle_brackets(text)
         except Exception as e:
             logger.warning(f"Error ignoring angle brackets: {e}")
-            logger.warning(f"Text: {text}")
+            logger.warning("Text metadata: {}", text_log_fields(text))
             logger.warning("Skipping...")
     if remove_special_char:
         try:
             text = remove_special_characters(text)
         except Exception as e:
             logger.warning(f"Error removing special characters: {e}")
-            logger.warning(f"Text: {text}")
+            logger.warning("Text metadata: {}", text_log_fields(text))
             logger.warning("Skipping...")
     if translator:
         try:
             logger.info("Translating...")
             text = translator.translate(text)
-            logger.info(f"Translated: {text}")
+            logger.info("Translation completed: {}", text_log_fields(text))
         except Exception as e:
             logger.critical(f"Error translating: {e}")
-            logger.critical(f"Text: {text}")
+            logger.critical("Text metadata: {}", text_log_fields(text))
             logger.warning("Skipping...")
 
     # === 翻译后兜底清理：再次删除所有括号及其内部内容 ===
@@ -88,7 +89,7 @@ def tts_filter(
     text = re.sub(r'[［\[]][^］\]]*[］\]]', '', text)  # 去掉所有方括号
     text = re.sub(r'\n\s*\n', ' ', text).strip()  # 清理残留换行符
 
-    logger.debug(f"Filtered text: {text}")
+    logger.debug("Filtered text: {}", text_log_fields(text))
     return text
 
 

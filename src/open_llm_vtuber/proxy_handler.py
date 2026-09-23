@@ -8,6 +8,7 @@ import aiohttp
 from starlette.websockets import WebSocketDisconnect
 
 from .proxy_message_queue import ProxyMessageQueue
+from .privacy_logging import mapping_log_fields
 
 
 class ProxyHandler:
@@ -263,20 +264,11 @@ class ProxyHandler:
 
         disconnected_clients = []
 
-        # Log message, but handle audio data specially to avoid huge logs
-        log_msg = (
-            message.copy()
-            if "audio" not in message
-            else {
-                **{k: v for k, v in message.items() if k != "audio"},
-                "audio": f"[Audio data, {len(message.get('audio', ''))} bytes truncated]",
-            }
+        logger.debug(
+            "Broadcasting to clients: excluded_client_present={}, message={}",
+            bool(exclude_client),
+            mapping_log_fields(message),
         )
-
-        if "volumes" in log_msg and len(log_msg.get("volumes", [])) > 10:
-            log_msg["volumes"] = f"[{len(message.get('volumes', []))} volume values]"
-
-        logger.debug(f"Broadcasting to clients (excluding {exclude_client}): {log_msg}")
 
         for client_id, websocket in self.clients.items():
             # Skip the excluded client

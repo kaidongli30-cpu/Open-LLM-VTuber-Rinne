@@ -6,7 +6,7 @@ import json
 from loguru import logger
 
 from ..message_handler import message_handler
-from .types import WebSocketSend, BroadcastContext
+from .types import BroadcastContext, ConversationOutputMode, WebSocketSend
 from .tts_manager import DEFAULT_TTS_REFERENCE, TTSTaskManager
 from ..agent.output_types import SentenceOutput, AudioOutput, DisplayText
 from ..agent.input_types import BatchInput, TextData, ImageData, TextSource, ImageSource
@@ -14,9 +14,10 @@ from ..asr.asr_interface import ASRInterface
 from ..live2d_model import Live2dModel
 from ..tts.tts_interface import TTSInterface
 from ..utils.stream_audio import prepare_audio_payload
+from ..privacy_logging import text_log_fields
 
 
-SPECIAL_TTS_REFERENCE_EMOTIONS = ("surprise", "shy", "angry")
+SPECIAL_TTS_REFERENCE_EMOTIONS = ("surprise", "flustered", "shy", "angry")
 
 
 def _select_tts_reference_emotion(
@@ -66,37 +67,6 @@ def create_batch_input(
     )
 
 
-def _split_text_for_realtime_tts(text: str, max_chunk_chars: int = 48) -> List[str]:
-    """
-    Split long text into smaller chunks for better translation/TTS responsiveness.
-    Prefer punctuation boundaries; fallback to fixed-size chunks.
-    """
-    if not text:
-        return []
-    if len(text) <= max_chunk_chars:
-        return [text]
-
-    separators = set("。！？!?；;，,\n")
-    chunks: List[str] = []
-    buf: List[str] = []
-
-    for ch in text:
-        buf.append(ch)
-        should_split = ch in separators or len(buf) >= max_chunk_chars
-        if should_split:
-            chunk = "".join(buf).strip()
-            if chunk:
-                chunks.append(chunk)
-            buf = []
-
-    if buf:
-        chunk = "".join(buf).strip()
-        if chunk:
-            chunks.append(chunk)
-
-    return chunks if chunks else [text]
-
-
 async def _translate_text_if_needed(
     text: str,
     translate_engine: Optional[Any],
@@ -129,6 +99,7 @@ async def process_agent_output(
     websocket_send: WebSocketSend,
     tts_manager: TTSTaskManager,
     translate_engine: Optional[Any] = None,
+    output_mode: ConversationOutputMode = ConversationOutputMode.DESKTOP,
 ) -> str:
     """Process agent output with character information and optional translation"""
     output.display_text.name = character_config.character_name
@@ -144,9 +115,14 @@ async def process_agent_output(
                 websocket_send,
                 tts_manager,
                 translate_engine,
+                output_mode,
             )
         elif isinstance(output, AudioOutput):
-            full_response = await handle_audio_output(output, websocket_send)
+            full_response = await handle_audio_output(
+                output,
+                websocket_send,
+                output_mode,
+            )
         else:
             logger.warning(f"Unknown output type: {type(output)}")
     except Exception as e:
@@ -167,63 +143,81 @@ async def handle_sentence_output(
     websocket_send: WebSocketSend,
     tts_manager: TTSTaskManager,
     translate_engine: Optional[Any] = None,
+    output_mode: ConversationOutputMode = ConversationOutputMode.DESKTOP,
 ) -> str:
     """Handle sentence output type with optional translation support"""
     full_response = ""
     async for display_text, tts_text, actions in output:
-        logger.debug(f"Processing output: '''{tts_text}'''...")
+        sanitize = getattr(live2d_model, "remove_unknown_emotion_tags", None)
+        if callable(sanitize):
+            display_text = DisplayText(
+                text=sanitize(display_text.text),
+                name=display_text.name,
+                avatar=display_text.avatar,
+            )
+            tts_text = sanitize(tts_text) if isinstance(tts_text, str) else tts_text
+        logger.debug("Processing output: {}", text_log_fields(tts_text))
 
         full_response += display_text.text
+        if output_mode is ConversationOutputMode.TEXT_ONLY:
+            await websocket_send(
+                json.dumps(
+                    {"type": "full-text", "text": display_text.text},
+                    ensure_ascii=False,
+                )
+            )
+            continue
+
         reference_emotion = _select_tts_reference_emotion(actions, live2d_model)
         resolved_reference_emotion = tts_manager.resolve_reference_emotion(
             reference_emotion
         )
 
-        # Translate and synthesize in smaller chunks so speech starts earlier.
-        display_chunks = _split_text_for_realtime_tts(display_text.text)
-        tts_chunks = _split_text_for_realtime_tts(tts_text) if tts_text else [""]
-        chunk_count = max(len(display_chunks), len(tts_chunks))
+        # SentenceDivider has already produced one semantic sentence.  Keep its
+        # display text, filtered speech, action and reference emotion together;
+        # independently splitting display/TTS text creates orphan subtitle or
+        # audio chunks whenever tags and parenthesized actions are removed.
+        translated_tts_text = await _translate_text_if_needed(
+            tts_text, translate_engine
+        )
 
-        for idx in range(chunk_count):
-            display_chunk = display_chunks[idx] if idx < len(display_chunks) else ""
-            tts_chunk = tts_chunks[idx] if idx < len(tts_chunks) else ""
-
-            translated_tts_chunk = await _translate_text_if_needed(
-                tts_chunk, translate_engine
+        if translate_engine and tts_text:
+            logger.info(
+                f"Sentence translated: '''{tts_text}''' -> '''{translated_tts_text}'''"
             )
 
-            if translate_engine and tts_chunk:
-                logger.info(
-                    f"Chunk translated: '''{tts_chunk}''' -> '''{translated_tts_chunk}'''"
-                )
+        if not display_text.text and not translated_tts_text:
+            continue
 
-            if not display_chunk and not translated_tts_chunk:
-                continue
-
-            await tts_manager.speak(
-                tts_text=translated_tts_chunk,
-                display_text=DisplayText(
-                    text=display_chunk,
-                    name=display_text.name,
-                    avatar=display_text.avatar,
-                ),
-                actions=actions if idx == 0 else None,
-                live2d_model=live2d_model,
-                tts_engine=tts_engine,
-                websocket_send=websocket_send,
-                reference_emotion=resolved_reference_emotion,
-            )
+        await tts_manager.speak(
+            tts_text=translated_tts_text,
+            display_text=display_text,
+            actions=actions,
+            live2d_model=live2d_model,
+            tts_engine=tts_engine,
+            websocket_send=websocket_send,
+            reference_emotion=resolved_reference_emotion,
+        )
     return full_response
 
 
 async def handle_audio_output(
     output: AudioOutput,
     websocket_send: WebSocketSend,
+    output_mode: ConversationOutputMode = ConversationOutputMode.DESKTOP,
 ) -> str:
     """Process and send AudioOutput directly to the client"""
     full_response = ""
     async for audio_path, display_text, transcript, actions in output:
         full_response += transcript
+        if output_mode is ConversationOutputMode.TEXT_ONLY:
+            await websocket_send(
+                json.dumps(
+                    {"type": "full-text", "text": transcript},
+                    ensure_ascii=False,
+                )
+            )
+            continue
         audio_payload = prepare_audio_payload(
             audio_path=audio_path,
             display_text=display_text,
@@ -250,14 +244,16 @@ async def process_user_input(
     user_input: Union[str, np.ndarray],
     asr_engine: ASRInterface,
     websocket_send: WebSocketSend,
+    attachments: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """Process user input, converting audio to text if needed"""
     if isinstance(user_input, np.ndarray):
         logger.info("Transcribing audio input...")
         input_text = await asr_engine.async_transcribe_np(user_input)
-        await websocket_send(
-            json.dumps({"type": "user-input-transcription", "text": input_text})
-        )
+        transcription = {"type": "user-input-transcription", "text": input_text}
+        if attachments:
+            transcription["attachments"] = attachments
+        await websocket_send(json.dumps(transcription))
         return input_text
     return user_input
 
@@ -271,6 +267,11 @@ async def finalize_conversation_turn(
     """Finalize a conversation turn"""
     if tts_manager.task_list:
         await asyncio.gather(*tts_manager.task_list)
+
+    # Silent actions and translation failures still carry display text and
+    # expressions. They have no synthesis task, but must survive cleanup and
+    # finish in the frontend before the next conversation turn is announced.
+    if tts_manager.has_output or tts_manager.task_list:
         await tts_manager.wait_until_payloads_sent()
         await websocket_send(json.dumps({"type": "backend-synth-complete"}))
 

@@ -96,4 +96,10 @@ class ASRTerminology:
                 self.engine_name,
                 count,
             )
+            logger.debug(
+                "{} corrected transcription: {} -> {}",
+                self.engine_name,
+                text,
+                corrected,
+            )
         return corrected

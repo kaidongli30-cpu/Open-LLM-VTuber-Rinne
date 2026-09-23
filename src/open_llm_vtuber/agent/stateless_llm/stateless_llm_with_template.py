@@ -12,6 +12,7 @@ from typing import AsyncIterator, List, Dict, Any
 
 from .stateless_llm_interface import StatelessLLMInterface
 from .request_limiter import build_backend_key, limit_request_concurrency
+from ...privacy_logging import message_batch_log_fields
 
 
 TEMPLATES = {
@@ -151,7 +152,7 @@ class AsyncLLMWithTemplate(StatelessLLMInterface):
         - RateLimitError: When a 429 status code is received
         - APIError: For other API-related errors
         """
-        logger.debug(f"Messages: {messages}")
+        logger.debug("Messages: {}", message_batch_log_fields(messages))
         bos_token = "<|begin_of_text|>"
         stream = None
         try:
@@ -195,7 +196,7 @@ class AsyncLLMWithTemplate(StatelessLLMInterface):
             logger.error(f"LLM API WITH TEMPLATE: Error occurred: {e}")
             logger.info(f"Base URL: {self.base_url}")
             logger.info(f"Model: {self.model}")
-            logger.info(f"Messages: {messages}")
+            logger.info("Messages: {}", message_batch_log_fields(messages))
             logger.info(f"temperature: {self.temperature}")
             yield "Error calling the chat endpoint: Error occurred while generating response. See the logs for details."
         finally:

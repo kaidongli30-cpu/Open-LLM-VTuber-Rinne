@@ -9,6 +9,7 @@ from openai import NOT_GIVEN
 from loguru import logger
 
 from .openai_compatible_llm import AsyncLLM as OpenAICompatibleAsyncLLM
+from ...privacy_logging import message_batch_log_fields, text_log_fields
 
 
 class AsyncLLM(OpenAICompatibleAsyncLLM):
@@ -137,8 +138,14 @@ class AsyncLLM(OpenAICompatibleAsyncLLM):
             tools=NOT_GIVEN,
     ) -> AsyncIterator[str]:
         converted = self._strip_images_from_history(messages)
-        logger.debug(f"ZhipuLLM: sending converted messages (first 2): {converted[:2]}")
+        logger.debug(
+            "ZhipuLLM: sending converted messages: {}",
+            message_batch_log_fields(converted),
+        )
         async for chunk in super().chat_completion(converted, system, tools):
             logger.debug(
-                f"ZhipuLLM: received chunk type: {type(chunk)}, content: {chunk if isinstance(chunk, str) else 'non-str'}")
+                "ZhipuLLM: received chunk type={}, text={}",
+                type(chunk).__name__,
+                text_log_fields(chunk),
+            )
             yield chunk

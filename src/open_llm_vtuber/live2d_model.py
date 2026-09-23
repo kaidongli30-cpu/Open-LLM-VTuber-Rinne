@@ -1,6 +1,10 @@
 import json
+import re
 import chardet
 from loguru import logger
+
+
+_BRACKET_TAG = re.compile(r"\[([A-Za-z][A-Za-z0-9 _-]*)\]")
 
 # This class will only prepare the payload for the live2d model
 # the process of sending the payload should be done by the caller
@@ -195,3 +199,23 @@ class Live2dModel:
                 target_str = target_str[:start_index] + target_str[end_index:]
                 lower_str = lower_str[:start_index] + lower_str[end_index:]
         return target_str
+
+    def remove_unknown_emotion_tags(self, target_str: str) -> str:
+        """Remove model-invented bracket tags while preserving valid emotions.
+
+        Emotion tags are a renderer contract, not part of the character's
+        spoken text.  Providers sometimes invent labels such as
+        ``[curious]`` or ``[suddenly remembering]``.  Those labels must not
+        leak into the UI, QQ text, or persisted assistant history.  Only the
+        ASCII bracket-tag form is considered here so ordinary bracketed prose
+        and citations remain untouched.
+        """
+
+        if not isinstance(target_str, str) or not target_str:
+            return target_str
+        valid_tags = {str(key).casefold() for key in self.emo_map}
+
+        def replace(match: re.Match[str]) -> str:
+            return match.group(0) if match.group(1).casefold() in valid_tags else ""
+
+        return _BRACKET_TAG.sub(replace, target_str).strip()

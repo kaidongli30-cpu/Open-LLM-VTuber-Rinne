@@ -30,9 +30,7 @@ class DailyChildEventGenerationConfig(I18nMixin, BaseModel):
     """
 
     enabled: bool = Field(True, alias="enabled")
-    llm_provider: DailyChildEventProvider = Field(
-        "ollama_llm", alias="llm_provider"
-    )
+    llm_provider: DailyChildEventProvider = Field("ollama_llm", alias="llm_provider")
     base_url: str = Field("http://localhost:11434/v1", alias="base_url")
     proxy_url: str | None = Field(None, alias="proxy_url")
     llm_api_key: str = Field("default_api_key", alias="llm_api_key")

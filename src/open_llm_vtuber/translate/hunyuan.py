@@ -10,6 +10,7 @@ import httpx
 from loguru import logger
 
 from .translate_interface import TranslateInterface
+from ..privacy_logging import mapping_log_fields, text_log_fields
 
 
 def sign(key, msg):
@@ -64,7 +65,11 @@ class HunyuanTranslate(TranslateInterface):
         self.model = model
         self.stream = stream
 
-        logger.info(f"初始化 HunyuanTranslate，secret_id: {self.secret_id[:4]}..., region: {region}")
+        logger.info(
+            "初始化 HunyuanTranslate: credential_present={}, region={}",
+            bool(self.secret_id),
+            region,
+        )
 
     def _create_signature(self, date, service):
         """创建签名密钥"""
@@ -175,10 +180,10 @@ class HunyuanTranslate(TranslateInterface):
                 timeout=30,
             )
             res = response.json()
-            logger.debug(f"混元翻译响应: {res}")
+            logger.debug("混元翻译响应: {}", mapping_log_fields(res))
 
             if "Response" not in res:
-                logger.error(f"响应缺少 Response 字段: {res}")
+                logger.error("响应缺少 Response 字段: {}", mapping_log_fields(res))
                 raise RuntimeError("翻译失败：响应格式异常")
 
             resp_data = res["Response"]
@@ -186,7 +191,11 @@ class HunyuanTranslate(TranslateInterface):
             if "Error" in resp_data:
                 error_msg = resp_data["Error"].get("Message", "未知错误")
                 error_code = resp_data["Error"].get("Code", "")
-                logger.error(f"API 错误 [{error_code}]: {error_msg}")
+                logger.error(
+                    "API 错误: code_present={}, message={}",
+                    bool(error_code),
+                    text_log_fields(error_msg),
+                )
 
                 if error_code == "FailedOperation.FreeResourcePackExhausted":
                     raise RuntimeError("翻译失败：免费资源包已用完，请购买资源包或开通后付费")
@@ -210,18 +219,26 @@ class HunyuanTranslate(TranslateInterface):
                         )
 
                     logger.info(
-                        f"翻译成功: {text[:30]}... -> {translated_text[:30]}..."
+                        "翻译成功: input={}, output={}",
+                        text_log_fields(text),
+                        text_log_fields(translated_text),
                     )
                     return translated_text
 
-            logger.error(f"无法从响应中提取翻译结果: {resp_data}")
+            logger.error(
+                "无法从响应中提取翻译结果: {}", mapping_log_fields(resp_data)
+            )
             raise RuntimeError("翻译失败：无法解析结果")
 
         except httpx.TimeoutException:
             logger.error("请求超时")
             raise
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP 错误 {e.response.status_code}: {e.response.text}")
+            logger.error(
+                "HTTP 错误 {}: response_chars={}",
+                e.response.status_code,
+                len(e.response.text or ""),
+            )
             if e.response.status_code == 401:
                 raise RuntimeError("翻译失败：SecretId/SecretKey 无效或未授权")
             elif e.response.status_code == 429:

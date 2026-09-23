@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+from ..data_paths import resolve_character_history_root
+
 
 _DIARY_PATTERN = re.compile(r"^diary_(\d{4}-\d{2}-\d{2})\.txt$")
 _WEEKLY_PATTERN = re.compile(
@@ -202,7 +204,7 @@ def _scan_diaries(
 
 
 def select_long_term_memories(
-    history_root: str | Path = Path("chat_history/rinne_01"),
+    history_root: str | Path | None = None,
 ) -> LongTermMemorySelection:
     """Select all available memories without overlapping date coverage.
 
@@ -212,7 +214,7 @@ def select_long_term_memories(
     weekly memory.
     """
 
-    root = Path(history_root)
+    root = resolve_character_history_root(history_root)
     diagnostics = LongTermArchiveDiagnostics()
     monthlies = _scan_monthlies(root / "monthly", diagnostics)
     all_weeklies = _scan_weeklies(root / "weekly", diagnostics)

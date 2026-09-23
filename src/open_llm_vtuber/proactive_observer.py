@@ -50,7 +50,7 @@ class ProactiveObserver:
                     with open(screen_text_file, "r", encoding="utf-8") as f:
                         data = json.load(f)
                     return data
-                except (OSError, json.JSONDecodeError):
+                except (OSError, UnicodeError, ValueError):
                     pass
             time.sleep(0.2)
         return None
@@ -76,7 +76,7 @@ class ProactiveObserver:
 """
 
         prompt += """
-请根据用户的人设和性格，判断你是否应该主动说一句话。
+请根据当前情境和已知的用户偏好，判断你是否应该主动说一句话。
 
 请以JSON格式回复：
 {{
@@ -95,7 +95,7 @@ class ProactiveObserver:
                 messages=[
                     {"role": "user", "content": prompt}
                 ],
-system="你是园神凛祢(そのがみりんね)，正在陪伴用户，具有桌面主动观察能力和长期记忆。",
+                system="你是园神凛祢(そのがみりんね)，正在陪伴用户，具有桌面主动观察能力和长期记忆。",
                 tools=None
             )
             full_text = ""

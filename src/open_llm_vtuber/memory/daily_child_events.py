@@ -3,7 +3,7 @@
 This module is deliberately separate from the live conversation pipeline.  The
 backend may launch it after yesterday's diary is available, but event results
 are not injected into chat.  A date is published only after strict validation;
-failures remain in the local run directory for a later retry.
+failures remain in the private G:\\tmp run directory for a later retry.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterator
 
 from ..config_manager.daily_child_event import DailyChildEventGenerationConfig
+from ..data_paths import resolve_character_history_root
 from .daily_child_event_providers import (
     DailyChildEventGenerationResult,
     default_daily_child_event_settings,
@@ -38,7 +39,7 @@ MOJIBAKE_EVENT_DIRECTORY_NAME = "\u6d5c\u5b29\u6b22TXT"
 MANIFEST_FILENAME = "\u53d1\u5e03\u6e05\u5355.json"
 PROMPT_VERSION = "v2.3-neutral"
 SCHEMA_VERSION = 2
-DEFAULT_WORK_ROOT = Path(r".\rinne_daily_child_event_pipeline")
+DEFAULT_WORK_ROOT = Path(r"G:\tmp\rinne_daily_child_event_pipeline")
 PROMPT_ROOT = Path(__file__).with_name("prompts")
 SYSTEM_PROMPT_PATH = PROMPT_ROOT / "child_event_system_v23.txt"
 TASK_PROMPT_PATH = PROMPT_ROOT / "child_event_task_v23.txt"
@@ -295,7 +296,11 @@ def _safe_title(title: str) -> str:
     return cleaned
 
 
-def _render_event(memory_day: str, item: dict[str, str]) -> str:
+def _render_event(
+    memory_day: str,
+    item: dict[str, str],
+    diary_path: Path,
+) -> str:
     label_date = date.fromisoformat(memory_day)
     date_label = f"{label_date.year}年{label_date.month}月{label_date.day}日"
     return "\n".join(
@@ -307,7 +312,7 @@ def _render_event(memory_day: str, item: dict[str, str]) -> str:
             item["description"],
             "",
             "来源：",
-            f"日记：chat_history/rinne_01/diaries/diary_{memory_day}.txt",
+            f"日记：{diary_path}",
             "",
         ]
     )
@@ -317,6 +322,7 @@ def _render_review(
     memory_day: str,
     normalized: dict[str, Any],
     elapsed_seconds: float,
+    diary_path: Path,
     generation_metadata: dict[str, Any] | None = None,
 ) -> str:
     label_date = date.fromisoformat(memory_day)
@@ -334,7 +340,7 @@ def _render_review(
         "",
         f"- 模型接口：{provider}",
         f"- 模型：{model}",
-        f"- 日记：chat_history/rinne_01/diaries/diary_{memory_day}.txt",
+        f"- 日记：{diary_path}",
         f"- 语义调用耗时：{elapsed_seconds:.3f} 秒",
         f"- 记忆数量：{len(normalized['memories'])}",
         "- 程序状态：parsed",
@@ -433,14 +439,18 @@ def _stage_publication(
             raise ValidationError(f"event_filename_collision:{filename}")
         seen_names.add(filename)
         path = event_dir / filename
-        _write_text(path, _render_event(memory_day, item))
+        _write_text(path, _render_event(memory_day, item, diary_path))
         event_files.append({"name": filename, "sha256": sha256_file(path)})
         child_ids.append(f"{memory_day}_{index}")
     review_path = staging / f"审阅_{memory_day}.md"
     _write_text(
         review_path,
         _render_review(
-            memory_day, normalized, elapsed_seconds, generation_metadata
+            memory_day,
+            normalized,
+            elapsed_seconds,
+            diary_path,
+            generation_metadata,
         ),
     )
     metadata = generation_metadata or {
@@ -527,12 +537,12 @@ def _coerce_generation_result(
 
 def daily_child_event_publication_status(
     memory_day: str,
-    history_root: str | Path = Path("chat_history/rinne_01"),
+    history_root: str | Path | None = None,
 ) -> str:
     """Classify an existing publication without starting the local model."""
 
     date.fromisoformat(memory_day)
-    history = Path(history_root).resolve()
+    history = resolve_character_history_root(history_root).resolve()
     target = history / "events" / "child_events" / memory_day
     if not target.exists():
         return "missing"
@@ -551,7 +561,7 @@ def daily_child_event_publication_status(
 
 def is_daily_child_event_published(
     memory_day: str,
-    history_root: str | Path = Path("chat_history/rinne_01"),
+    history_root: str | Path | None = None,
 ) -> bool:
     """Return whether this diary revision already has a complete publication."""
 
@@ -560,7 +570,7 @@ def is_daily_child_event_published(
 
 def run_daily_child_event(
     memory_day: str,
-    history_root: str | Path = Path("chat_history/rinne_01"),
+    history_root: str | Path | None = None,
     work_root: str | Path = DEFAULT_WORK_ROOT,
     generator: Generator | None = None,
     generation_settings: DailyChildEventGenerationConfig | None = None,
@@ -568,7 +578,7 @@ def run_daily_child_event(
     """Generate yesterday's events and atomically publish one complete date."""
 
     date.fromisoformat(memory_day)
-    history = Path(history_root).resolve()
+    history = resolve_character_history_root(history_root).resolve()
     work = Path(work_root).resolve()
     diary_path = history / "diaries" / f"diary_{memory_day}.txt"
     if not diary_path.is_file() or diary_path.stat().st_size == 0:
@@ -668,14 +678,14 @@ def run_daily_child_event(
 
 def launch_daily_child_event_worker(
     memory_day: date,
-    history_root: str | Path = Path("chat_history/rinne_01"),
+    history_root: str | Path | None = None,
     work_root: str | Path = DEFAULT_WORK_ROOT,
     config_path: str | Path = "conf.yaml",
 ) -> ChildEventWorkerLaunch:
     """Start the daily worker without blocking backend startup."""
 
     repository_root = Path(__file__).resolve().parents[3]
-    history = Path(history_root).resolve()
+    history = resolve_character_history_root(history_root).resolve()
     work = Path(work_root).resolve()
     launcher_log = work / "launcher.log"
     launcher_log.parent.mkdir(parents=True, exist_ok=True)
@@ -801,7 +811,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Daily configured-LLM child-event worker"
     )
-    parser.add_argument("--history-root", default="chat_history/rinne_01")
+    parser.add_argument("--history-root")
     parser.add_argument("--work-root", default=str(DEFAULT_WORK_ROOT))
     parser.add_argument("--config-path", default="conf.yaml")
     parser.add_argument("--result-path")
@@ -814,7 +824,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     arguments = _build_parser().parse_args(argv)
-    history = Path(arguments.history_root)
+    history = resolve_character_history_root(arguments.history_root)
     work = Path(arguments.work_root)
     result_path = Path(arguments.result_path) if arguments.result_path else None
     try:

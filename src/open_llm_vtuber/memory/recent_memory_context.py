@@ -1,4 +1,4 @@
-"""Stable hidden context for the current memory day and recent reviewed notes."""
+"""Stable hidden context for reviewed compactions of recent memory days."""
 
 from __future__ import annotations
 
@@ -7,31 +7,31 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+from .diary_review import diary_approval_status
+from .recent_diary_compaction import (
+    load_matching_compaction,
+    publication_paths,
+)
 from .today_history_loader import TodayHistoryLoader
 
 
 _DIARY_FILE = re.compile(r"^diary_(\d{4}-\d{2}-\d{2})\.txt$")
-_WEEKLY_FILE = re.compile(
-    r"^weekly_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})\.txt$"
-)
-_WEEKDAYS = (
-    "星期一",
-    "星期二",
-    "星期三",
-    "星期四",
-    "星期五",
-    "星期六",
-    "星期日",
-)
 _MAX_NOTE_BYTES = 2 * 1024 * 1024
+_RELATIVE_LABELS = {1: "昨天", 2: "前天", 3: "大前天"}
 
 
 RECENT_MEMORY_USAGE_RULES = (
-    "以下内容是最近生活记忆，只供你在内部理解当前对话。"
-    "优先用它理解用户提到的今天、昨天、前天、昨晚、上周和近期状态。"
+    "以下内容是昨天、前天和大前天的已验收日记压缩版，只供你在内部理解当前对话。"
+    "标题中的相对日期均以当前03:00分界的记忆日为基准。今天只能依据当前对话"
+    "与今天的原始聊天；本上下文不包含今天的日记，绝不能把这三天的事情说成今天发生。"
+    "如果用户询问这三天内的具体细节，而压缩版没有直接给出答案，先静默调用"
+    "search_recent_diary_detail核对对应日记原文，不要调用长期记忆。"
     "除非用户明确要求时间线、总结或完整回复，否则不要复述检索结果中包含的日期信息。"
     "如果用户直接询问具体日期或时间，可以直接回答该问题。"
     "不要提及隐藏上下文、文件、检索、排名或系统处理过程。"
+    "除非用户明确询问记忆系统或项目实现，否则不要主动提及记忆层级、提示词、"
+    "工具、模型、API或后台等幕后实现。近期记忆里的这些表述只用于理解当时处境，"
+    "不能自动当作当前系统状态复述。"
 )
 
 
@@ -51,9 +51,16 @@ class RecentMemoryContextResult:
     window_end: date
     context: str = ""
     diary_entries: list[RecentMemoryEntry] = field(default_factory=list)
+    # Kept as an explicit empty field for diagnostics/API compatibility.  The
+    # always-on recent context intentionally never loads weekly summaries.
     weekly_entries: list[RecentMemoryEntry] = field(default_factory=list)
     covered_diary_files: list[str] = field(default_factory=list)
+    compacted_diary_files: list[str] = field(default_factory=list)
+    full_diary_files: list[str] = field(default_factory=list)
+    missing_diary_dates: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    source_diary_character_count: int = 0
+    delivered_diary_character_count: int = 0
 
     @property
     def character_count(self) -> int:
@@ -85,11 +92,14 @@ def _scan_diaries(
     start: date,
     end: date,
     warnings: list[str],
-) -> list[RecentMemoryEntry]:
+    compacted_diary_files: list[str],
+    full_diary_files: list[str],
+) -> tuple[list[RecentMemoryEntry], int]:
     directory = history_root / "diaries"
     if not directory.is_dir():
-        return []
+        return [], 0
     entries: list[RecentMemoryEntry] = []
+    source_character_count = 0
     for path in sorted(directory.glob("diary_*.txt")):
         match = _DIARY_FILE.fullmatch(path.name)
         if not match:
@@ -100,79 +110,70 @@ def _scan_diaries(
             continue
         if not start <= memory_date <= end:
             continue
+        approval_status = diary_approval_status(
+            history_root,
+            memory_date.isoformat(),
+            path,
+        )
+        if approval_status not in {"approved", "changed"}:
+            warnings.append(
+                f"跳过未验收日记 {path.name}（状态：{approval_status}）"
+            )
+            continue
+        if approval_status == "changed":
+            warnings.append(
+                f"日记 {path.name} 在验收后发生修改，按当前内容读取；请谨慎复核"
+            )
         content = _read_note(path, directory, warnings)
         if content:
+            source_character_count += len(content)
+            compaction = load_matching_compaction(
+                history_root,
+                path,
+                memory_date.isoformat(),
+            )
+            source_kind = "diary"
+            if compaction is not None:
+                _title, separator, compact_body = compaction.summary.partition("\n")
+                content = compact_body if separator else compaction.summary
+                source_kind = "recent_diary_context"
+                compacted_diary_files.append(path.name)
+            else:
+                summary_path, manifest_path = publication_paths(
+                    history_root, memory_date.isoformat()
+                )
+                if summary_path.exists() or manifest_path.exists():
+                    warnings.append(
+                        f"近期压缩版与当前日记不匹配，跳过常驻注入：{path.name}"
+                    )
+                else:
+                    warnings.append(
+                        f"近期日记没有已发布压缩版，跳过常驻注入：{path.name}"
+                    )
+                continue
             entries.append(
                 RecentMemoryEntry(
-                    source_kind="diary",
+                    source_kind=source_kind,
                     source_file=path.name,
                     period_start=memory_date,
                     period_end=memory_date,
                     content=content,
                 )
             )
-    return entries
-
-
-def _scan_weeklies(
-    history_root: Path,
-    start: date,
-    end: date,
-    warnings: list[str],
-) -> list[RecentMemoryEntry]:
-    directory = history_root / "weekly"
-    if not directory.is_dir():
-        return []
-    entries: list[RecentMemoryEntry] = []
-    for path in sorted(directory.glob("weekly_*.txt")):
-        match = _WEEKLY_FILE.fullmatch(path.name)
-        if not match:
-            continue
-        try:
-            period_start = date.fromisoformat(match.group(1))
-            period_end = date.fromisoformat(match.group(2))
-        except ValueError:
-            continue
-        if period_start < start or period_end > end:
-            continue
-        content = _read_note(path, directory, warnings)
-        if content:
-            entries.append(
-                RecentMemoryEntry(
-                    source_kind="weekly",
-                    source_file=path.name,
-                    period_start=period_start,
-                    period_end=period_end,
-                    content=content,
-                )
-            )
-    return entries
+    return entries, source_character_count
 
 
 def _format_context(result: RecentMemoryContextResult) -> str:
     sections = [
-        "【最近14天已验收记忆】",
+        "【近三日已验收日记压缩版】",
         RECENT_MEMORY_USAGE_RULES,
-        (
-            f"当前记忆日：{result.memory_day.isoformat()}，"
-            f"近期窗口：{result.window_start.isoformat()}至"
-            f"{result.window_end.isoformat()}。"
-        ),
+        f"当前记忆日：{result.memory_day.isoformat()}（本地03:00分界）。",
     ]
     for entry in result.diary_entries:
-        weekday = _WEEKDAYS[entry.period_start.weekday()]
+        relative_day = (result.memory_day - entry.period_start).days
+        label = _RELATIVE_LABELS.get(relative_day, f"{relative_day}天前")
         sections.append(
-            f"【近期日记｜{entry.period_start.isoformat()}｜{weekday}】\n"
-            f"{entry.content}"
-        )
-    for entry in result.weekly_entries:
-        start_weekday = _WEEKDAYS[entry.period_start.weekday()]
-        end_weekday = _WEEKDAYS[entry.period_end.weekday()]
-        sections.append(
-            "【近期周记｜"
-            f"{entry.period_start.isoformat()} {start_weekday} 至 "
-            f"{entry.period_end.isoformat()} {end_weekday}】\n"
-            f"{entry.content}"
+            f"【{label}的日记压缩版】\n{entry.content}"
         )
     return "\n\n".join(sections)
 
@@ -180,10 +181,17 @@ def _format_context(result: RecentMemoryContextResult) -> str:
 def load_recent_memory_context(
     history_root: str | Path,
     *,
-    days: int = 14,
+    days: int = 3,
     reference_time: datetime | None = None,
 ) -> RecentMemoryContextResult:
-    """Load reviewed diaries and fully-contained weeklies for a rolling window."""
+    """Load hash-bound diary compactions for prior complete memory days.
+
+    The current memory day is deliberately excluded.  Weekly and monthly
+    summaries remain available to the on-demand long-term retrieval service.
+    A missing or stale compaction is skipped rather than silently replaced by
+    a full diary; the original is available only through the silent recent
+    detail tool.
+    """
 
     if not 1 <= days <= 31:
         raise ValueError("days must be between 1 and 31")
@@ -191,22 +199,33 @@ def load_recent_memory_context(
     memory_day, _window_start, _window_end = TodayHistoryLoader(
         root
     ).memory_day_window(reference_time)
-    start = memory_day - timedelta(days=days - 1)
+    start = memory_day - timedelta(days=days)
+    end = memory_day - timedelta(days=1)
     result = RecentMemoryContextResult(
         memory_day=memory_day,
         window_start=start,
-        window_end=memory_day,
+        window_end=end,
     )
-    result.weekly_entries = _scan_weeklies(root, start, memory_day, result.warnings)
-    diary_entries = _scan_diaries(root, start, memory_day, result.warnings)
-    for entry in diary_entries:
-        if any(
-            weekly.period_start <= entry.period_start <= weekly.period_end
-            for weekly in result.weekly_entries
-        ):
-            result.covered_diary_files.append(entry.source_file)
-        else:
-            result.diary_entries.append(entry)
+    (
+        result.diary_entries,
+        result.source_diary_character_count,
+    ) = _scan_diaries(
+        root,
+        start,
+        end,
+        result.warnings,
+        result.compacted_diary_files,
+        result.full_diary_files,
+    )
+    result.delivered_diary_character_count = sum(
+        len(entry.content) for entry in result.diary_entries
+    )
+    loaded_dates = {entry.period_start for entry in result.diary_entries}
+    result.missing_diary_dates = [
+        (start + timedelta(days=offset)).isoformat()
+        for offset in range(days)
+        if start + timedelta(days=offset) not in loaded_dates
+    ]
     result.context = _format_context(result)
     return result
 

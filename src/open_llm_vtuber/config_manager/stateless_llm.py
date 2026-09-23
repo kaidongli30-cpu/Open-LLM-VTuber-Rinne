@@ -69,16 +69,6 @@ class OpenAICompatibleConfig(StatelessLLMBaseConfig):
     organization_id: str | None = Field(None, alias="organization_id")
     project_id: str | None = Field(None, alias="project_id")
     temperature: float = Field(1.0, alias="temperature")
-    upstream_warning_seconds: float = Field(
-        30.0, ge=1.0, le=300.0, alias="upstream_warning_seconds"
-    )
-    upstream_first_data_timeout_seconds: float = Field(
-        90.0, ge=5.0, le=300.0, alias="upstream_first_data_timeout_seconds"
-    )
-    upstream_stream_idle_timeout_seconds: float = Field(
-        90.0, ge=5.0, le=300.0, alias="upstream_stream_idle_timeout_seconds"
-    )
-    upstream_max_attempts: int = Field(2, ge=1, le=2, alias="upstream_max_attempts")
 
     _OPENAI_COMPATIBLE_DESCRIPTIONS: ClassVar[dict[str, Description]] = {
         "base_url": Description(en="Base URL for the API endpoint", zh="API的URL端点"),
@@ -162,6 +152,17 @@ class GeminiConfig(OpenAICompatibleConfig):
 
     base_url: str = Field(
         "https://generativelanguage.googleapis.com/v1beta/openai/", alias="base_url"
+    )
+    native_base_url: str | None = Field(None, alias="native_base_url")
+    video_analysis_enabled: bool = Field(False, alias="video_analysis_enabled")
+    video_analysis_api_key_file: str | None = Field(
+        None, alias="video_analysis_api_key_file"
+    )
+    video_analysis_timeout_seconds: float = Field(
+        180.0, ge=10.0, le=900.0, alias="video_analysis_timeout_seconds"
+    )
+    video_analysis_max_output_tokens: int = Field(
+        4096, ge=512, le=32768, alias="video_analysis_max_output_tokens"
     )
     interrupt_method: Literal["system", "user"] = Field(
         "user", alias="interrupt_method"

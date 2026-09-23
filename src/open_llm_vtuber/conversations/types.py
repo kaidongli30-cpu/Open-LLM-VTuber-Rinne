@@ -1,5 +1,6 @@
 from typing import List, Dict, Callable, Optional, TypedDict, Awaitable, ClassVar
 from dataclasses import dataclass, field
+from enum import Enum
 from pydantic import BaseModel
 
 from ..agent.output_types import Actions, DisplayText
@@ -7,6 +8,13 @@ from ..agent.output_types import Actions, DisplayText
 # Type definitions
 WebSocketSend = Callable[[str], Awaitable[None]]
 BroadcastFunc = Callable[[List[str], dict, Optional[str]], Awaitable[None]]
+
+
+class ConversationOutputMode(str, Enum):
+    """Select how one conversation turn is delivered to a client."""
+
+    DESKTOP = "desktop"
+    TEXT_ONLY = "text_only"
 
 
 class AudioPayload(TypedDict):

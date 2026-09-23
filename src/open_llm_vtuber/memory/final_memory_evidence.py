@@ -51,16 +51,20 @@ class CloudEvidenceLimits:
     specific_event_limit: int = 6
     overview_event_limit: int = 20
     overview_summary_limit: int = 12
+    overview_total_character_limit: int = 8000
     content_character_limit: int = 500
     diary_content_character_limit: int = 5000
+    raw_chat_content_character_limit: int = 2400
 
     def __post_init__(self) -> None:
         if min(
             self.specific_event_limit,
             self.overview_event_limit,
             self.overview_summary_limit,
+            self.overview_total_character_limit,
             self.content_character_limit,
             self.diary_content_character_limit,
+            self.raw_chat_content_character_limit,
         ) <= 0:
             raise ValueError("evidence limits must be positive")
 
@@ -303,6 +307,94 @@ def _evidence_entry(
     }
 
 
+def _overview_fingerprint(content: str) -> tuple[str, set[str]]:
+    normalized = _normalize_anchor(content)
+    shingles = {
+        normalized[index : index + 3]
+        for index in range(max(0, len(normalized) - 2))
+    }
+    return normalized, shingles
+
+
+def _is_overview_duplicate(
+    normalized: str,
+    shingles: set[str],
+    selected: Sequence[tuple[str, set[str]]],
+) -> bool:
+    for existing_normalized, existing_shingles in selected:
+        if normalized == existing_normalized:
+            return True
+        if not shingles or not existing_shingles:
+            continue
+        intersection = len(shingles & existing_shingles)
+        union = len(shingles | existing_shingles)
+        shorter = min(len(shingles), len(existing_shingles))
+        if union and shorter and (
+            intersection / union >= 0.72
+            or (
+                intersection / shorter >= 0.9
+                and intersection / union >= 0.55
+            )
+        ):
+            return True
+    return False
+
+
+def _select_complementary_overview(
+    lines: Iterable[tuple[str, Sequence[MemoryCandidate], int]],
+    limits: CloudEvidenceLimits,
+) -> tuple[list[tuple[str, MemoryCandidate]], dict[str, int]]:
+    selected: list[tuple[str, MemoryCandidate]] = []
+    fingerprints: list[tuple[str, set[str]]] = []
+    seen_sources: set[tuple[str, str]] = set()
+    used_characters = 0
+    input_count = 0
+    dropped_duplicate = 0
+    dropped_budget = 0
+    bounded_lines = [
+        (line, list(candidates[:safety_limit]))
+        for line, candidates, safety_limit in lines
+    ]
+    maximum_line_length = max(
+        (len(candidates) for _, candidates in bounded_lines),
+        default=0,
+    )
+    for index in range(maximum_line_length):
+        for line, candidates in bounded_lines:
+            if index >= len(candidates):
+                continue
+            candidate = candidates[index]
+            input_count += 1
+            source_key = (candidate.source_kind, candidate.source_file)
+            compact = _compact_content(
+                candidate.snippet,
+                limits.content_character_limit,
+            )
+            normalized, shingles = _overview_fingerprint(compact)
+            if source_key in seen_sources or _is_overview_duplicate(
+                normalized,
+                shingles,
+                fingerprints,
+            ):
+                dropped_duplicate += 1
+                continue
+            if used_characters + len(compact) > limits.overview_total_character_limit:
+                dropped_budget += 1
+                continue
+            selected.append((line, candidate))
+            fingerprints.append((normalized, shingles))
+            seen_sources.add(source_key)
+            used_characters += len(compact)
+    return selected, {
+        "input_candidate_count": input_count,
+        "selected_candidate_count": len(selected),
+        "dropped_duplicate_count": dropped_duplicate,
+        "dropped_budget_count": dropped_budget,
+        "selected_content_characters": used_characters,
+        "content_character_budget": limits.overview_total_character_limit,
+    }
+
+
 def build_cloud_memory_payload(
     *,
     question: str = "",
@@ -310,6 +402,7 @@ def build_cloud_memory_payload(
     event_candidates: Sequence[MemoryCandidate],
     summary_candidates: Sequence[MemoryCandidate] = (),
     diary_candidates: Sequence[MemoryCandidate] = (),
+    raw_chat_candidates: Sequence[MemoryCandidate] = (),
     limits: CloudEvidenceLimits = CloudEvidenceLimits(),
     relevance_gate: EvidenceRelevanceGateConfig = EvidenceRelevanceGateConfig(),
 ) -> dict[str, Any]:
@@ -329,7 +422,10 @@ def build_cloud_memory_payload(
         raise ValueError("unsupported question granularity")
 
     original_candidate_count = (
-        len(event_candidates) + len(summary_candidates) + len(diary_candidates)
+        len(event_candidates)
+        + len(summary_candidates)
+        + len(diary_candidates)
+        + len(raw_chat_candidates)
     )
     required_anchors = extract_explicit_query_anchors(question)
     event_candidates = filter_low_relevance_candidates(
@@ -347,15 +443,38 @@ def build_cloud_memory_payload(
         relevance_gate,
         required_anchors=required_anchors,
     )
+    raw_chat_candidates = filter_low_relevance_candidates(
+        raw_chat_candidates,
+        relevance_gate,
+        required_anchors=required_anchors,
+    )
     retained_candidate_count = (
-        len(event_candidates) + len(summary_candidates) + len(diary_candidates)
+        len(event_candidates)
+        + len(summary_candidates)
+        + len(diary_candidates)
+        + len(raw_chat_candidates)
     )
     entries: list[dict[str, Any]] = []
+    overview_selection: dict[str, int] | None = None
     if question_granularity == "overview":
         selected_lines: Iterable[tuple[str, Sequence[MemoryCandidate], int]] = (
             ("child_events", event_candidates, limits.overview_event_limit),
             ("weekly_monthly", summary_candidates, limits.overview_summary_limit),
         )
+        selected_overview, overview_selection = _select_complementary_overview(
+            selected_lines,
+            limits,
+        )
+        for rank, (line, candidate) in enumerate(selected_overview, start=1):
+            entries.append(
+                _evidence_entry(
+                    candidate,
+                    rank=rank,
+                    retrieval_line=line,
+                    content_limit=limits.content_character_limit,
+                )
+            )
+        selected_lines = ()
     else:
         combined: list[tuple[str, MemoryCandidate]] = []
         seen_candidates: set[str] = set()
@@ -363,13 +482,13 @@ def build_cloud_memory_payload(
         condensed_diaries = _condense_candidates_by_source(diary_candidates)
         for line, items in (
             ("child_events", event_candidates),
+            ("raw_chat", raw_chat_candidates),
             ("bounded_diaries", condensed_diaries),
         ):
             for item in items:
                 source_key = (item.source_kind, item.source_file)
-                if (
-                    item.candidate_id in seen_candidates
-                    or source_key in seen_sources
+                if item.candidate_id in seen_candidates or (
+                    item.source_kind != "raw_chat" and source_key in seen_sources
                 ):
                     continue
                 seen_candidates.add(item.candidate_id)
@@ -388,7 +507,11 @@ def build_cloud_memory_payload(
                     content_limit=(
                         limits.diary_content_character_limit
                         if line == "bounded_diaries"
-                        else limits.content_character_limit
+                        else (
+                            limits.raw_chat_content_character_limit
+                            if line == "raw_chat"
+                            else limits.content_character_limit
+                        )
                     ),
                 )
             )
@@ -406,7 +529,7 @@ def build_cloud_memory_payload(
             )
 
     no_match = not entries
-    return {
+    payload = {
         "retrieval_status": "no_match" if no_match else "evidence_ready",
         "retrieval_notice": (
             "未找到相关记忆。请不要根据常识或无关候选猜测用户经历；"
@@ -430,6 +553,9 @@ def build_cloud_memory_payload(
         },
         "evidence": entries,
     }
+    if overview_selection is not None:
+        payload["overview_selection"] = overview_selection
+    return payload
 
 
 __all__ = [

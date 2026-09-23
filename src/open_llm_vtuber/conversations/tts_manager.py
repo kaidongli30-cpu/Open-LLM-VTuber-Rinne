@@ -11,6 +11,7 @@ from ..live2d_model import Live2dModel
 from ..tts.tts_interface import TTSInterface
 from ..utils.stream_audio import prepare_audio_payload
 from .types import WebSocketSend
+from ..privacy_logging import text_log_fields
 
 
 DEFAULT_TTS_REFERENCE = "__default__"
@@ -31,6 +32,11 @@ class TTSTaskManager:
         self._next_sequence_to_send = 0
         self._active_reference_emotion: Optional[str] = None
         self.start_response()
+
+    @property
+    def has_output(self) -> bool:
+        """Whether this turn queued speech or silent text/expression output."""
+        return self._sequence_counter > 0
 
     def start_response(self) -> None:
         """Reset reference inheritance at the start of an LLM response."""
@@ -80,12 +86,6 @@ class TTSTaskManager:
             else reference_emotion
         )
 
-        # 立即发送中文显示文本，确保聊天框显示中文
-        chinese_display_text = display_text.text
-        await websocket_send(
-            json.dumps({"type": "full-text", "text": chinese_display_text})
-        )
-
         if len(re.sub(r'[\s.,!?，。！？\'"』」）】\s]+', "", tts_text)) == 0:
             logger.debug("Empty TTS text, sending silent display payload")
             # Get current sequence number for silent payload
@@ -102,7 +102,9 @@ class TTSTaskManager:
             return
 
         logger.debug(
-            f"🏃Queuing TTS task for: '''{tts_text}''' (by {display_text.name})"
+            "Queuing TTS task: text={}, speaker_present={}",
+            text_log_fields(tts_text),
+            bool(display_text.name),
         )
 
         # Get current sequence number
@@ -219,7 +221,7 @@ class TTSTaskManager:
         reference_emotion: Optional[str] = None,
     ) -> str:
         """Generate audio file from text"""
-        logger.debug(f"🏃Generating audio for '''{text}'''...")
+        logger.debug("Generating audio: {}", text_log_fields(text))
         file_name_no_ext = (
             f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
         )

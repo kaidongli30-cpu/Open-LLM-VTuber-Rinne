@@ -13,7 +13,10 @@ from .daily_child_event import (
     DailyChildEventGenerationConfig,
     DailyChildEventProvider,
 )
-from .layer2_memory import Layer2MemoryGenerationConfig, Layer2ProviderConfigName
+from .layer2_memory import (
+    Layer2MemoryGenerationConfig,
+    Layer2ProviderConfigName,
+)
 from .live import LiveConfig, BiliBiliLiveConfig
 from .stateless_llm_models import (
     OpenAICompatibleConfig,
@@ -29,7 +32,6 @@ from .asr import (
     FunASRConfig,
     SherpaOnnxASRConfig,
     GroqWhisperASRConfig,
-    Qwen3ASRConfig,
 )
 from .tts import (
     TTSConfig,
@@ -105,7 +107,6 @@ __all__ = [
     "FunASRConfig",
     "SherpaOnnxASRConfig",
     "GroqWhisperASRConfig",
-    "Qwen3ASRConfig",
     # TTS related classes
     "TTSConfig",
     "AzureTTSConfig",

@@ -78,6 +78,46 @@ def load_matching_approval(
     return value
 
 
+def diary_approval_status(
+    history_root: str | Path,
+    memory_day: str,
+    diary_path: str | Path,
+) -> str:
+    """Classify a diary for downstream memory readers.
+
+    ``approved`` means the durable marker still matches the current bytes.
+    ``changed`` means a human-approved diary was edited later: it remains
+    readable, but callers should warn because its bytes no longer match the
+    original review.  A never-reviewed diary is not a memory source.
+    """
+
+    date.fromisoformat(memory_day)
+    diary = Path(diary_path)
+    marker = approval_path(history_root, memory_day)
+    if not diary.is_file() or diary.stat().st_size == 0:
+        return "missing"
+    if not marker.is_file():
+        return "unapproved"
+    try:
+        value = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return "invalid"
+    if not isinstance(value, dict):
+        return "invalid"
+    expected_identity = {
+        "status": "approved",
+        "schema_version": APPROVAL_SCHEMA_VERSION,
+        "memory_day": memory_day,
+        "diary_file": diary.name,
+    }
+    if any(value.get(key) != expected for key, expected in expected_identity.items()):
+        return "invalid"
+    recorded_hash = value.get("diary_sha256")
+    if not isinstance(recorded_hash, str) or not recorded_hash:
+        return "invalid"
+    return "approved" if recorded_hash == sha256_file(diary) else "changed"
+
+
 def wait_for_diary_approval(
     history_root: str | Path,
     memory_day: str,
@@ -88,13 +128,22 @@ def wait_for_diary_approval(
     """Block until the user approves the diary version currently on disk.
 
     A matching durable marker skips the prompt on later backend starts. If the
-    diary changes after approval, its hash no longer matches and review is
-    required again.
+    user edits an already-approved diary later, keep using the edited bytes and
+    return a warning instead of silently blocking or rebuilding downstream data.
     """
 
     date.fromisoformat(memory_day)
     diary = Path(diary_path).resolve()
     history = Path(history_root).resolve()
+    status = diary_approval_status(history, memory_day, diary)
+    if status == "changed":
+        return {
+            "status": "changed_after_approval",
+            "memory_day": memory_day,
+            "diary_sha256": sha256_file(diary),
+            "approval_path": str(approval_path(history, memory_day)),
+            "warning": "diary_changed_after_approval",
+        }
     existing = load_matching_approval(history, memory_day, diary)
     if existing is not None:
         return {
@@ -110,7 +159,8 @@ def wait_for_diary_approval(
     prompt = (
         "\n日记已生成，等待人工验收……\n"
         f"文件：{diary}\n"
-        "请检查或修改完成后，在当前终端输入 approve 并回车。\n"
+        "请仔细检查，必要时先修改；确认无误后，在当前终端输入 approve 并回车。\n"
+        "一次 approve 后不建议再改动这份日记，因为后续记忆会以这次验收为依据。\n"
         "如需停止本次启动，请输入 abort："
     )
     while True:

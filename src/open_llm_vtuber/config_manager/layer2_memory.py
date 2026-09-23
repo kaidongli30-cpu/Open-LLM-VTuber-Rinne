@@ -26,7 +26,7 @@ class Layer2MemoryGenerationConfig(I18nMixin, BaseModel):
     provider_config_name: Layer2ProviderConfigName = Field(
         "deepseek_llm", alias="provider_config_name"
     )
-    model: str = Field("deepseek-chat", alias="model")
+    model: str = Field("deepseek-v4-pro", alias="model")
     reasoning_effort: Literal["low", "high", "max"] = Field(
         "high", alias="reasoning_effort"
     )

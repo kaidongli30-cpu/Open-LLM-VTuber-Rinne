@@ -3,6 +3,7 @@ import os
 import azure.cognitiveservices.speech as speechsdk
 from loguru import logger
 from .tts_interface import TTSInterface
+from ..privacy_logging import text_log_fields
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
@@ -87,13 +88,13 @@ class TTSEngine(TTSInterface):
         # check if the text is empty or not a string
         if not isinstance(text, str):
             logger.warning("AzureTTS: The text cannot be non-string.")
-            logger.warning(f"Received type: {type(text)} and value: {text}")
+            logger.warning("Received unsupported type: {}", type(text).__name__)
             return
         text = text.strip()
 
         if text.strip() == "":
             logger.warning("AzureTTS: There is no text to speak.")
-            logger.info(f"Received text: {text}")
+            logger.info("Received empty text: {}", text_log_fields(text))
             return
 
         # Wrap the text with SSML to adjust pitch and rate
@@ -121,7 +122,7 @@ class TTSEngine(TTSInterface):
         ):
             if on_speak_end_callback is not None:
                 on_speak_end_callback()
-            logger.info(f">> Speech synthesized for text [{text}]")
+            logger.info("Speech synthesized: {}", text_log_fields(text))
         elif speech_synthesis_result.reason == speechsdk.ResultReason.Canceled:
             cancellation_details = speech_synthesis_result.cancellation_details
             logger.info(f"Speech synthesis canceled: {cancellation_details.reason}")

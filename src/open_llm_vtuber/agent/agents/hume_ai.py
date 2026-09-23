@@ -10,6 +10,7 @@ from .agent_interface import AgentInterface
 from ..output_types import AudioOutput, Actions, DisplayText
 from ..input_types import BatchInput
 from ...chat_history_manager import get_metadata, update_metadate
+from ...privacy_logging import mapping_log_fields
 
 
 class HumeAIAgent(AgentInterface):
@@ -72,11 +73,11 @@ class HumeAIAgent(AgentInterface):
             socket_url += f"&config_id={self.config_id}"
 
         if resume_chat_group_id:
-            logger.info(f"Resuming chat group: {resume_chat_group_id}")
+            logger.info("Resuming chat group: id_present={}", bool(resume_chat_group_id))
             socket_url += f"&resumed_chat_group_id={resume_chat_group_id}"
             self._chat_group_id = resume_chat_group_id
 
-        logger.info(f"Connecting to EVI with config_id: {self.config_id}")
+        logger.info("Connecting to EVI: config_id_present={}", bool(self.config_id))
 
         self._ws = await websockets.connect(socket_url)
         self._connected = True
@@ -144,7 +145,7 @@ class HumeAIAgent(AgentInterface):
         resume_id = metadata.get("resume_id")
         if resume_id:
             self._chat_group_id = resume_id
-            logger.info(f"Using resume_id from metadata: {resume_id}")
+            logger.info("Using resume_id from metadata: id_present={}", bool(resume_id))
         else:
             self._chat_group_id = None
             logger.info("No resume_id found in metadata, will create new chat group")
@@ -185,7 +186,7 @@ class HumeAIAgent(AgentInterface):
 
             async for message in self._ws:
                 self._reset_idle_timer()
-                logger.debug(f"Received message: {message}")
+                logger.debug("Received message: {}", mapping_log_fields(message))
                 try:
                     response_data = json.loads(message)
                     msg_type = response_data.get("type")
@@ -219,7 +220,9 @@ class HumeAIAgent(AgentInterface):
                         break
 
                     elif msg_type == "tool_error_message":
-                        logger.error(f"Tool error: {response_data.get('error')}")
+                        logger.error(
+                            "Tool error response: {}", mapping_log_fields(response_data)
+                        )
 
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse response JSON: {e}")

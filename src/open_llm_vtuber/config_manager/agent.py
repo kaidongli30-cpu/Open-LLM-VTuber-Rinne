@@ -11,6 +11,54 @@ from .stateless_llm_models import StatelessLLMConfigs
 # ======== Configurations for different Agents ========
 
 
+class LongTermMemoryRetrievalConfig(I18nMixin, BaseModel):
+    """Configuration for recent context and cloud-requested long-term recall."""
+
+    enabled: bool = Field(False, alias="enabled")
+    recent_memory_days: int = Field(3, ge=1, le=31, alias="recent_memory_days")
+    top_k: int = Field(10, alias="top_k")
+    embedding_model: str = Field("BAAI/bge-base-zh-v1.5", alias="embedding_model")
+    reranker_model: str = Field("BAAI/bge-reranker-base", alias="reranker_model")
+    model_cache_dir: Optional[str] = Field(None, alias="model_cache_dir")
+    embedding_device: Literal["auto", "cpu", "cuda"] = Field(
+        "cpu", alias="embedding_device"
+    )
+    reranker_device: Literal["auto", "cpu", "cuda"] = Field(
+        "cpu", alias="reranker_device"
+    )
+    reranker_batch_size: int = Field(8, alias="reranker_batch_size")
+    max_retrieval_seconds: float = Field(
+        30.0, ge=1.0, le=300.0, alias="max_retrieval_seconds"
+    )
+    legacy_archive_fallback_on_error: bool = Field(
+        True, alias="legacy_archive_fallback_on_error"
+    )
+    trial_logging: bool = Field(True, alias="trial_logging")
+
+    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
+        "enabled": Description(
+            en="Expose recent context and an on-demand memory tool to cloud replies",
+            zh="向云端提供近期上下文和按需长期记忆工具",
+        ),
+        "recent_memory_days": Description(
+            en="Number of previous complete memory days of reviewed diary compactions",
+            zh="仅常驻加载当前记忆日前若干日的已验收日记压缩版（不含今天、周记和月记）",
+        ),
+        "max_retrieval_seconds": Description(
+            en="Maximum total wait for long-term retrieval in one turn",
+            zh="单轮长期记忆检索允许等待的总秒数",
+        ),
+        "legacy_archive_fallback_on_error": Description(
+            en="Temporarily inject the legacy archive only when retrieval is unavailable",
+            zh="仅在检索不可用时临时注入旧归档",
+        ),
+        "trial_logging": Description(
+            en="Write private per-turn trial diagnostics under the configured chat history root",
+            zh="在已配置的聊天记录根目录下写入私有逐轮试用日志",
+        ),
+    }
+
+
 class BasicMemoryAgentConfig(I18nMixin, BaseModel):
     """Configuration for the basic memory agent."""
 
@@ -33,6 +81,12 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
     segment_method: Literal["regex", "pysbd"] = Field("pysbd", alias="segment_method")
     use_mcpp: Optional[bool] = Field(False, alias="use_mcpp")
     mcp_enabled_servers: Optional[List[str]] = Field([], alias="mcp_enabled_servers")
+    scene_memory_enabled: bool = Field(False, alias="scene_memory_enabled")
+    bocha_api_key: str = Field("", alias="bocha_api_key", repr=False)
+    long_term_memory_retrieval: LongTermMemoryRetrievalConfig = Field(
+        default_factory=LongTermMemoryRetrievalConfig,
+        alias="long_term_memory_retrieval",
+    )
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "llm_provider": Description(
@@ -54,6 +108,18 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
         "mcp_enabled_servers": Description(
             en="List of MCP servers to enable for the agent",
             zh="为智能体启用 MCP 服务器列表",
+        ),
+        "scene_memory_enabled": Description(
+            en="Keep one shared current-scene snapshot across desktop and private QQ",
+            zh="在电脑端和私人QQ之间维护一份共享的当前场景快照",
+        ),
+        "bocha_api_key": Description(
+            en="Private persistent Bocha Web Search API key; BOCHA_API_KEY overrides it",
+            zh="私有持久化博查搜索密钥；BOCHA_API_KEY 环境变量可覆盖它",
+        ),
+        "long_term_memory_retrieval": Description(
+            en="Live long-term-memory retrieval settings",
+            zh="实时长期记忆检索设置",
         ),
     }
 
@@ -197,7 +263,10 @@ class AgentSettings(I18nMixin, BaseModel):
 
 
 class MediaAnalysisConfig(I18nMixin, BaseModel):
-    """Isolated Gemini-native observer used only for video analysis."""
+    """Gemini-native observer used for video analysis.
+
+    Static images are sent directly to the configured dialogue model.
+    """
 
     enabled: bool = Field(False, alias="enabled")
     provider: Literal["gemini_native"] = Field("gemini_native", alias="provider")
@@ -215,15 +284,18 @@ class MediaAnalysisConfig(I18nMixin, BaseModel):
     video_segment_seconds: float = Field(
         45.0, ge=5.0, le=45.0, alias="video_segment_seconds"
     )
+    max_concurrent_requests: int = Field(
+        1, ge=1, le=8, alias="max_concurrent_requests"
+    )
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "enabled": Description(
-            en="Enable the isolated video observer",
-            zh="启用隔离的视频观察模块",
+            en="Enable the video observer",
+            zh="启用视频观察模块",
         ),
         "provider": Description(
-            en="Native video-observer protocol",
-            zh="视频观察模块使用的原生协议",
+            en="Native media-observer protocol",
+            zh="媒体观察模块使用的原生协议",
         ),
         "base_url": Description(
             en="Gemini-native provider base URL",
@@ -260,8 +332,8 @@ class AgentConfig(I18nMixin, BaseModel):
             en="Settings for different agent types", zh="不同代理类型的设置"
         ),
         "media_analysis": Description(
-            en="Isolated video observer configuration",
-            zh="隔离的视频观察配置",
+            en="Video observer configuration",
+            zh="视频观察配置",
         ),
         "llm_configs": Description(
             en="Pool of LLM provider configurations", zh="语言模型提供者配置池"

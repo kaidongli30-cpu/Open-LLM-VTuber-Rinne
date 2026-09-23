@@ -48,7 +48,7 @@ def read_yaml(config_path: str) -> Dict[str, Any]:
     try:
         return yaml.safe_load(content)
     except yaml.YAMLError as e:
-        logger.critical(f"Error parsing YAML file: {e}")
+        logger.critical("Error parsing YAML file: {}", type(e).__name__)
         raise e
 
 
@@ -68,9 +68,10 @@ def validate_config(config_data: dict) -> Config:
     try:
         return Config(**config_data)
     except ValidationError as e:
-        locations = [".".join(map(str, item["loc"])) for item in e.errors(include_input=False)]
-        logger.critical("Configuration validation failed at: {}", ", ".join(locations))
-        raise ValueError("Configuration validation failed at: " + ", ".join(locations)) from None
+        logger.critical(
+            "Error validating configuration: error_count={}", e.error_count()
+        )
+        raise e
 
 
 def load_text_file_with_guess_encoding(file_path: str) -> str | None:

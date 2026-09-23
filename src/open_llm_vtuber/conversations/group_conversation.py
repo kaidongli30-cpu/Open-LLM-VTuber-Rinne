@@ -23,6 +23,7 @@ from .types import (
 )
 from ..service_context import ServiceContext
 from ..chat_history_manager import store_message
+from ..privacy_logging import mapping_log_fields
 from ..video_analysis import analyze_video_attachments, settings_from_character_config
 from .tts_manager import TTSTaskManager
 from .tool_call_feedback import ToolCallFeedbackManager
@@ -89,15 +90,16 @@ async def process_group_conversation(
             broadcast_func=broadcast_func,
             group_members=group_members,
             initiator_client_uid=initiator_client_uid,
+            attachments=attachments,
         )
         metadata = dict(metadata or {})
+        media_settings = settings_from_character_config(
+            initiator_context.character_config
+        )
         if any(item.get("kind") == "video" for item in attachments or []):
-            video_settings = settings_from_character_config(
-                initiator_context.character_config
-            )
             video_context, video_diagnostics = await analyze_video_attachments(
                 attachments or [],
-                video_settings,
+                media_settings,
                 user_input=input_text,
             )
             metadata["video_analysis_context"] = video_context
@@ -206,13 +208,21 @@ async def process_group_input(
     broadcast_func: BroadcastFunc,
     group_members: List[str],
     initiator_client_uid: str,
+    attachments: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """Process and broadcast user input to group"""
     input_text = await process_user_input(
-        user_input, initiator_context.asr_engine, initiator_ws_send
+        user_input,
+        initiator_context.asr_engine,
+        initiator_ws_send,
+        attachments,
     )
     await broadcast_transcription(
-        broadcast_func, group_members, input_text, initiator_client_uid
+        broadcast_func,
+        group_members,
+        input_text,
+        initiator_client_uid,
+        attachments,
     )
     return input_text
 
@@ -222,6 +232,7 @@ async def broadcast_transcription(
     group_members: List[str],
     text: str,
     exclude_uid: str,
+    attachments: Optional[List[Dict[str, Any]]] = None,
 ) -> None:
     """Broadcast transcription to group members"""
     await broadcast_func(
@@ -229,6 +240,7 @@ async def broadcast_transcription(
         {
             "type": "user-input-transcription",
             "text": text,
+            **({"attachments": attachments} if attachments else {}),
         },
         exclude_uid,
     )
@@ -302,7 +314,7 @@ async def handle_group_member_turn(
     if full_response:
         ai_message = f"{context.character_config.character_name}: {full_response}"
         state.conversation_history.append(ai_message)
-        logger.info(f"Appended complete response: {ai_message}")
+        logger.info("Appended complete group response: chars={}", len(ai_message))
 
         for member_uid in group_members:
             member_context = client_contexts[member_uid]
@@ -385,7 +397,10 @@ async def process_member_response(
             ):
                 await tool_feedback_manager.handle_tool_status(output_item)
                 if broadcast_func and group_members:
-                    logger.debug(f"Broadcasting tool status update: {output_item}")
+                    logger.debug(
+                        "Broadcasting tool status update: {}",
+                        mapping_log_fields(output_item),
+                    )
                     output_item["name"] = context.character_config.character_name
                     await broadcast_func(group_members, output_item)
                 else:

@@ -1561,15 +1561,9 @@ def run_daily_layer2_update(
     if existing_status == "invalid":
         raise Layer2RuntimeError("current_layer2_publication_invalid")
     loaded = load_layer2_publication(history)
-    first_publication = loaded.diagnostics.get("status") == "missing"
-    if first_publication:
-        previous = delta_runner._empty_background(current_day - timedelta(days=1))
-    elif loaded.diagnostics.get("status") == "loaded" and loaded.background_path is not None:
-        previous = _read_json(loaded.background_path)
-        if date.fromisoformat(previous["as_of_date"]) >= current_day:
-            raise Layer2RuntimeError("layer2_update_would_regress_publication_date")
-    else:
-        raise Layer2RuntimeError("current_layer2_publication_invalid")
+    if loaded.diagnostics.get("status") != "loaded" or loaded.background_path is None:
+        raise Layer2RuntimeError("no_valid_layer2_seed_publication")
+    previous = _read_json(loaded.background_path)
     diary_path = history / "diaries" / f"diary_{memory_day}.txt"
     if not diary_path.is_file() or diary_path.stat().st_size == 0:
         raise Layer2RuntimeError(f"diary_missing_or_empty:{diary_path}")
@@ -1767,51 +1761,42 @@ def run_daily_layer2_update(
             if operation_limit_repair is not None:
                 ledger_metrics["operation_limit_repair"] = operation_limit_repair
             _write_json(ledger_dir / "metrics.json", ledger_metrics)
-            if first_publication:
-                projection_result, overview, projection_metrics = _run_projection(
-                    run_dir=run_dir,
-                    background=background,
-                    current_day=current_day,
-                    cloud_settings=cloud_settings,
-                    settings=settings,
-                )
-            else:
-                current_context = load_current_layer2_context(history)
-                base_sections = _parse_overview_sections(
-                    _extract_model_facing_overview(current_context.context)
-                )
-                previous_projection_path = (
-                    loaded.background_path.parent / "projection_result.json"
-                )
-                previous_projection = (
-                    _read_json(previous_projection_path)
-                    if previous_projection_path.is_file()
-                    else None
-                )
-                _attach_previous_sources(base_sections, previous_projection)
-                authorized_changes = _authorized_projection_changes(
-                    previous=previous,
-                    current=background,
-                    applied_patch=applied,
-                )
-                _write_json(
-                    run_dir / "rolling_base.json",
-                    {
-                        "context_source": current_context.diagnostics.get("context_source"),
-                        "current_context_path": current_context.diagnostics.get(
-                            "current_context_path"
-                        ),
-                        "character_count": len(current_context.context),
-                    },
-                )
-                projection_result, overview, projection_metrics = _run_rolling_projection(
-                    run_dir=run_dir,
-                    base_sections=base_sections,
-                    authorized_changes=authorized_changes,
-                    current_day=current_day,
-                    cloud_settings=cloud_settings,
-                    settings=settings,
-                )
+            current_context = load_current_layer2_context(history)
+            base_sections = _parse_overview_sections(
+                _extract_model_facing_overview(current_context.context)
+            )
+            previous_projection_path = (
+                loaded.background_path.parent / "projection_result.json"
+            )
+            previous_projection = (
+                _read_json(previous_projection_path)
+                if previous_projection_path.is_file()
+                else None
+            )
+            _attach_previous_sources(base_sections, previous_projection)
+            authorized_changes = _authorized_projection_changes(
+                previous=previous,
+                current=background,
+                applied_patch=applied,
+            )
+            _write_json(
+                run_dir / "rolling_base.json",
+                {
+                    "context_source": current_context.diagnostics.get("context_source"),
+                    "current_context_path": current_context.diagnostics.get(
+                        "current_context_path"
+                    ),
+                    "character_count": len(current_context.context),
+                },
+            )
+            projection_result, overview, projection_metrics = _run_rolling_projection(
+                run_dir=run_dir,
+                base_sections=base_sections,
+                authorized_changes=authorized_changes,
+                current_day=current_day,
+                cloud_settings=cloud_settings,
+                settings=settings,
+            )
             publication = _publish(
                 layer2_root=layer2_root,
                 run_id=run_id,

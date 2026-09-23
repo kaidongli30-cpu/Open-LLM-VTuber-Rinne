@@ -6,21 +6,23 @@ from pathlib import Path
 from uuid import uuid4
 import numpy as np
 from datetime import datetime
-from fastapi import APIRouter, WebSocket, UploadFile, File, Form, Response
+from fastapi import APIRouter, WebSocket, UploadFile, File, Response, Form
 from starlette.responses import JSONResponse, FileResponse
 from starlette.websockets import WebSocketDisconnect
 from loguru import logger
 from .service_context import ServiceContext
 from .rinne_renderer_profile import apply_active_rinne_emotion_map
 from .websocket_handler import WebSocketHandler
+from .privacy_logging import text_log_fields
 from .proxy_handler import ProxyHandler
 from .file_library import (
-    MAX_FILE_BYTES,
     MAX_VIDEO_FILE_BYTES,
-    ensure_library_structure,
+    get_library_root,
+    find_library_files,
     kind_for_filename,
-    list_library_files,
     list_library_folders,
+    list_library_files,
+    save_upload,
     save_upload_path,
 )
 from .video_media import VideoMediaError, prepare_ordinary_video, probe_video
@@ -214,117 +216,111 @@ def init_proxy_route(server_url: str) -> APIRouter:
 
 
 def init_library_routes() -> APIRouter:
-    """Create local-only file library routes without exposing library contents."""
+    """Routes for explicit user uploads into Rinne's local file library."""
 
-    router = APIRouter(prefix="/library", tags=["library"])
+    router = APIRouter()
 
-    @router.get("/files")
-    async def library_files(
-        kind: str = "all",
-        folder: str = "",
-        name_contains: str = "",
-    ):
+    @router.get("/library/files")
+    async def list_library(kind: str = "all", folder: str = "", name: str = ""):
         try:
-            return {
-                "files": list_library_files(
-                    kind=kind,
-                    folder=folder,
-                    name_contains=name_contains,
-                )
-            }
-        except (OSError, ValueError) as exc:
+            if name:
+                files = find_library_files(name, kind=kind)
+            else:
+                files = list_library_files(kind=kind, folder=folder)
+            return JSONResponse({"files": files})
+        except ValueError as exc:
             return JSONResponse({"error": str(exc)}, status_code=400)
 
-    @router.get("/folders")
-    async def library_folders(
+    @router.get("/library/folders")
+    async def list_library_folders_route(
         kind: str = "all",
         folder: str = "",
         recursive: bool = False,
     ):
         try:
-            return {
-                "folders": list_library_folders(
-                    kind=kind,
-                    folder=folder,
-                    recursive=recursive,
-                )
-            }
-        except (OSError, ValueError) as exc:
+            folders = list_library_folders(
+                kind=kind,
+                folder=folder,
+                recursive=recursive,
+            )
+            return JSONResponse({"folders": folders})
+        except ValueError as exc:
             return JSONResponse({"error": str(exc)}, status_code=400)
 
-    @router.post("/upload")
-    async def library_upload(
+    @router.post("/library/upload")
+    async def upload_library_file(
         file: UploadFile = File(...),
         kind: str = Form("auto"),
         subdir: str = Form("待整理"),
         video_mode: str = Form("normal"),
     ):
-        safe_name = Path(file.filename or "").name
-        detected_kind = kind_for_filename(safe_name)
-        resolved_kind = detected_kind if kind == "auto" else kind
-        if resolved_kind not in {"document", "image", "video"}:
-            return JSONResponse(
-                {"error": "unsupported library file type"},
-                status_code=400,
-            )
-
-        size_limit = (
-            MAX_VIDEO_FILE_BYTES if resolved_kind == "video" else MAX_FILE_BYTES
-        )
-        incoming_dir = ensure_library_structure() / ".incoming" / str(uuid4())
-        incoming_dir.mkdir(parents=True, exist_ok=False)
-        incoming_path = incoming_dir / (safe_name or "upload.bin")
-        total = 0
+        incoming_dir: Path | None = None
         try:
-            with incoming_path.open("wb") as output:
-                while chunk := await file.read(1024 * 1024):
-                    total += len(chunk)
-                    if total > size_limit:
-                        raise ValueError(
-                            f"file exceeds the {size_limit // (1024 * 1024)} MB limit"
-                        )
-                    output.write(chunk)
-
-            prepared_path = incoming_path
-            saved_name = safe_name
-            saved_mime = file.content_type
-            if resolved_kind == "video":
+            filename = file.filename or ""
+            detected_kind = kind_for_filename(filename)
+            requested_kind = detected_kind if kind == "auto" else kind
+            if requested_kind == "video":
                 if detected_kind != "video":
                     raise ValueError("video filename extension is unsupported")
                 if video_mode not in {"normal", "original"}:
                     raise ValueError("video_mode must be normal or original")
+
+                incoming_dir = get_library_root() / ".incoming" / uuid4().hex
+                incoming_dir.mkdir(parents=True, exist_ok=False)
+                staged_path = incoming_dir / Path(filename).name
+                total = 0
+                with staged_path.open("wb") as destination:
+                    while chunk := await file.read(1024 * 1024):
+                        total += len(chunk)
+                        if total > MAX_VIDEO_FILE_BYTES:
+                            raise ValueError(
+                                "video exceeds the 2048 MB local library limit"
+                            )
+                        destination.write(chunk)
+
                 if video_mode == "original":
-                    await asyncio.to_thread(probe_video, incoming_path)
+                    await asyncio.to_thread(probe_video, staged_path)
+                    prepared_path = staged_path
+                    saved_name = Path(filename).name
+                    saved_mime = file.content_type
                 else:
-                    prepared_path = incoming_dir / f"prepared-{Path(safe_name).stem}.mp4"
+                    prepared_path = incoming_dir / f"prepared-{Path(filename).stem}.mp4"
                     await asyncio.to_thread(
-                        prepare_ordinary_video,
-                        incoming_path,
-                        prepared_path,
+                        prepare_ordinary_video, staged_path, prepared_path
                     )
-                    saved_name = f"{Path(safe_name).stem}.mp4"
+                    saved_name = f"{Path(filename).stem}.mp4"
                     saved_mime = "video/mp4"
 
-            record = await asyncio.to_thread(
-                save_upload_path,
-                saved_name,
-                prepared_path,
-                mime_type=saved_mime,
-                kind=resolved_kind,
-                subdir=subdir,
-            )
-            if resolved_kind == "video":
+                record = await asyncio.to_thread(
+                    save_upload_path,
+                    saved_name,
+                    prepared_path,
+                    mime_type=saved_mime,
+                    kind="video",
+                    subdir=subdir,
+                )
                 record["video_mode"] = video_mode
                 record["source_size"] = total
-            return {"file": record}
-        except (OSError, ValueError, VideoMediaError) as exc:
+                return JSONResponse({"file": record})
+
+            contents = await file.read()
+            record = save_upload(
+                filename,
+                contents,
+                mime_type=file.content_type,
+                kind=kind,
+                subdir=subdir,
+            )
+            return JSONResponse({"file": record})
+        except (ValueError, OSError, VideoMediaError) as exc:
+            logger.warning(f"Library upload rejected: {exc}")
             return JSONResponse({"error": str(exc)}, status_code=400)
         except Exception as exc:
-            logger.warning(f"Library upload failed: {type(exc).__name__}")
+            logger.exception(f"Library upload failed: {exc}")
             return JSONResponse({"error": "library upload failed"}, status_code=500)
         finally:
-            await file.close()
-            shutil.rmtree(incoming_dir, ignore_errors=True)
+            if incoming_dir is not None:
+                await asyncio.to_thread(shutil.rmtree, incoming_dir, True)
 
     return router
 
@@ -407,7 +403,10 @@ def init_webtool_routes(default_context_cache: ServiceContext) -> APIRouter:
         """
         Endpoint for transcribing audio using the ASR engine
         """
-        logger.info(f"Received audio file for transcription: {file.filename}")
+        logger.info(
+            "Received audio file for transcription: filename_present={}",
+            bool(file.filename),
+        )
 
         try:
             contents = await file.read()
@@ -442,7 +441,7 @@ def init_webtool_routes(default_context_cache: ServiceContext) -> APIRouter:
             text = await default_context_cache.asr_engine.async_transcribe_np(
                 audio_array
             )
-            logger.info(f"Transcription result: {text}")
+            logger.info("Transcription completed: {}", text_log_fields(text))
             return {"text": text}
 
         except ValueError as e:
@@ -475,7 +474,7 @@ def init_webtool_routes(default_context_cache: ServiceContext) -> APIRouter:
                 if not text:
                     continue
 
-                logger.info(f"Received text for TTS: {text}")
+                logger.info("Received text for TTS: {}", text_log_fields(text))
 
                 # Split text into sentences
                 sentences = [s.strip() for s in text.split(".") if s.strip()]

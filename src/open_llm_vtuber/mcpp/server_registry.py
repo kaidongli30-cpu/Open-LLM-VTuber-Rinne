@@ -2,6 +2,8 @@
 
 import shutil
 import json
+import os
+import re
 
 from pathlib import Path
 from typing import Dict, Optional, Union, Any
@@ -11,6 +13,23 @@ from .types import MCPServer
 from .utils.path import validate_file
 
 DEFAULT_CONFIG_PATH = "mcp_servers.json"
+_ENV_REFERENCE_RE = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
+
+
+def _resolve_explicit_environment(
+    configured: dict[str, str] | None,
+) -> dict[str, str] | None:
+    """Resolve only whole-value ${NAME} references from the parent process."""
+
+    if configured is None:
+        return None
+    resolved: dict[str, str] = {}
+    for key, value in configured.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ValueError("MCP server environment keys and values must be strings")
+        match = _ENV_REFERENCE_RE.fullmatch(value)
+        resolved[key] = os.environ.get(match.group(1), "") if match else value
+    return resolved
 
 
 class ServerRegistry:
@@ -84,7 +103,7 @@ class ServerRegistry:
                 name=server_name,
                 command=command,
                 args=server_details["args"],
-                env=server_details.get("env", None),
+                env=_resolve_explicit_environment(server_details.get("env", None)),
                 cwd=server_details.get("cwd", None),
                 timeout=server_details.get("timeout", None),
             )

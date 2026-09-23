@@ -16,8 +16,13 @@ from .mcpp.server_registry import ServerRegistry
 from .mcpp.tool_manager import ToolManager
 from .mcpp.mcp_client import MCPClient
 from .mcpp.tool_executor import ToolExecutor
-from .mcpp.tool_adapter import ToolAdapter
 from .video_analysis import settings_from_character_config
+from .mcpp.tool_adapter import ToolAdapter
+from .agent_runtime.read_only_config import (
+    ReadOnlyComputerConfigurationError,
+    effective_read_only_mcp_settings,
+)
+from .data_paths import character_history_root
 
 from .asr.asr_factory import ASRFactory
 from .tts.tts_factory import TTSFactory
@@ -39,6 +44,33 @@ from .config_manager import (
 )
 
 
+def _safe_character_config_log_fields(character_config) -> dict[str, str]:
+    """Return a minimal diagnostic summary without provider credentials."""
+
+    agent_config = getattr(character_config, "agent_config", None)
+    return {
+        "conf_name": str(getattr(character_config, "conf_name", "")),
+        "conf_uid": str(getattr(character_config, "conf_uid", "")),
+        "live2d_model_name": str(
+            getattr(character_config, "live2d_model_name", "")
+        ),
+        "conversation_agent_choice": str(
+            getattr(agent_config, "conversation_agent_choice", "")
+        ),
+    }
+
+
+def _headless_private_bridge_enabled() -> bool:
+    """Return whether this process is serving only the local private bridge."""
+
+    return os.environ.get("RINNE_HEADLESS_PRIVATE_BRIDGE", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 class ServiceContext:
     """Initializes, stores, and updates the asr, tts, and llm instances and other
     configurations for a connected client."""
@@ -52,6 +84,9 @@ class ServiceContext:
         self.asr_engine: ASRInterface = None
         self.tts_engine: TTSInterface = None
         self.agent_engine: AgentInterface = None
+        self.live_memory_retrieval_service = None
+        self.recent_memory_context: str = ""
+        self.recent_memory_diagnostics: dict = {}
         # translate_engine can be none if translation is disabled
         self.vad_engine: VADInterface | None = None
         self.translate_engine: TranslateInterface | None = None
@@ -61,6 +96,8 @@ class ServiceContext:
         self.tool_manager: ToolManager | None = None
         self.mcp_client: MCPClient | None = None
         self.tool_executor: ToolExecutor | None = None
+        self._effective_use_mcpp: bool = False
+        self._bocha_api_key: str = ""
 
         # the system prompt is a combination of the persona prompt and live2d expression prompt
         self.system_prompt: str = None
@@ -74,24 +111,41 @@ class ServiceContext:
         self.client_uid: str = None
 
     def __str__(self):
+        character_config = self.character_config
         return (
             f"ServiceContext:\n"
             f"  System Config: {'Loaded' if self.system_config else 'Not Loaded'}\n"
-            f"    Details: {json.dumps(self.system_config.model_dump(), indent=6) if self.system_config else 'None'}\n"
-            f"  Live2D Model: {self.live2d_model.model_info if self.live2d_model else 'Not Loaded'}\n"
+            f"  Live2D Model: {'Loaded' if self.live2d_model else 'Not Loaded'}\n"
             f"  ASR Engine: {type(self.asr_engine).__name__ if self.asr_engine else 'Not Loaded'}\n"
-            f"    Config: {json.dumps(self.character_config.asr_config.model_dump(), indent=6) if self.character_config.asr_config else 'None'}\n"
             f"  TTS Engine: {type(self.tts_engine).__name__ if self.tts_engine else 'Not Loaded'}\n"
-            f"    Config: {json.dumps(self.character_config.tts_config.model_dump(), indent=6) if self.character_config.tts_config else 'None'}\n"
             f"  LLM Engine: {type(self.agent_engine).__name__ if self.agent_engine else 'Not Loaded'}\n"
-            f"    Agent Config: {json.dumps(self.character_config.agent_config.model_dump(), indent=6) if self.character_config.agent_config else 'None'}\n"
             f"  VAD Engine: {type(self.vad_engine).__name__ if self.vad_engine else 'Not Loaded'}\n"
-            f"    Agent Config: {json.dumps(self.character_config.vad_config.model_dump(), indent=6) if self.character_config.vad_config else 'None'}\n"
-            f"  System Prompt: {self.system_prompt or 'Not Set'}\n"
+            f"  Character Config: {_safe_character_config_log_fields(character_config) if character_config else 'Not Loaded'}\n"
+            f"  System Prompt Chars: {len(self.system_prompt or '')}\n"
             f"  MCP Enabled: {'Yes' if self.mcp_client else 'No'}"
         )
 
     # ==== Initializers
+
+    def _resolve_mcp_settings(
+        self,
+        use_mcpp,
+        enabled_servers,
+        *,
+        enable_local_computer_tools: bool,
+    ) -> tuple[bool, list[str]]:
+        try:
+            return effective_read_only_mcp_settings(
+                use_mcpp=bool(use_mcpp),
+                enabled_servers=enabled_servers,
+                enable_local_computer_tools=enable_local_computer_tools,
+            )
+        except ReadOnlyComputerConfigurationError as exc:
+            logger.error(
+                "[只读电脑] 配置无效，本次不开放本地文件工具："
+                f"{type(exc).__name__}"
+            )
+            return bool(use_mcpp), list(dict.fromkeys(enabled_servers or ()))
 
     async def _init_mcp_components(self, use_mcpp, enabled_servers):
         """Initializes MCP components based on configuration, dynamically fetching tool info."""
@@ -106,6 +160,7 @@ class ServiceContext:
         self.tool_executor = None
         self.json_detector = None
         self.mcp_prompt = ""
+        self._effective_use_mcpp = bool(use_mcpp)
 
         if use_mcpp and enabled_servers:
             # 1. Initialize ServerRegistry
@@ -172,6 +227,7 @@ class ServiceContext:
                 self.tool_executor = ToolExecutor(
                     self.mcp_client,
                     self.tool_manager,
+                    bocha_api_key=self._bocha_api_key,
                     media_settings=settings_from_character_config(
                         self.character_config
                     ),
@@ -203,6 +259,9 @@ class ServiceContext:
             self.mcp_client = None
         if self.agent_engine and hasattr(self.agent_engine, "close"):
             await self.agent_engine.close()  # Ensure agent resources are also closed
+        self.live_memory_retrieval_service = None
+        self.recent_memory_context = ""
+        self.recent_memory_diagnostics = {}
         logger.info("ServiceContext closed.")
 
     async def load_cache(
@@ -219,6 +278,7 @@ class ServiceContext:
         tool_adapter: ToolAdapter | None = None,
         send_text: Callable = None,
         client_uid: str = None,
+        enable_local_computer_tools: bool = True,
     ) -> None:
         """
         Load the ServiceContext with shared engine references and rebuild
@@ -237,17 +297,32 @@ class ServiceContext:
         self.tts_engine = tts_engine
         self.vad_engine = vad_engine
         self.agent_engine = None
+        self.live_memory_retrieval_service = None
+        self.recent_memory_context = ""
+        self.recent_memory_diagnostics = {}
         self.translate_engine = translate_engine
         # Load potentially shared components by reference
         self.mcp_server_registery = mcp_server_registery
         self.tool_adapter = tool_adapter
         self.send_text = send_text
         self.client_uid = client_uid
+        basic_memory_config = (
+            self.character_config.agent_config.agent_settings.basic_memory_agent
+        )
+        self._bocha_api_key = str(
+            getattr(basic_memory_config, "bocha_api_key", "") or ""
+        ).strip()
+
+        effective_use_mcpp, effective_enabled_servers = self._resolve_mcp_settings(
+            basic_memory_config.use_mcpp,
+            basic_memory_config.mcp_enabled_servers,
+            enable_local_computer_tools=enable_local_computer_tools,
+        )
 
         # Initialize session-specific MCP components
         await self._init_mcp_components(
-            self.character_config.agent_config.agent_settings.basic_memory_agent.use_mcpp,
-            self.character_config.agent_config.agent_settings.basic_memory_agent.mcp_enabled_servers,
+            effective_use_mcpp,
+            effective_enabled_servers,
         )
 
         await self.init_agent(
@@ -255,7 +330,10 @@ class ServiceContext:
             self.character_config.persona_prompt,
         )
 
-        logger.debug(f"Loaded service context with cache: {character_config}")
+        logger.debug(
+            "Loaded service context with cache: {}",
+            _safe_character_config_log_fields(character_config),
+        )
 
     async def load_from_config(self, config: Config) -> None:
         """
@@ -282,16 +360,34 @@ class ServiceContext:
         # init asr from character config
         self.init_asr(config.character_config.asr_config)
 
-        # init tts from character config
-        self.init_tts(config.character_config.tts_config)
+        headless_private_bridge = _headless_private_bridge_enabled()
+        if headless_private_bridge:
+            logger.info(
+                "[私人QQ桥接] 保留语音识别，跳过桌面 TTS、VAD 与翻译引擎。"
+            )
+        else:
+            # init tts from character config
+            self.init_tts(config.character_config.tts_config)
 
-        # init vad from character config
-        self.init_vad(config.character_config.vad_config)
+            # init vad from character config
+            self.init_vad(config.character_config.vad_config)
+
+        basic_memory_config = (
+            config.character_config.agent_config.agent_settings.basic_memory_agent
+        )
+        self._bocha_api_key = str(
+            getattr(basic_memory_config, "bocha_api_key", "") or ""
+        ).strip()
+        effective_use_mcpp, effective_enabled_servers = self._resolve_mcp_settings(
+            basic_memory_config.use_mcpp,
+            basic_memory_config.mcp_enabled_servers,
+            enable_local_computer_tools=True,
+        )
 
         # Initialize shared ToolAdapter if it doesn't exist yet
         if (
             not self.tool_adapter
-            and config.character_config.agent_config.agent_settings.basic_memory_agent.use_mcpp
+            and effective_use_mcpp
         ):
             if not self.mcp_server_registery:
                 logger.info(
@@ -303,8 +399,8 @@ class ServiceContext:
 
         # Initialize MCP Components before initializing Agent
         await self._init_mcp_components(
-            config.character_config.agent_config.agent_settings.basic_memory_agent.use_mcpp,
-            config.character_config.agent_config.agent_settings.basic_memory_agent.mcp_enabled_servers,
+            effective_use_mcpp,
+            effective_enabled_servers,
         )
 
         # init agent from character config
@@ -313,31 +409,28 @@ class ServiceContext:
             config.character_config.persona_prompt,
         )
 
-        self.init_translate(
-            config.character_config.tts_preprocessor_config.translator_config
-        )
+        if not headless_private_bridge:
+            self.init_translate(
+                config.character_config.tts_preprocessor_config.translator_config
+            )
         
-        import glob
-        import os
         try:
             # 确定历史记录文件夹路径
-            from .data_paths import character_history_root
-
-            history_dir = str(character_history_root(config.character_config.conf_uid))
-            if os.path.exists(history_dir):
+            history_dir = character_history_root(config.character_config.conf_uid)
+            if history_dir.exists():
                 # 获取所有 JSON 文件并按修改时间排序
-                files = glob.glob(os.path.join(history_dir, "*.json"))
+                files = list(history_dir.glob("*.json"))
                 if files:
-                    latest_file = max(files, key=os.path.getmtime)
+                    latest_file = max(files, key=lambda path: path.stat().st_mtime)
                     # 从文件名提取 history_uid
-                    history_uid = os.path.splitext(os.path.basename(latest_file))[0]
+                    history_uid = latest_file.stem
                     
                     if self.agent_engine and hasattr(self.agent_engine, 'set_memory_from_history'):
                         self.agent_engine.set_memory_from_history(
                             conf_uid=config.character_config.conf_uid,
                             history_uid=history_uid,
                         )
-                        logger.info(f"自动加载长期记忆成功：{history_uid}")
+                        logger.info("自动加载长期记忆成功: history_uid_present=True")
         except Exception as e:
             logger.warning(f"自动加载长期记忆失败: {e}")
 
@@ -361,14 +454,9 @@ class ServiceContext:
     def init_asr(self, asr_config: ASRConfig) -> None:
         if not self.asr_engine or (self.character_config.asr_config != asr_config):
             logger.info(f"Initializing ASR: {asr_config.asr_model}")
-            asr_kwargs = (
-                {}
-                if asr_config.asr_model == "text_only"
-                else getattr(asr_config, asr_config.asr_model).model_dump()
-            )
             self.asr_engine = ASRFactory.get_asr_system(
                 asr_config.asr_model,
-                **asr_kwargs,
+                **getattr(asr_config, asr_config.asr_model).model_dump(),
             )
             # saving config should be done after successful initialization
             self.character_config.asr_config = asr_config
@@ -422,9 +510,13 @@ class ServiceContext:
         avatar = self.character_config.avatar or ""  # Get avatar from config
 
         try:
+            effective_agent_settings = agent_config.agent_settings.model_dump()
+            effective_agent_settings["basic_memory_agent"]["use_mcpp"] = (
+                self._effective_use_mcpp
+            )
             self.agent_engine = AgentFactory.create_agent(
                 conversation_agent_choice=agent_config.conversation_agent_choice,
-                agent_settings=agent_config.agent_settings.model_dump(),
+                agent_settings=effective_agent_settings,
                 llm_configs=agent_config.llm_configs.model_dump(),
                 system_prompt=system_prompt,
                 live2d_model=self.live2d_model,
@@ -437,14 +529,14 @@ class ServiceContext:
             )
 
             logger.debug(f"Agent choice: {agent_config.conversation_agent_choice}")
-            logger.debug(f"System prompt: {system_prompt}")
+            logger.debug("System prompt prepared: chars={}", len(system_prompt))
 
             # Save the current configuration
             self.character_config.agent_config = agent_config
             self.system_prompt = system_prompt
 
         except Exception as e:
-            logger.error(f"Failed to initialize agent: {e}")
+            logger.error("Failed to initialize agent: {}", type(e).__name__)
             raise
 
     def init_translate(self, translator_config: TranslatorConfig) -> None:
@@ -493,7 +585,7 @@ class ServiceContext:
         Returns:
         - str: The system prompt with all tool prompts appended.
         """
-        logger.debug(f"constructing persona_prompt: '''{persona_prompt}'''")
+        logger.debug("Constructing persona prompt: chars={}", len(persona_prompt))
 
         for prompt_name, prompt_file in self.system_config.tool_prompts.items():
             if (
@@ -514,8 +606,7 @@ class ServiceContext:
 
             persona_prompt += prompt_content
 
-        logger.debug("\n === System Prompt ===")
-        logger.debug(persona_prompt)
+        logger.debug("System prompt construction complete: chars={}", len(persona_prompt))
 
         return persona_prompt
 
@@ -563,9 +654,9 @@ class ServiceContext:
                 }
                 new_config = validate_config(new_config)
                 await self.load_from_config(new_config)  # Await the async load
-                logger.debug(f"New config: {self}")
                 logger.debug(
-                    f"New character config: {self.character_config.model_dump()}"
+                    "New character config: {}",
+                    _safe_character_config_log_fields(self.character_config),
                 )
 
                 # Send responses to client
@@ -596,7 +687,7 @@ class ServiceContext:
                 )
 
         except Exception as e:
-            logger.error(f"Error switching configuration: {e}")
+            logger.error("Error switching configuration: {}", type(e).__name__)
             logger.debug(self)
             await websocket.send_text(
                 json.dumps(

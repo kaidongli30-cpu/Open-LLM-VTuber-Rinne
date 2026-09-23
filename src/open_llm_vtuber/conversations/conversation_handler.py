@@ -13,10 +13,45 @@ from ..chat_history_manager import store_message
 from ..file_library import normalize_attachment, save_data_url
 from ..service_context import ServiceContext
 from .group_conversation import process_group_conversation
+from .image_payload_diagnostics import inspect_image_payload
+from .proactive_screen_observation import (
+    get_proactive_screen_observation_instruction,
+)
 from .single_conversation import process_single_conversation
 from .conversation_utils import EMOJI_LIST
 from .types import GroupConversationState
 from prompts import prompt_loader
+
+
+CANCELLED_CONVERSATION_CLEANUP_TIMEOUT_SECONDS = 5.0
+
+
+async def _wait_for_cancelled_conversation(task: asyncio.Task) -> None:
+    """Let a cancelled turn finalize streams and release shared resources."""
+
+    try:
+        await asyncio.wait_for(
+            asyncio.shield(task),
+            timeout=CANCELLED_CONVERSATION_CLEANUP_TIMEOUT_SECONDS,
+        )
+    except asyncio.CancelledError:
+        pass
+    except asyncio.TimeoutError:
+        logger.error(
+            "Timed out waiting for an interrupted conversation to finish cleanup."
+        )
+    except Exception as exc:
+        logger.warning(
+            "Interrupted conversation ended with an error during cleanup: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+
+def _conversation_task_is_cancelling(task: asyncio.Task) -> bool:
+    if getattr(task, "_rinne_interrupting", False):
+        return True
+    cancelling = getattr(task, "cancelling", None)
+    return bool(cancelling()) if callable(cancelling) else False
 
 
 def _register_conversation_task(
@@ -37,7 +72,7 @@ def _prepare_library_attachments(
     images: list[dict] | None,
     attachments: list[dict] | None,
 ) -> list[dict]:
-    """Persist explicitly marked captures and validate local-library refs."""
+    """Persist explicitly marked captures and validate user-upload refs."""
 
     validated: list[dict] = []
     for attachment in attachments or []:
@@ -45,7 +80,7 @@ def _prepare_library_attachments(
         if record is not None:
             validated.append(record)
         else:
-            logger.warning("Ignoring an attachment that is not in the local library")
+            logger.warning("Ignoring an attachment that is not in Rinne's library")
 
     for image in images or []:
         if not isinstance(image, dict) or not image.get("persist"):
@@ -56,10 +91,7 @@ def _prepare_library_attachments(
         try:
             validated.append(save_data_url(image.get("data", ""), source=source))
         except (TypeError, ValueError, OSError) as exc:
-            logger.warning(
-                "Failed to persist an explicitly requested capture: "
-                f"{type(exc).__name__}"
-            )
+            logger.warning(f"Failed to persist {source} capture: {exc}")
     return validated
 
 
@@ -122,6 +154,29 @@ async def handle_conversation_trigger(
     metadata["_request_received_at"] = request_received_at
 
     images = data.get("images")
+    for image in images or []:
+        if not isinstance(image, dict) or image.get("source") != "screen":
+            continue
+        diagnostic = inspect_image_payload(image)
+        logger.info(
+            "[屏幕图像] 到达后端：proactive={}，declared_mime={}，"
+            "actual_mime={}，dimensions={}x{}，decoded_bytes={}，status={}",
+            bool(metadata.get("proactive_speak")),
+            diagnostic.get("declared_mime"),
+            diagnostic.get("actual_mime"),
+            diagnostic.get("width"),
+            diagnostic.get("height"),
+            diagnostic.get("decoded_bytes"),
+            diagnostic.get("status"),
+        )
+    proactive_screen_instruction = get_proactive_screen_observation_instruction(
+        images,
+        proactive_speak=bool(metadata and metadata.get("proactive_speak")),
+    )
+    if proactive_screen_instruction:
+        metadata["proactive_screen_observation_instruction"] = (
+            proactive_screen_instruction
+        )
     attachments = _prepare_library_attachments(images, data.get("attachments"))
     if attachments:
         metadata["file_attachments"] = attachments
@@ -163,10 +218,17 @@ async def handle_conversation_trigger(
         # Use client_uid as task key for individual conversations
         existing_task = current_conversation_tasks.get(client_uid)
         if existing_task and not existing_task.done():
-            logger.warning(
-                f"Skipping overlapping conversation trigger '{msg_type}' for client {client_uid}."
-            )
-            return
+            if _conversation_task_is_cancelling(existing_task):
+                logger.info(
+                    "Waiting for the interrupted conversation to release resources "
+                    f"before handling '{msg_type}' for client {client_uid}."
+                )
+                await _wait_for_cancelled_conversation(existing_task)
+            if not existing_task.done():
+                logger.warning(
+                    f"Skipping overlapping conversation trigger '{msg_type}' for client {client_uid}."
+                )
+                return
 
         _register_conversation_task(
             client_uid,
@@ -195,8 +257,10 @@ async def handle_individual_interrupt(
     if client_uid in current_conversation_tasks:
         task = current_conversation_tasks[client_uid]
         if task and not task.done():
+            setattr(task, "_rinne_interrupting", True)
             task.cancel()
             logger.info("🛑 Conversation task was successfully interrupted")
+            await _wait_for_cancelled_conversation(task)
 
         try:
             context.agent_engine.handle_interrupt(heard_response)
@@ -204,14 +268,15 @@ async def handle_individual_interrupt(
             logger.error(f"Error handling interrupt: {e}")
 
         if context.history_uid:
-            store_message(
-                conf_uid=context.character_config.conf_uid,
-                history_uid=context.history_uid,
-                role="ai",
-                content=heard_response,
-                name=context.character_config.character_name,
-                avatar=context.character_config.avatar,
-            )
+            if heard_response:
+                store_message(
+                    conf_uid=context.character_config.conf_uid,
+                    history_uid=context.history_uid,
+                    role="ai",
+                    content=heard_response,
+                    name=context.character_config.character_name,
+                    avatar=context.character_config.avatar,
+                )
             store_message(
                 conf_uid=context.character_config.conf_uid,
                 history_uid=context.history_uid,

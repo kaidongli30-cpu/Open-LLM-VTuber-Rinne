@@ -9,6 +9,7 @@ import re
 import time
 from collections import Counter
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -118,16 +119,47 @@ class ChildEventSearchTools:
     def candidate_count(self) -> int:
         return len(self.records)
 
+    @staticmethod
+    def _date_bounds(
+        start_date: str | date | None,
+        end_date: str | date | None,
+    ) -> tuple[date | None, date | None]:
+        if (start_date is None) != (end_date is None):
+            raise ValueError("start_date and end_date must be provided together")
+        if start_date is None:
+            return None, None
+        start = (
+            start_date
+            if isinstance(start_date, date)
+            else date.fromisoformat(start_date)
+        )
+        end = (
+            end_date
+            if isinstance(end_date, date)
+            else date.fromisoformat(end_date)  # type: ignore[arg-type]
+        )
+        if end < start:
+            raise ValueError("end_date cannot be before start_date")
+        return start, end
+
     @property
     def semantic_runtime(self) -> dict[str, Any]:
         return dict(self._semantic_runtime)
 
-    def search_keyword(self, query: str, *, top_k: int = 10) -> list[MemoryCandidate]:
+    def search_keyword(
+        self,
+        query: str,
+        *,
+        top_k: int = 10,
+        start_date: str | date | None = None,
+        end_date: str | date | None = None,
+    ) -> list[MemoryCandidate]:
         if not query.strip():
             raise ValueError("query must not be empty")
         query_features = _features(query)
         if not query_features:
             return []
+        start, end = self._date_bounds(start_date, end_date)
         document_frequency: Counter[str] = Counter()
         for features in self._feature_cache.values():
             document_frequency.update(features.keys())
@@ -142,6 +174,12 @@ class ChildEventSearchTools:
         compact_query = _compact(query)
         ranked: list[tuple[float, ChildEventRecord]] = []
         for candidate_id, record in self.records.items():
+            if (
+                start is not None
+                and end is not None
+                and not start <= date.fromisoformat(record.date) <= end
+            ):
+                continue
             features = self._feature_cache[candidate_id]
             raw_score = 0.0
             long_matches = 0
@@ -247,9 +285,12 @@ class ChildEventSearchTools:
         top_k: int = 10,
         model_name: str = "BAAI/bge-base-zh-v1.5",
         device: str = "cpu",
+        start_date: str | date | None = None,
+        end_date: str | date | None = None,
     ) -> list[MemoryCandidate]:
         if not query.strip():
             raise ValueError("query must not be empty")
+        start, end = self._date_bounds(start_date, end_date)
         self.warm_semantic_index(model_name, device)
         if self._semantic_model is None or self._semantic_embeddings is None:
             raise RuntimeError("semantic index is unavailable")
@@ -270,6 +311,13 @@ class ChildEventSearchTools:
             (
                 (float(scores[index]), self.records[candidate_id])
                 for index, candidate_id in enumerate(self._semantic_ids)
+                if (
+                    start is None
+                    or end is None
+                    or start <= date.fromisoformat(
+                        self.records[candidate_id].date
+                    ) <= end
+                )
             ),
             key=lambda item: (-item[0], item[1].date, item[1].filename),
         )

@@ -116,9 +116,6 @@ class OpenAICompatibleConfig(StatelessLLMBaseConfig):
     upstream_first_data_timeout_seconds: float = Field(
         90.0, ge=5.0, le=300.0, alias="upstream_first_data_timeout_seconds"
     )
-    upstream_stream_idle_timeout_seconds: float = Field(
-        90.0, ge=5.0, le=300.0, alias="upstream_stream_idle_timeout_seconds"
-    )
     upstream_max_attempts: int = Field(2, ge=1, le=2, alias="upstream_max_attempts")
 
     _COMMON_DESCRIPTIONS: ClassVar[dict[str, Description]] = {
@@ -154,12 +151,8 @@ class OpenAICompatibleConfig(StatelessLLMBaseConfig):
             en="Maximum seconds to wait for response headers and first response data.",
             zh="等待上游响应头和首个回复数据的最长秒数。",
         ),
-        "upstream_stream_idle_timeout_seconds": Description(
-            en="Maximum seconds to wait between chunks after streaming begins.",
-            zh="流式回复开始后，连续两个数据块之间允许等待的最长秒数。",
-        ),
         "upstream_max_attempts": Description(
-            en="Maximum attempts before any response data arrives (1 or 2).",
+            en="Maximum request attempts before any response data arrives (1 or 2).",
             zh="收到任何回复数据之前允许的请求次数（1 或 2）。",
         ),
     }
@@ -231,6 +224,17 @@ class GeminiConfig(OpenAICompatibleConfig):
 
     base_url: str = Field(
         "https://generativelanguage.googleapis.com/v1beta/openai/", alias="base_url"
+    )
+    native_base_url: str | None = Field(None, alias="native_base_url")
+    video_analysis_enabled: bool = Field(False, alias="video_analysis_enabled")
+    video_analysis_api_key_file: str | None = Field(
+        None, alias="video_analysis_api_key_file"
+    )
+    video_analysis_timeout_seconds: float = Field(
+        180.0, ge=10.0, le=900.0, alias="video_analysis_timeout_seconds"
+    )
+    video_analysis_max_output_tokens: int = Field(
+        4096, ge=512, le=32768, alias="video_analysis_max_output_tokens"
     )
     interrupt_method: Literal["system", "user"] = Field(
         "user", alias="interrupt_method"

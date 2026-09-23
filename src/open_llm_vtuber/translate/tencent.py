@@ -9,6 +9,7 @@ import httpx
 from loguru import logger
 
 from .translate_interface import TranslateInterface
+from ..privacy_logging import mapping_log_fields
 
 
 def sign(key, msg):
@@ -28,7 +29,11 @@ class TencentTranslate(TranslateInterface):
     ):
         secret_id = os.environ.get("TENCENT_SECRET_ID")
         secret_key = os.environ.get("TENCENT_SECRET_KEY")
-        logger.info(f"Initializing TencentTranslate with secret_id: {secret_id}, region: {region}")
+        logger.info(
+            "Initializing TencentTranslate: credential_present={}, region={}",
+            bool(secret_id),
+            region,
+        )
         self.secret_id = secret_id
         self.secret_key = secret_key
         self.token = token
@@ -118,7 +123,7 @@ class TencentTranslate(TranslateInterface):
                 url="https://" + self.host, headers=headers, data=payload
             )
             res = response.json()
-            logger.info(f"Request successful: {res}")
+            logger.info("Request successful: {}", mapping_log_fields(res))
             return res.get("Response", {}).get("TargetText", "Translation failed")
         except Exception as e:
             logger.critical(f"API call error: {e}")

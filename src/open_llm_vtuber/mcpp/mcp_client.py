@@ -10,6 +10,7 @@ from mcp.types import Tool
 from mcp.client.stdio import stdio_client
 
 from .server_registry import ServerRegistry
+from ..privacy_logging import text_log_fields
 
 DEFAULT_TIMEOUT = timedelta(seconds=30)
 
@@ -116,7 +117,11 @@ class MCPClient:
                 if response.content and hasattr(response.content[0], "text")
                 else "Unknown server error"
             )
-            logger.error(f"MCPC: Error calling tool '{tool_name}': {error_text}")
+            logger.error(
+                "MCPC: Error calling tool '{}': {}",
+                tool_name,
+                text_log_fields(error_text),
+            )
             # Return error information within the standard structure
             return {
                 "metadata": getattr(response, "metadata", {}),
@@ -173,7 +178,10 @@ class MCPClient:
         """Exit the async context manager."""
         await self.aclose()
         if exc_type:
-            logger.error(f"MCPC: Exception in async context: {exc_value}")
+            logger.error(
+                "MCPC: Exception in async context: {}",
+                type(exc_value).__name__ if exc_value is not None else "unknown",
+            )
 
 
 # if __name__ == "__main__":

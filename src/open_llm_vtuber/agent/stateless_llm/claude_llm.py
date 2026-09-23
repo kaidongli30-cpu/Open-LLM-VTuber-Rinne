@@ -11,6 +11,7 @@ from anthropic import AsyncAnthropic, NOT_GIVEN
 
 from .stateless_llm_interface import StatelessLLMInterface
 from .request_limiter import build_backend_key, limit_request_concurrency
+from ...privacy_logging import mapping_log_fields, message_batch_log_fields
 
 
 class AsyncLLM(StatelessLLMInterface):
@@ -46,6 +47,7 @@ class AsyncLLM(StatelessLLMInterface):
             base_url=base_url,
             api_key=llm_api_key,
         )
+        self._forced_tool_name_once: str | None = None
 
         logger.info(
             "Initialized Claude AsyncLLM with model: "
@@ -53,6 +55,11 @@ class AsyncLLM(StatelessLLMInterface):
             f"min_request_interval_seconds={self.min_request_interval_seconds}"
         )
         logger.debug(f"Base URL: {base_url}")
+
+    def force_tool_once(self, tool_name: str) -> None:
+        """Force one Claude request to select a named function."""
+
+        self._forced_tool_name_once = tool_name
 
     def _convert_message_format(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Convert message format to Claude's expected format."""
@@ -135,8 +142,19 @@ class AsyncLLM(StatelessLLMInterface):
                     if msg["role"] != "system"
                 ]
 
-                logger.debug(f"Sending messages to Claude API: {converted_messages}")
-                logger.debug(f"Tools provided: {tools}")
+                logger.debug(
+                    "Sending messages to Claude API: {}",
+                    message_batch_log_fields(converted_messages),
+                )
+                logger.debug("Claude tools provided: {}", bool(tools))
+
+                forced_tool_name = self._forced_tool_name_once
+                self._forced_tool_name_once = None
+                tool_choice = (
+                    {"type": "tool", "name": forced_tool_name}
+                    if forced_tool_name and tools
+                    else NOT_GIVEN
+                )
 
                 async with self.client.messages.stream(
                     messages=converted_messages,
@@ -144,6 +162,7 @@ class AsyncLLM(StatelessLLMInterface):
                     model=self.model,
                     max_tokens=1024,
                     tools=tools if tools else NOT_GIVEN,
+                    tool_choice=tool_choice,
                 ) as stream:
                     current_tool_call_info = None
                     partial_json_accumulator = ""
@@ -191,7 +210,9 @@ class AsyncLLM(StatelessLLMInterface):
                                         event.delta.partial_json
                                     )
                                     logger.trace(
-                                        f"Stream: input_json_delta - Tool ID: {current_tool_call_info['id']}, Partial: {event.delta.partial_json}"
+                                        "Stream: input_json_delta - Tool ID: {}, chars={}",
+                                        current_tool_call_info["id"],
+                                        len(event.delta.partial_json),
                                     )
                                 else:
                                     logger.warning(
@@ -218,7 +239,9 @@ class AsyncLLM(StatelessLLMInterface):
                                         )
                                     current_tool_call_info["input"] = tool_input
                                     logger.debug(
-                                        f"Stream: tool_use completed - ID: {current_tool_call_info['id']}, Input: {tool_input}"
+                                        "Stream: tool_use completed - ID: {}, Input: {}",
+                                        current_tool_call_info["id"],
+                                        mapping_log_fields(tool_input),
                                     )
                                     # Yield the complete tool call info
                                     yield {
@@ -227,7 +250,9 @@ class AsyncLLM(StatelessLLMInterface):
                                     }
                                 except json.JSONDecodeError as e:
                                     logger.error(
-                                        f"Failed to decode tool input JSON: {partial_json_accumulator}. Error: {e}"
+                                        "Failed to decode tool input JSON: chars={}, error={}",
+                                        len(partial_json_accumulator),
+                                        type(e).__name__,
                                     )
                                     yield {
                                         "type": "error",

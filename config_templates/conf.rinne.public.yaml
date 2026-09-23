@@ -237,13 +237,13 @@ character_config:
     keep_alive: 600
     unload_at_exit: True
 
-  # 第二层用户背景：与作者当前功能一致地启用；只处理用户明确审核通过的日记，调用付费 API。
+  # 第二层用户背景：只处理用户明确审核通过的日记，调用付费 API。
   # 密钥与代理从 agent_config.llm_configs[provider_config_name] 读取。
   layer2_memory_generation:
     enabled: True
     inject_into_conversation: True
     provider_config_name: 'deepseek_llm'
-    model: 'deepseek-chat'
+    model: 'deepseek-flash'
     reasoning_effort: 'high'
     temperature: 0.0
     max_output_tokens: 65536
@@ -256,17 +256,18 @@ character_config:
   agent_config:
     conversation_agent_choice: 'basic_memory_agent' # 对话代理选择
 
-    # 可选的视频专用观察模块；静态图片仍直接交给对话模型查看。
+    # 视频和屏幕观察模块；静态图片仍可直接交给对话模型查看。
     # 密钥放在 Git 忽略的文件中，不要把密钥直接写入此 YAML。
     media_analysis:
-      enabled: False
+      enabled: True
       provider: 'gemini_native'
-      base_url: 'https://generativelanguage.googleapis.com'
-      model: 'gemini-2.0-flash'
+      base_url: 'https://apinebula.ai'
+      model: 'gemini-3.5-flash'
       api_key_file: 'local_config/gemini_video_api_key.txt'
-      timeout_seconds: 180
+      timeout_seconds: 240
       max_output_tokens: 4096
       video_segment_seconds: 45
+      max_concurrent_requests: 1
 
     agent_settings:
       basic_memory_agent:
@@ -277,7 +278,7 @@ character_config:
         # 'openai_compatible_llm', 'llama_cpp_llm', 'claude_llm', 'ollama_llm'
         # 'openai_llm', 'gemini_llm', 'zhipu_llm', 'deepseek_llm', 'groq_llm'
         # 'mistral_llm', 'lmstudio_llm' 之类的
-        llm_provider: 'deepseek_llm' # 对话使用用户自己的 DeepSeek API
+        llm_provider: 'openai_compatible_llm'
         # 是否在第一句回应时遇上逗号就直接生成音频以减少首句延迟（默认：True）
         faster_first_response: False
         # 句子分割方法：'regex' 或 'pysbd'
@@ -287,6 +288,7 @@ character_config:
         use_mcpp: True
         mcp_enabled_servers: ["ddg-search", "audio-player", "sing-server", "rinne-library"]
         scene_memory_enabled: False
+        bocha_api_key: '' # 可选：需要博查搜索时设置 BOCHA_API_KEY 环境变量
         # 与已有凛祢相同：近期上下文及按需长期记忆检索。
         long_term_memory_retrieval:
           enabled: True
@@ -337,16 +339,17 @@ character_config:
 
       # OpenAI 兼容推理后端
       openai_compatible_llm:
-        base_url: 'http://localhost:11434/v1' # 基础 URL
-        llm_api_key: ''
+        base_url: 'https://apinebula.ai/v1'
+        llm_api_key: '${RINNE_APINEBULA_API_KEY}'
         organization_id: null # 组织 ID
         project_id: null # 项目 ID
-        model: 'qwen2.5:latest' # 使用的模型
+        model: 'claude-opus-4-6'
         temperature: 1.0 # 温度，介于 0 到 2 之间
-        upstream_warning_seconds: 30 # 上游迟迟未开始回复时记录警告
-        upstream_first_data_timeout_seconds: 90 # 未收到任何数据时停止并重试
+        max_concurrent_requests: 1
+        upstream_warning_seconds: 15 # 上游迟迟未开始回复时记录警告
+        upstream_first_data_timeout_seconds: 60 # 未收到任何数据时停止并重试
         upstream_stream_idle_timeout_seconds: 90 # 流式回复开始后长时间无数据则停止
-        upstream_max_attempts: 2 # 最多重试一次，且只在尚未收到回复数据时重试
+        upstream_max_attempts: 1
         interrupt_method: 'user'
         # 用于表示中断信号的方法(提示词模式)。
         # 如果LLM支持在聊天记忆中的任何位置插入系统提示词，请使用'system'。
@@ -392,10 +395,12 @@ character_config:
         temperature: 1.0 # 温度，介于 0 到 2 之间
 
       deepseek_llm:
+        base_url: 'https://api.deepseek.com/v1'
         llm_api_key: '${RINNE_DEEPSEEK_API_KEY}'
-        model: 'deepseek-chat' # 使用的模型
+        model: 'deepseek-v4-flash'
         proxy_url: null # 可选：仅 DeepSeek 请求使用的 HTTP 代理
         temperature: 0.7 # 注意，DeepSeek 的温度范围是 0 到 1
+        max_concurrent_requests: 1
 
       mistral_llm:
         llm_api_key: ''
@@ -410,7 +415,7 @@ character_config:
   # === 自动语音识别 ===
   asr_config:
     # 语音转文本模型选项：'faster_whisper', 'whisper_cpp', 'whisper', 'azure_asr', 'fun_asr', 'groq_whisper_asr', 'sherpa_onnx_asr', 'qwen3_asr'
-    asr_model: 'sherpa_onnx_asr' # 与作者当前配置相同，首次启动会准备 SenseVoice
+    asr_model: 'sherpa_onnx_asr' # 首次启动会准备 SenseVoice
 
     azure_asr:
       api_key: ''

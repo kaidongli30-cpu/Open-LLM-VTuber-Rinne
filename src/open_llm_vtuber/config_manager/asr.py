@@ -386,7 +386,6 @@ class ASRConfig(I18nMixin):
     """Configuration for Automatic Speech Recognition."""
 
     asr_model: Literal[
-        "text_only",
         "faster_whisper",
         "whisper_cpp",
         "whisper",

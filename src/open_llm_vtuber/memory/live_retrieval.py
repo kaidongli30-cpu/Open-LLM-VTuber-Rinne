@@ -10,6 +10,7 @@ import json
 import re
 import time
 from dataclasses import dataclass, replace
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -21,10 +22,12 @@ from .final_memory_evidence import (
     FinalRankBlendConfig,
     blend_fusion_and_reranker,
     build_cloud_memory_payload,
+    occurrence_range,
 )
 from .ranking_fusion import RankFusionConfig, fuse_rankings
 from .read_only_tools import ReadOnlyMemoryTools
 from .secondary_diary_recall import SecondaryDiaryRecallEngine
+from .time_range import ValidatedTimeRange, normalize_time_range
 
 
 EVENT_FUSION_CONFIG = RankFusionConfig(
@@ -41,6 +44,209 @@ SUMMARY_BLEND = FinalRankBlendConfig(
     rank_constant=60,
 )
 RERANKER_SCORE_FLOOR = 0.001
+DETAIL_FINAL_OPTION_LIMIT = 10
+DETAIL_TARGET_OPTION_LIMIT = 10
+DETAIL_DATE_OPTION_LIMIT = 10
+_DETAIL_FOLLOWUP_CUE = re.compile(
+    r"哪(?:一)?天|什么时候|什么样|哪一句|原话|说到哪里|具体|"
+    r"怎么(?:做|说|惩罚)|做了什么|发生了什么|为什么|"
+    r"前一天|后一天|第一次"
+)
+_DATE_HINT = re.compile(
+    r"(?:(?P<year>20\d{2})[年./-])?"
+    r"(?P<month>1[0-2]|0?[1-9])[月./-]"
+    r"(?P<day>3[01]|[12]\d|0?[1-9])日?"
+)
+_SMALL_COUNT_CUE = re.compile(r"(?P<count>[二两三])(?:次|件|个|条)")
+_SMALL_COUNT_VALUES = {"二": 2, "两": 2, "三": 3}
+_COMPLETED_OUTING_CUE = re.compile(
+    r"(?:带|陪).{0,20}(?:去|看|逛).{0,30}(?:了|呢)"
+)
+_PLAN_OUTING_CUE = re.compile(
+    r"(?:计划|打算|准备).{0,20}(?:带|陪).{0,20}(?:去|看|逛)"
+)
+
+
+def _date_period_hints(text: str) -> set[str]:
+    hints: set[str] = set()
+    for match in _DATE_HINT.finditer(text):
+        month = int(match.group("month"))
+        day = int(match.group("day"))
+        year = match.group("year")
+        if year:
+            hints.add(f"{year}-{month:02d}-{day:02d}")
+        else:
+            hints.add(f"-{month:02d}-{day:02d}")
+    return hints
+
+
+def _matches_date_hint(period: str, hints: set[str]) -> bool:
+    return period in hints or any(
+        hint.startswith("-") and period.endswith(hint) for hint in hints
+    )
+
+
+def _candidate_date_span(candidate: MemoryCandidate) -> tuple[date, date] | None:
+    try:
+        start, end = occurrence_range(candidate)
+        return date.fromisoformat(start), date.fromisoformat(end)
+    except (TypeError, ValueError):
+        return None
+
+
+def _candidate_overlaps_range(
+    candidate: MemoryCandidate,
+    time_range: ValidatedTimeRange,
+) -> bool:
+    if not time_range.is_bounded:
+        return True
+    span = _candidate_date_span(candidate)
+    if span is None:
+        return False
+    start = date.fromisoformat(time_range.start_date or "9999-12-31")
+    end = date.fromisoformat(time_range.end_date or "0001-01-01")
+    return span[0] <= end and span[1] >= start
+
+
+def _candidate_range_distance(
+    candidate: MemoryCandidate,
+    time_range: ValidatedTimeRange,
+) -> int:
+    if not time_range.is_bounded:
+        return 0
+    span = _candidate_date_span(candidate)
+    if span is None:
+        return 3650
+    start = date.fromisoformat(time_range.start_date or "9999-12-31")
+    end = date.fromisoformat(time_range.end_date or "0001-01-01")
+    if span[0] <= end and span[1] >= start:
+        return 0
+    if span[0] > end:
+        return (span[0] - end).days
+    return (start - span[1]).days
+
+
+def _apply_time_range(
+    candidates: Sequence[MemoryCandidate],
+    time_range: ValidatedTimeRange,
+) -> tuple[list[MemoryCandidate], int]:
+    """Apply a hard date window or a low-confidence ranking nudge."""
+
+    if not time_range.is_bounded:
+        return list(candidates), 0
+    if time_range.mode == "hard":
+        filtered = [
+            item for item in candidates if _candidate_overlaps_range(item, time_range)
+        ]
+        return filtered, len(candidates) - len(filtered)
+
+    adjusted: list[MemoryCandidate] = []
+    for item in candidates:
+        distance = _candidate_range_distance(item, time_range)
+        if distance <= 0:
+            adjusted.append(item)
+            continue
+        # Keep uncertain ranges useful without allowing a distant result to
+        # outrank an in-range result solely because of a lexical tie.
+        penalty = min(0.35, 0.03 + distance * 0.01)
+        adjusted.append(
+            replace(
+                item,
+                score=max(0.0, item.score * (1.0 - penalty)),
+                ranking_details=(
+                    *item.ranking_details,
+                    {
+                        "stage": "soft_time_range_penalty",
+                        "distance_days": distance,
+                        "penalty": round(penalty, 4),
+                    },
+                ),
+            )
+        )
+    adjusted.sort(key=lambda item: (-item.score, item.period, item.candidate_id))
+    return adjusted, 0
+
+
+def _explicit_small_count(text: str) -> int | None:
+    match = _SMALL_COUNT_CUE.search(text)
+    if match is None:
+        return None
+    return _SMALL_COUNT_VALUES[match.group("count")]
+
+
+def _filter_contradictory_navigation(
+    question: str,
+    candidates: Sequence[MemoryCandidate],
+) -> tuple[list[MemoryCandidate], int]:
+    """Keep a past outing from being answered with a plan-only event."""
+    selected = list(candidates)
+    if _COMPLETED_OUTING_CUE.search(question) is None:
+        return selected, 0
+    filtered = [
+        item for item in selected if _PLAN_OUTING_CUE.search(item.snippet) is None
+    ]
+    if not filtered:
+        return selected, 0
+    return filtered, len(selected) - len(filtered)
+
+
+def _candidate_trace(
+    candidates: Sequence[MemoryCandidate],
+) -> list[dict[str, Any]]:
+    """Return score/source metadata without duplicating private snippet text."""
+
+    return [
+        {
+            "candidate_id": item.candidate_id,
+            "source_kind": item.source_kind,
+            "source_file": item.source_file,
+            "period": item.period,
+            "score": item.score,
+            "fusion_score": item.fusion_score,
+            "reranker_rank": item.reranker_rank,
+            "reranker_score": item.reranker_score,
+            "matched_queries": list(item.matched_queries),
+            "snippet_characters": len(item.snippet),
+        }
+        for item in candidates
+    ]
+
+
+def _detail_navigation_candidates(
+    final_events: Sequence[MemoryCandidate],
+    target_reranked: Sequence[MemoryCandidate],
+    date_matched: Sequence[MemoryCandidate] = (),
+) -> list[MemoryCandidate]:
+    """Expose bounded event clues without opening all of their diary windows."""
+
+    selected: list[MemoryCandidate] = []
+    seen: set[str] = set()
+    for items, limit in (
+        (date_matched, DETAIL_DATE_OPTION_LIMIT),
+        (final_events, DETAIL_FINAL_OPTION_LIMIT),
+        (target_reranked, DETAIL_TARGET_OPTION_LIMIT),
+    ):
+        for item in items[:limit]:
+            if item.candidate_id in seen:
+                continue
+            seen.add(item.candidate_id)
+            selected.append(item)
+    return selected
+
+
+def _detail_navigation_options(
+    candidates: Sequence[MemoryCandidate],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "seed_event_id": item.candidate_id,
+            "occurrence_date": item.period,
+            "navigation_hint": item.snippet[:500],
+        }
+        for item in candidates
+    ]
+
+
 DUAL_RANK_CONSTANT = 20
 _OVERVIEW_CUE = re.compile(
     r"从.{1,60}到.{1,60}(?:过程|一路|最终|后来)|"
@@ -109,9 +315,13 @@ def _dual_reranker_blend(
     original_ranks = _rank_map(original_reranked)
     target_ranks = _rank_map(target_reranked)
     eligible = {
-        item.candidate_id
-        for item in original_reranked
-        if (item.reranker_score or 0.0) >= RERANKER_SCORE_FLOOR
+        candidate_id
+        for candidate_id in original_by_id.keys() & target_by_id.keys()
+        if max(
+            original_by_id[candidate_id].reranker_score or 0.0,
+            target_by_id[candidate_id].reranker_score or 0.0,
+        )
+        >= RERANKER_SCORE_FLOOR
     }
     shared = fused_by_id.keys() & original_by_id.keys() & target_by_id.keys() & eligible
     raw_scores = {
@@ -138,10 +348,19 @@ def _dual_reranker_blend(
             original_by_id[candidate_id],
             score=raw_scores[candidate_id] / maximum,
             fusion_score=fused_by_id[candidate_id].fusion_score,
+            reranker_score=max(
+                original_by_id[candidate_id].reranker_score or 0.0,
+                target_by_id[candidate_id].reranker_score or 0.0,
+            ),
             reranker_rank=original_ranks[candidate_id],
             matched_queries=fused_by_id[candidate_id].matched_queries,
             ranking_details=(
                 *fused_by_id[candidate_id].ranking_details,
+                {
+                    "stage": "original_reranker",
+                    "rank": original_ranks[candidate_id],
+                    "score": original_by_id[candidate_id].reranker_score,
+                },
                 {
                     "stage": "target_reranker",
                     "rank": target_ranks[candidate_id],
@@ -215,6 +434,10 @@ def format_hidden_memory_context(cloud_payload: dict[str, Any]) -> str:
             "不要逐条汇报候选，不要提及检索、文件、排名或系统处理过程。"
             "只提取与当前话语最直接相关的事实，并自然融入回答。"
             "若证据不足或不相关，请自然说明没有可靠想起，并请用户补充细节。"
+            "除非用户明确讨论记忆系统，否则绝对不要提第一层、第二层、第三层、"
+            "检索失败或系统是否修好。最终输出只能是对用户说的话；不要输出英文或"
+            "中文的分析、推理、证据审查或工作过程。不要根据‘后来似乎没出问题’"
+            "自行生成证据未明确支持的硬件、健康、法律或安全结论。"
         ),
         "retrieval": cloud_payload,
     }
@@ -330,6 +553,8 @@ class LiveMemoryRetrievalService:
         self,
         queries: Sequence[str],
         reranker_query: str,
+        *,
+        time_range: ValidatedTimeRange = ValidatedTimeRange(),
     ) -> list[MemoryCandidate]:
         rankings: list[dict[str, Any]] = []
         candidate_pool: dict[str, MemoryCandidate] = {}
@@ -344,6 +569,8 @@ class LiveMemoryRetrievalService:
                 model_name=self.settings.embedding_model,
                 device=self.settings.embedding_device,
             )
+            keyword, _ = _apply_time_range(keyword, time_range)
+            semantic, _ = _apply_time_range(semantic, time_range)
             for channel, items in (("keyword", keyword), ("semantic", semantic)):
                 candidate_pool.update((item.candidate_id, item) for item in items)
                 rankings.append(
@@ -367,15 +594,23 @@ class LiveMemoryRetrievalService:
             device=self.settings.reranker_device,
             batch_size=self.settings.reranker_batch_size,
         )
-        return blend_fusion_and_reranker(fused, reranked, SUMMARY_BLEND)
+        blended = blend_fusion_and_reranker(fused, reranked, SUMMARY_BLEND)
+        adjusted, _ = _apply_time_range(blended, time_range)
+        return adjusted
 
     def _diary_ranking(
         self,
         question: str,
         events: Sequence[MemoryCandidate],
+        *,
+        time_range: ValidatedTimeRange = ValidatedTimeRange(),
     ) -> tuple[list[MemoryCandidate], dict[str, Any]]:
         if not events:
-            return [], {"seed_child_event_ids": [], "diary_windows": []}
+            return [], {
+                "seed_child_event_ids": [],
+                "diary_windows": [],
+                "filtered_candidate_count": 0,
+            }
         seed_id = events[0].candidate_id
         session = self.diary_engine.start_session(question, [seed_id])
         self.diary_engine.search(session)
@@ -402,28 +637,116 @@ class LiveMemoryRetrievalService:
             )
             for item in reranked
         ]
+        diaries, filtered_count = _apply_time_range(diaries, time_range)
         return diaries, {
             "seed_child_event_ids": [seed_id],
             "diary_windows": [list(item) for item in session.diary_windows],
             "candidate_count": len(diaries),
+            "filtered_candidate_count": filtered_count,
         }
 
-    def _event_rankings(self, queries: Sequence[str]) -> list[dict[str, Any]]:
+    def _direct_dated_diary_ranking(
+        self,
+        question: str,
+        time_range: ValidatedTimeRange,
+    ) -> tuple[list[MemoryCandidate], dict[str, Any]]:
+        """Open explicitly dated diary files without requiring an event seed."""
+
+        empty_trace = {
+            "enabled": False,
+            "requested_files": [],
+            "found_files": [],
+            "candidate_count": 0,
+        }
+        if time_range.mode != "hard" or not time_range.is_bounded:
+            return [], empty_trace
+        start = date.fromisoformat(time_range.start_date or "9999-12-31")
+        end = date.fromisoformat(time_range.end_date or "0001-01-01")
+        if (end - start).days > 31:
+            return [], {**empty_trace, "skipped_reason": "range_exceeds_32_days"}
+
+        requested_files: list[str] = []
+        found_files: list[str] = []
+        candidates: list[MemoryCandidate] = []
+        cursor = start
+        while cursor <= end:
+            source_file = f"diary_{cursor.isoformat()}.txt"
+            requested_files.append(source_file)
+            items = self.archive_tools.get_source_file_candidates(
+                "diary",
+                source_file,
+            )
+            if items:
+                found_files.append(source_file)
+                candidates.extend(items)
+            cursor += timedelta(days=1)
+        if not candidates:
+            return [], {
+                "enabled": True,
+                "requested_files": requested_files,
+                "found_files": found_files,
+                "candidate_count": 0,
+            }
+
+        limit = min(20, max(1, self.settings.top_k * 2))
+        reranked = self.archive_tools.rerank_candidates(
+            question,
+            candidates,
+            top_k=min(limit, len(candidates)),
+            model_name=self.settings.reranker_model,
+            device=self.settings.reranker_device,
+            batch_size=self.settings.reranker_batch_size,
+        )
+        return reranked, {
+            "enabled": True,
+            "requested_files": requested_files,
+            "found_files": found_files,
+            "candidate_count": len(reranked),
+        }
+
+    def _event_rankings(
+        self,
+        queries: Sequence[str],
+        *,
+        time_range: ValidatedTimeRange = ValidatedTimeRange(),
+    ) -> list[dict[str, Any]]:
         rankings: list[dict[str, Any]] = []
+        search_top_k = max(1, self.settings.top_k)
+        if time_range.mode == "soft":
+            search_top_k = min(
+                20,
+                max(1, self.settings.top_k * 2, self.settings.top_k),
+            )
         for query in _unique(queries):
             for channel in ("keyword", "semantic"):
                 search_started = time.perf_counter()
                 if channel == "keyword":
                     results = self.event_tools.search_keyword(
                         query,
-                        top_k=self.settings.top_k,
+                        top_k=search_top_k,
+                        **(
+                            {
+                                "start_date": time_range.start_date,
+                                "end_date": time_range.end_date,
+                            }
+                            if time_range.mode == "hard"
+                            else {}
+                        ),
                     )
                 else:
                     results = self.event_tools.search_semantic(
                         query,
-                        top_k=self.settings.top_k,
+                        top_k=search_top_k,
                         model_name=self.settings.embedding_model,
                         device=self.settings.embedding_device,
+                        **(
+                            {
+                                "start_date": time_range.start_date,
+                                "end_date": time_range.end_date,
+                            }
+                            if time_range.mode == "hard"
+                            else {}
+                        ),
                     )
                 rankings.append(
                     {
@@ -440,6 +763,63 @@ class LiveMemoryRetrievalService:
                 )
         return rankings
 
+    def _raw_chat_ranking(
+        self,
+        query: str,
+        time_range: ValidatedTimeRange,
+    ) -> list[MemoryCandidate]:
+        """Search raw JSON messages when a detail question needs exact wording.
+
+        ``ReadOnlyMemoryTools`` intentionally caps one raw-chat request at 32
+        memory days.  A model-produced approximate range may be wider, so the
+        service splits hard windows into bounded chunks and merges the hits
+        before one final local rerank.  The source files remain read-only.
+        """
+
+        limit = min(20, max(1, self.settings.top_k * 2, self.settings.top_k))
+        candidates: dict[str, MemoryCandidate] = {}
+        if time_range.mode == "hard" and time_range.is_bounded:
+            cursor = date.fromisoformat(time_range.start_date or "9999-12-31")
+            end = date.fromisoformat(time_range.end_date or "0001-01-01")
+            while cursor <= end:
+                chunk_end = min(cursor + timedelta(days=31), end)
+                results = self.archive_tools.search_raw_chat(
+                    query,
+                    start_date=cursor.isoformat(),
+                    end_date=chunk_end.isoformat(),
+                    top_k=limit,
+                )
+                for item in results:
+                    previous = candidates.get(item.candidate_id)
+                    if previous is None or item.score > previous.score:
+                        candidates[item.candidate_id] = item
+                cursor = chunk_end + timedelta(days=1)
+        else:
+            for item in self.archive_tools.search_raw_chat(query, top_k=limit):
+                previous = candidates.get(item.candidate_id)
+                if previous is None or item.score > previous.score:
+                    candidates[item.candidate_id] = item
+
+        if not candidates:
+            return []
+        opener = getattr(self.archive_tools, "get_candidate_with_context", None)
+        prepared = [
+            opener(item.candidate_id, score=item.score)
+            if callable(opener)
+            else item
+            for item in candidates.values()
+        ]
+        reranked = self.archive_tools.rerank_candidates(
+            query,
+            prepared,
+            top_k=min(limit, len(prepared)),
+            model_name=self.settings.reranker_model,
+            device=self.settings.reranker_device,
+            batch_size=self.settings.reranker_batch_size,
+        )
+        filtered, _ = _apply_time_range(reranked, time_range)
+        return filtered[:limit]
+
     def _finish_retrieval(
         self,
         *,
@@ -450,6 +830,7 @@ class LiveMemoryRetrievalService:
         summary_queries: Sequence[str],
         diagnostics: dict[str, Any],
         started: float,
+        time_range: ValidatedTimeRange = ValidatedTimeRange(),
     ) -> LiveRetrievalResult:
         rerank_started = time.perf_counter()
         fused = fuse_rankings(
@@ -457,6 +838,8 @@ class LiveMemoryRetrievalService:
             self.event_candidates,
             EVENT_FUSION_CONFIG,
         )
+        original_reranked: Sequence[MemoryCandidate] = ()
+        target_reranked: Sequence[MemoryCandidate] = ()
         if fused:
             original_reranked = self.archive_tools.rerank_candidates(
                 search_question,
@@ -484,16 +867,51 @@ class LiveMemoryRetrievalService:
             )
         else:
             events = []
+        events, event_time_range_filtered_count = _apply_time_range(
+            events,
+            time_range,
+        )
+        events, event_filtered_plan_count = _filter_contradictory_navigation(
+            search_question,
+            events,
+        )
         event_rerank_seconds = round(time.perf_counter() - rerank_started, 3)
 
         evidence_started = time.perf_counter()
         summaries: list[MemoryCandidate] = []
         diaries: list[MemoryCandidate] = []
+        raw_chat: list[MemoryCandidate] = []
         diary_trace: dict[str, Any] = {}
         if granularity == "overview":
-            summaries = self._summary_ranking(summary_queries, search_question)
+            summaries = self._summary_ranking(
+                summary_queries,
+                search_question,
+                time_range=time_range,
+            )
         else:
-            diaries, diary_trace = self._diary_ranking(search_question, events)
+            seeded_diaries, diary_trace = self._diary_ranking(
+                search_question,
+                events,
+                time_range=time_range,
+            )
+            dated_diaries, dated_diary_trace = self._direct_dated_diary_ranking(
+                search_question,
+                time_range,
+            )
+            diaries_by_id = {
+                item.candidate_id: item
+                for item in (*dated_diaries, *seeded_diaries)
+            }
+            diaries = sorted(
+                diaries_by_id.values(),
+                key=lambda item: (
+                    -(item.reranker_score or item.score),
+                    item.period,
+                    item.candidate_id,
+                ),
+            )
+            diary_trace["direct_dated"] = dated_diary_trace
+            raw_chat = self._raw_chat_ranking(search_question, time_range)
         evidence_search_seconds = round(
             time.perf_counter() - evidence_started,
             3,
@@ -514,24 +932,216 @@ class LiveMemoryRetrievalService:
             event_candidates=events,
             summary_candidates=summaries,
             diary_candidates=diaries,
+            raw_chat_candidates=raw_chat,
             limits=limits,
             relevance_gate=relevance_gate,
         )
+        cloud["time_range"] = time_range.to_dict()
+        cloud["time_range_notice"] = (
+            "日期范围为低置信度软提示，范围外候选仅作补充线索，不能单独证明事件发生在"
+            "该范围内。"
+            if time_range.mode == "soft"
+            else (
+                "日期范围已作为包含起止日的硬过滤条件。"
+                if time_range.mode == "hard"
+                else "本轮没有可靠的日期范围，按语义在全部可用记忆中检索。"
+            )
+        )
+        explicit_count = _explicit_small_count(search_question)
+        if explicit_count is not None:
+            evidence_items = [
+                {
+                    "candidate_id": item.get("candidate_id"),
+                    "source_file": item.get("source_file"),
+                }
+                for item in cloud.get("evidence", [])
+                if item.get("memory_type") == "child_event"
+            ][:explicit_count]
+            cloud["answer_requirements"] = {
+                "explicit_distinct_item_count": explicit_count,
+                "evidence_items_to_cover": evidence_items,
+                "instruction": (
+                    f"用户明确提到{explicit_count}项。如果evidence支持{explicit_count}个"
+                    "不同事件，最终回复必须分别涵盖evidence_items_to_cover中的每一项，"
+                    "不能只说第一项；如果证据不足，则明确保留"
+                    "不确定性，不得用无关候选凑数。"
+                ),
+            }
+        detail_navigation = []
+        date_matched: Sequence[MemoryCandidate] = ()
+        navigation_filtered_plan_count = 0
+        detail_followup_needed = (
+            granularity == "exact_detail"
+            or bool(_DETAIL_FOLLOWUP_CUE.search(search_question))
+        )
+        if (
+            detail_followup_needed
+            and cloud["retrieval_status"] == "evidence_ready"
+        ):
+            date_hints = _date_period_hints(f"{search_question} {target}")
+            if date_hints:
+                date_candidates = [
+                    item
+                    for item in self.event_candidates.values()
+                    if _matches_date_hint(item.period, date_hints)
+                    and _candidate_overlaps_range(item, time_range)
+                ]
+                if date_candidates:
+                    date_matched = self.archive_tools.rerank_candidates(
+                        search_question,
+                        date_candidates,
+                        top_k=min(len(date_candidates), DETAIL_DATE_OPTION_LIMIT),
+                        model_name=self.settings.reranker_model,
+                        device=self.settings.reranker_device,
+                        batch_size=self.settings.reranker_batch_size,
+                    )
+            detail_navigation = _detail_navigation_candidates(
+                events,
+                target_reranked,
+                date_matched,
+            )
+            (
+                detail_navigation,
+                navigation_filtered_plan_count,
+            ) = _filter_contradictory_navigation(
+                search_question,
+                detail_navigation,
+            )
+            cloud["detail_navigation_notice"] = (
+                "这些只是用于必要时打开相邻日记的导航线索，不是额外事实证据。"
+                "用户说已经发生的经历应优先选择完成事件，不要选择只有计划、打算或期待"
+                "但未记录实际发生的事件。"
+                "如果现有evidence无法回答用户询问的日期、原话、画面、原因或其他"
+                "精确细节，就必须先原样复制最可能的一个"
+                "seed_event_id进行第二次工具调用。"
+            )
+            cloud["detail_navigation_options"] = _detail_navigation_options(
+                detail_navigation
+            )
         diagnostics.update(
             {
                 "retrieval_target": target,
                 "question_granularity": granularity,
+                "raw_rankings": [dict(item) for item in raw_rankings],
+                "fused_events": _candidate_trace(fused),
+                "original_reranked_events": _candidate_trace(original_reranked),
+                "target_reranked_events": _candidate_trace(target_reranked),
+                "final_event_ranking": _candidate_trace(events),
+                "summary_ranking": _candidate_trace(summaries),
+                "diary_ranking": _candidate_trace(diaries),
+                "raw_chat_ranking": _candidate_trace(raw_chat),
+                "detail_navigation_options": _candidate_trace(
+                    detail_navigation
+                ),
+                "date_matched_navigation": _candidate_trace(date_matched),
+                "navigation_filtered_plan_count": (
+                    navigation_filtered_plan_count
+                ),
+                "detail_followup_available": bool(detail_navigation),
+                "detail_followup_needed": detail_followup_needed,
                 "fused_event_count": len(fused),
                 "retained_event_count": len(events),
+                "event_filtered_plan_count": event_filtered_plan_count,
+                "event_time_range_filtered_count": event_time_range_filtered_count,
                 "summary_count": len(summaries),
+                "raw_chat_count": len(raw_chat),
                 "diary": diary_trace,
+                "time_range": time_range.to_dict(),
                 "event_rerank_seconds": event_rerank_seconds,
                 "evidence_search_seconds": evidence_search_seconds,
                 "cloud_status": cloud["retrieval_status"],
                 "cloud_evidence_count": cloud["evidence_count"],
+                "explicit_answer_item_count": explicit_count,
                 "total_seconds": round(time.perf_counter() - started, 3),
             }
         )
+        return LiveRetrievalResult(
+            True,
+            format_hidden_memory_context(cloud),
+            cloud,
+            diagnostics,
+        )
+
+    def retrieve_detail_from_seed(
+        self,
+        user_input: str,
+        *,
+        seed_event_id: str,
+        question_granularity: str = "exact_detail",
+        start_date: str | None = None,
+        end_date: str | None = None,
+        time_range_confidence: str = "none",
+        time_range_basis: str = "",
+    ) -> LiveRetrievalResult:
+        """Open one model-selected event's bounded diary window."""
+
+        started = time.perf_counter()
+        search_question = " ".join(user_input.split())
+        if not search_question:
+            raise ValueError("user_input must not be empty")
+        time_range = normalize_time_range(
+            start_date,
+            end_date,
+            time_range_confidence,
+            time_range_basis,
+        )
+        seed = self.event_candidates.get(seed_event_id)
+        if seed is None:
+            raise ValueError("seed_event_id is not a known child event")
+        supported_seed = replace(
+            seed,
+            score=1.0,
+            fusion_score=1.0,
+            reranker_score=1.0,
+        )
+        diaries, diary_trace = self._diary_ranking(
+            search_question,
+            [supported_seed],
+            time_range=time_range,
+        )
+        raw_chat = self._raw_chat_ranking(search_question, time_range)
+        granularity = (
+            question_granularity
+            if question_granularity in {"specific_event", "exact_detail"}
+            else "exact_detail"
+        )
+        cloud = build_cloud_memory_payload(
+            question=search_question,
+            question_granularity=granularity,
+            event_candidates=[supported_seed],
+            diary_candidates=diaries,
+            raw_chat_candidates=raw_chat,
+            limits=CloudEvidenceLimits(specific_event_limit=6),
+            relevance_gate=EvidenceRelevanceGateConfig(
+                min_reranker_score=RERANKER_SCORE_FLOOR,
+                strong_reranker_score=RERANKER_SCORE_FLOOR,
+                min_weak_fusion_score=0.0,
+            ),
+        )
+        cloud["time_range"] = time_range.to_dict()
+        cloud["time_range_notice"] = (
+            "日期范围为低置信度软提示，范围外候选仅作补充线索。"
+            if time_range.mode == "soft"
+            else (
+                "日期范围已作为包含起止日的硬过滤条件。"
+                if time_range.mode == "hard"
+                else "本轮没有可靠的日期范围。"
+            )
+        )
+        diagnostics = {
+            "retrieval_target": "model_selected_detail_seed",
+            "question_granularity": granularity,
+            "selected_seed_event_id": seed_event_id,
+            "diary": diary_trace,
+            "diary_ranking": _candidate_trace(diaries),
+            "raw_chat_ranking": _candidate_trace(raw_chat),
+            "raw_chat_count": len(raw_chat),
+            "time_range": time_range.to_dict(),
+            "cloud_status": cloud["retrieval_status"],
+            "cloud_evidence_count": cloud["evidence_count"],
+            "detail_followup_available": False,
+            "total_seconds": round(time.perf_counter() - started, 3),
+        }
         return LiveRetrievalResult(
             True,
             format_hidden_memory_context(cloud),
@@ -545,6 +1155,10 @@ class LiveMemoryRetrievalService:
         *,
         retrieval_query: str,
         question_granularity: str = "specific_event",
+        start_date: str | None = None,
+        end_date: str | None = None,
+        time_range_confidence: str = "none",
+        time_range_basis: str = "",
     ) -> LiveRetrievalResult:
         """Run the frozen workers after the cloud model explicitly requests recall."""
 
@@ -553,6 +1167,12 @@ class LiveMemoryRetrievalService:
         target = " ".join(retrieval_query.split()) or search_question
         if not search_question:
             raise ValueError("user_input must not be empty")
+        time_range = normalize_time_range(
+            start_date,
+            end_date,
+            time_range_confidence,
+            time_range_basis,
+        )
         if question_granularity not in {
             "overview",
             "specific_event",
@@ -560,12 +1180,21 @@ class LiveMemoryRetrievalService:
         }:
             question_granularity = _fallback_granularity(search_question)
         event_search_started = time.perf_counter()
-        raw_rankings = self._event_rankings([search_question, target])
+        if time_range.is_bounded:
+            raw_rankings = self._event_rankings(
+                [search_question, target],
+                time_range=time_range,
+            )
+        else:
+            # Keep the narrow call shape for compatibility with isolated
+            # retrieval tests and lightweight injected services.
+            raw_rankings = self._event_rankings([search_question, target])
         diagnostics: dict[str, Any] = {
             "search_question": search_question,
             "retrieval_query_source": "cloud_tool",
             "retrieval_needed": True,
             "raw_ranking_count": len(raw_rankings),
+            "time_range": time_range.to_dict(),
             "event_search_seconds": round(
                 time.perf_counter() - event_search_started,
                 3,
@@ -579,6 +1208,7 @@ class LiveMemoryRetrievalService:
             summary_queries=[search_question, target],
             diagnostics=diagnostics,
             started=started,
+            time_range=time_range,
         )
 
 

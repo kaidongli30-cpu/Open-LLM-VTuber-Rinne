@@ -2,6 +2,7 @@ import json
 import httpx
 from loguru import logger
 from .translate_interface import TranslateInterface
+from ..privacy_logging import text_log_fields
 
 
 class DeepLXTranslate(TranslateInterface):
@@ -21,8 +22,14 @@ class DeepLXTranslate(TranslateInterface):
             res = json.loads(req)["translations"]
             res = " ".join([d["text"] for d in res])
         except Exception as e:
-            logger.critical(f"Error translating text '{text}'. Error message: {e}")
-            logger.critical(f"Response: {req}")
+            logger.critical(
+                "Error translating text: input={}, error={}",
+                text_log_fields(text),
+                type(e).__name__,
+            )
+            logger.critical(
+                "Translation response: {}", text_log_fields(locals().get("req"))
+            )
             raise e
 
         return res

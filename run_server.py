@@ -4,6 +4,7 @@ import atexit
 import asyncio
 import argparse
 import subprocess
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 import tomli
@@ -18,12 +19,26 @@ from src.open_llm_vtuber.rinne_renderer_profile import (
     apply_rinne_renderer_profile_to_config,
     prepare_rinne_renderer_startup,
 )
-from src.open_llm_vtuber.data_paths import character_history_root
+from src.open_llm_vtuber.data_paths import (
+    character_history_root,
+    resolve_character_history_root,
+)
+from src.open_llm_vtuber.memory.startup_chat_history_archive import (
+    archive_old_chat_history_on_startup,
+)
 
 os.environ["HF_HOME"] = str(Path(__file__).parent / "models")
 os.environ["MODELSCOPE_CACHE"] = str(Path(__file__).parent / "models")
 
 upgrade_manager = UpgradeManager()
+
+
+@dataclass
+class RinneMemoryStartupOutcome:
+    child_event_worker: object | None = None
+    layer2_worker: object | None = None
+    notifications: list[dict[str, str]] = field(default_factory=list)
+    diary_ready_for_archive: bool = False
 
 
 def _last_complete_memory_day(reference_time: datetime) -> datetime:
@@ -36,8 +51,11 @@ def _last_complete_memory_day(reference_time: datetime) -> datetime:
 def prepare_rinne_memories_on_startup(
     reference_time: datetime | None = None,
     history_root: str | Path | None = None,
-) -> None:
-    """Run the one-shot diary -> weekly -> monthly startup sequence safely."""
+    generation_settings=None,
+    layer2_generation_settings=None,
+    config_path: str | Path = "conf.yaml",
+) -> RinneMemoryStartupOutcome:
+    """Generate periodic memories and launch child-event work in background."""
 
     import diary_generator
     import monthly_generator
@@ -46,10 +64,39 @@ def prepare_rinne_memories_on_startup(
         load_today_messages,
         select_long_term_memories,
     )
+    from src.open_llm_vtuber.memory.daily_child_events import (
+        daily_child_event_publication_status,
+        launch_daily_child_event_worker,
+    )
+    from src.open_llm_vtuber.memory.diary_review import wait_for_diary_approval
+    from src.open_llm_vtuber.memory.scene_state import SceneStateStore
+    from src.open_llm_vtuber.memory.layer2_runtime import (
+        layer2_publication_status,
+        launch_layer2_worker,
+    )
 
     now = reference_time or datetime.now()
-    history_root = Path(history_root) if history_root is not None else character_history_root()
+    outcome = RinneMemoryStartupOutcome()
+    history_root = resolve_character_history_root(history_root)
     last_complete_day = _last_complete_memory_day(now)
+    from src.open_llm_vtuber.memory.diary_sources import pending_chat_diary_days
+
+    # Recover genuine older conversations before processing the latest day.
+    # Empty intervening days are intentionally absent from this list.
+    for pending_day in pending_chat_diary_days(history_root, last_complete_day.date()):
+        pending_path = history_root / "diaries" / f"diary_{pending_day}.txt"
+        logger.info(f"[记忆生成] 补查旧聊天日记：{pending_day}")
+        try:
+            diary_generator.generate_for_date(
+                datetime.combine(pending_day, datetime.min.time())
+            )
+        except Exception as exc:
+            logger.error(f"[记忆生成] {pending_day} 补写失败，保留原始聊天：{exc}")
+            continue
+        if pending_path.is_file() and pending_path.stat().st_size:
+            wait_for_diary_approval(history_root, pending_day.isoformat(), pending_path)
+        else:
+            logger.warning(f"[记忆生成] {pending_day} 日记未生成，保留原始聊天")
     diary_path = (
         history_root
         / "diaries"
@@ -57,46 +104,177 @@ def prepare_rinne_memories_on_startup(
     )
 
     logger.info(f"[记忆生成] 检查上一完整记忆日：{last_complete_day:%Y-%m-%d}")
-    skip_empty_day = False
-    if not diary_path.exists():
-        start, end = diary_generator.get_day_range(last_complete_day)
-        skip_empty_day = not diary_generator.load_messages_in_range(start, end)
-    if skip_empty_day:
-        logger.info("[记忆生成] 上一完整记忆日没有聊天记录，跳过空白日记")
     try:
-        if not skip_empty_day:
-            diary_generator.generate_for_date(last_complete_day)
+        diary_generator.generate_for_date(last_complete_day)
     except Exception as exc:
         logger.error(f"[记忆生成] 日记生成出现异常，暂停周记和月记：{exc}")
     else:
         if not diary_path.exists() or diary_path.stat().st_size == 0:
-            if not skip_empty_day:
-                logger.error(
-                    "[记忆生成] 上一完整记忆日的日记未成功生成，"
-                    "本次暂停周记和月记；后端仍会继续启动。"
-                )
+            logger.error(
+                "[记忆生成] 上一完整记忆日的日记未成功生成，"
+                "本次暂停周记和月记；后端仍会继续启动。"
+            )
         else:
+            approval = wait_for_diary_approval(
+                history_root,
+                last_complete_day.date().isoformat(),
+                diary_path,
+            )
+            logger.info(
+                "[日记验收] 已确认可供后续记忆流程使用："
+                f"{last_complete_day:%Y-%m-%d}，状态={approval['status']}"
+            )
+            outcome.diary_ready_for_archive = True
+            if approval.get("status") == "changed_after_approval":
+                logger.warning(
+                    "[日记验收] 这份日记在上次 approve 后发生了手动修改；"
+                    "本次按当前内容继续，不自动重建既有第二层或子事件。"
+                )
+            memory_day = last_complete_day.date().isoformat()
             try:
-                weekly_result = weekly_generator.generate_latest_completed_week(now)
+                # Scene detail is a current-day aid only.  Once the diary has
+                # been accepted, discard that day's temporary change log while
+                # retaining the compact current snapshot for ongoing scenes.
+                SceneStateStore(history_root).discard_change_log(memory_day)
             except Exception as exc:
-                logger.error(f"[记忆生成] 周记生成出现异常，暂停月记：{exc}")
+                logger.warning(f"[当前场景] 临时变更日志清理失败：{exc}")
+            publication_status = daily_child_event_publication_status(
+                memory_day, history_root
+            )
+            if publication_status == "current":
+                logger.info(
+                    f"[每日子事件] {memory_day} 事件已存在，"
+                    "跳过整理；未调用事件生成模型。"
+                )
+            elif publication_status == "stale":
+                logger.warning(
+                    f"[每日子事件] {memory_day} 事件已存在，但日记已在事件"
+                    "生成后修改；为避免自动覆盖，未启动事件生成模型。"
+                )
+            elif publication_status == "invalid":
+                logger.error(
+                    f"[每日子事件] {memory_day} 事件目录已存在，但发布清单或"
+                    "事件文件不完整；为避免自动覆盖，未启动事件生成模型。"
+                )
+            elif generation_settings is not None and not generation_settings.enabled:
+                logger.info(
+                    f"[每日子事件] {memory_day} 尚未生成，但每日事件模型接口已禁用；"
+                    "未启动模型。"
+                )
             else:
-                if weekly_result.status == "failed":
+                try:
+                    launch_kwargs = {}
+                    if generation_settings is not None:
+                        launch_kwargs["config_path"] = config_path
+                    child_event_worker = launch_daily_child_event_worker(
+                        last_complete_day.date(), history_root, **launch_kwargs
+                    )
+                    outcome.child_event_worker = child_event_worker
+                    if generation_settings is None:
+                        provider_label = "ollama_llm"
+                        model_label = "mistral-small3.2:24b"
+                    else:
+                        provider_label = generation_settings.llm_provider
+                        model_label = generation_settings.model
+                    logger.info(
+                        f"[每日子事件] {memory_day} 尚未生成，"
+                        "已启动后台整理任务："
+                        f"接口={provider_label}，模型={model_label}，"
+                        f"PID={child_event_worker.process.pid}"
+                    )
+                except Exception as exc:
                     logger.error(
-                        f"[记忆生成] 周记生成失败，暂停月记：{weekly_result.error}"
+                        "[每日子事件] 后台任务启动失败；"
+                        f"不影响后端继续启动：{exc}"
+                    )
+                    outcome.notifications.append(
+                        {
+                            "type": "memory-notification",
+                            "level": "error",
+                            "message": "昨日事件整理失败",
+                            "description": "24B后台任务启动失败，请查看后端日志",
+                        }
+                    )
+            if layer2_generation_settings is None:
+                logger.info("[第二层记忆] 未提供运行配置，本次不启动个人背景更新。")
+            elif not layer2_generation_settings.enabled:
+                logger.info("[第二层记忆] 接口已禁用，本次不启动个人背景更新。")
+            else:
+                layer2_status = layer2_publication_status(memory_day, history_root)
+                if layer2_status == "current":
+                    logger.info(
+                        f"[第二层记忆] {memory_day} 个人背景已是当前版本，"
+                        "跳过更新；未调用云端模型。"
+                    )
+                elif layer2_status == "stale":
+                    logger.warning(
+                        f"[第二层记忆] {memory_day} 的日记在个人背景发布后发生变化；"
+                        "为避免覆盖，等待人工复核。"
+                    )
+                    outcome.notifications.append(
+                        {
+                            "type": "memory-notification",
+                            "level": "error",
+                            "message": "个人背景等待人工复核",
+                            "description": "当日日记在第二层发布后发生变化",
+                        }
+                    )
+                elif layer2_status == "invalid":
+                    logger.error(
+                        "[第二层记忆] 当前发布不完整或校验失败；"
+                        "未启动更新，原始文件未被覆盖。"
+                    )
+                    outcome.notifications.append(
+                        {
+                            "type": "memory-notification",
+                            "level": "error",
+                            "message": "个人背景状态异常",
+                            "description": "当前第二层发布未通过完整性校验",
+                        }
                     )
                 else:
                     try:
-                        monthly_result = (
-                            monthly_generator.generate_latest_completed_month(now)
+                        layer2_worker = launch_layer2_worker(
+                            last_complete_day.date(),
+                            history_root,
+                            config_path=config_path,
+                        )
+                        outcome.layer2_worker = layer2_worker
+                        logger.info(
+                            f"[第二层记忆] 已启动 {memory_day} 后台更新："
+                            f"接口配置={layer2_generation_settings.provider_config_name}，"
+                            f"模型={layer2_generation_settings.model}，"
+                            f"PID={layer2_worker.process.pid}"
                         )
                     except Exception as exc:
-                        logger.error(f"[记忆生成] 月记生成出现异常：{exc}")
-                    else:
-                        if monthly_result.status == "failed":
-                            logger.error(
-                                f"[记忆生成] 月记生成失败：{monthly_result.error}"
-                            )
+                        logger.error(
+                            "[第二层记忆] 后台任务启动失败；"
+                            f"继续使用上一份有效背景：{exc}"
+                        )
+                        outcome.notifications.append(
+                            {
+                                "type": "memory-notification",
+                                "level": "error",
+                                "message": "个人背景更新启动失败",
+                                "description": "继续使用上一份有效个人背景",
+                            }
+                        )
+            try:
+                weekly_result = weekly_generator.generate_latest_completed_week(now)
+            except Exception as exc:
+                logger.error(f"[记忆生成] 周记生成出现异常：{exc}")
+            else:
+                if weekly_result.status == "failed":
+                    logger.error(
+                        f"[记忆生成] 周记生成失败：{weekly_result.error}"
+                    )
+            try:
+                monthly_result = monthly_generator.generate_latest_completed_month(now)
+            except Exception as exc:
+                logger.error(f"[记忆生成] 月记生成出现异常：{exc}")
+            else:
+                if monthly_result.status == "failed":
+                    logger.error(f"[记忆生成] 月记生成失败：{monthly_result.error}")
 
     selection = select_long_term_memories(history_root)
     today_messages = load_today_messages(history_root, now)
@@ -109,46 +287,68 @@ def prepare_rinne_memories_on_startup(
     )
     for warning in selection.diagnostics.warnings:
         logger.warning(f"[长期记忆] {warning}")
+    return outcome
 
 
-def launch_approved_layer2_backfill(history_root: str | Path) -> None:
-    """Update approved days in a separate process without delaying chat startup."""
+def prepare_recent_diary_context_on_startup(
+    reference_time: datetime | None = None,
+    history_root: str | Path | None = None,
+) -> object | None:
+    """Publish a compact view of the last approved diary, or safely fall back."""
 
-    from src.open_llm_vtuber.memory.layer2_backfill import plan_backfill
-
-    plan = plan_backfill(history_root)
-    days = plan["eligible_days"]
-    if not days:
-        if plan["needs_review"]:
-            logger.info("[第二层记忆] 存在尚未验收的日记；未自动处理")
-        return
-    log_path = Path(history_root) / "layer2" / "backfill.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    command = [
-        sys.executable,
-        "-B",
-        "-m",
-        "src.open_llm_vtuber.memory.layer2_backfill",
-        "--history-root",
-        str(Path(history_root).resolve()),
-        "--config-path",
-        str(Path("conf.yaml").resolve()),
-    ]
-    with log_path.open("ab") as output:
-        process = subprocess.Popen(
-            command,
-            cwd=Path(__file__).resolve().parent,
-            stdin=subprocess.DEVNULL,
-            stdout=output,
-            stderr=subprocess.STDOUT,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    logger.info(
-        "[第二层记忆] 已启动已验收日记的后台补齐：{} 天，PID={}，日志={}",
-        len(days),
-        process.pid,
-        log_path,
+    import diary_generator
+    from src.open_llm_vtuber.memory.diary_review import diary_approval_status
+    from src.open_llm_vtuber.memory.recent_diary_compaction import (
+        RecentDiaryCompactionError,
+        load_matching_compaction,
+        publish_compaction,
+        request_compaction,
     )
+
+    now = reference_time or datetime.now()
+    root = resolve_character_history_root(history_root)
+    memory_day = _last_complete_memory_day(now).date().isoformat()
+    diary_path = root / "diaries" / f"diary_{memory_day}.txt"
+    if not diary_path.is_file() or not diary_path.stat().st_size:
+        return None
+    approval_status = diary_approval_status(root, memory_day, diary_path)
+    if approval_status != "approved":
+        logger.warning(
+            f"[近期日记压缩] {memory_day} 状态={approval_status}，"
+            "不自动生成；本轮回退读取完整日记。"
+        )
+        return None
+    existing = load_matching_compaction(root, diary_path, memory_day)
+    if existing is not None:
+        logger.info(
+            f"[近期日记压缩] {memory_day} 已存在且与日记匹配，"
+            f"{existing.source_character_count}→{existing.summary_character_count} 字符。"
+        )
+        return existing
+    try:
+        diary_text = diary_path.read_text(encoding="utf-8").strip()
+        compaction = request_compaction(
+            memory_day=memory_day,
+            diary_text=diary_text,
+            api_key=diary_generator.LLM_API_KEY,
+            api_url=diary_generator.LLM_API_URL,
+            model=diary_generator.LLM_MODEL,
+            max_attempts=3,
+        )
+        publish_compaction(root, diary_path, compaction)
+    except (OSError, UnicodeError, RecentDiaryCompactionError) as exc:
+        logger.warning(
+            f"[近期日记压缩] {memory_day} 生成或校验失败：{exc}；"
+            "本轮回退读取完整日记。"
+        )
+        return None
+    logger.info(
+        f"[近期日记压缩] {memory_day} 已发布："
+        f"{compaction.source_character_count}→"
+        f"{compaction.summary_character_count} 字符，"
+        f"耗时 {compaction.elapsed_seconds:.1f} 秒。"
+    )
+    return compaction
 
 
 def get_version() -> str:
@@ -272,7 +472,10 @@ def run(console_log_level: str):
     config_data = read_yaml("conf.yaml")
     rinne_outfit_controller = None
     if config_data.get("character_config", {}).get("conf_uid") == "rinne_01":
-        renderer_startup = prepare_rinne_renderer_startup(Path(__file__).parent)
+        renderer_startup = prepare_rinne_renderer_startup(
+            Path(__file__).parent,
+            interactive=False,
+        )
         if renderer_startup.profile.renderer == "rinne":
             rinne_outfit_controller = RinneRuntimeOutfitController(
                 Path(__file__).parent,
@@ -285,14 +488,54 @@ def run(console_log_level: str):
         logger.info(f"Rinne renderer selected: {renderer_startup.profile.menu_label}")
     config: Config = validate_config(config_data)
     server_config = config.system_config
+    headless_private_bridge = os.environ.get(
+        "RINNE_HEADLESS_PRIVATE_BRIDGE", ""
+    ).strip().lower() in {"1", "true", "yes", "on"}
+    server_host = server_config.host
+    server_port = server_config.port
+    if headless_private_bridge:
+        server_host = "127.0.0.1"
+        raw_private_port = os.environ.get(
+            "RINNE_HEADLESS_PRIVATE_BRIDGE_PORT", "12394"
+        ).strip()
+        try:
+            server_port = int(raw_private_port)
+        except ValueError:
+            logger.error("RINNE_HEADLESS_PRIVATE_BRIDGE_PORT 必须是整数")
+            sys.exit(1)
+        if not 1 <= server_port <= 65535:
+            logger.error("RINNE_HEADLESS_PRIVATE_BRIDGE_PORT 超出有效端口范围")
+            sys.exit(1)
 
+    memory_startup = RinneMemoryStartupOutcome()
     if config.character_config.conf_uid == "rinne_01":
-        prepare_rinne_memories_on_startup()
-        if config.character_config.layer2_memory_generation.enabled:
-            try:
-                launch_approved_layer2_backfill(character_history_root())
-            except Exception as exc:
-                logger.warning("[第二层记忆] 后台补齐未启动；聊天继续使用原有记忆：{}", exc)
+        history_root = character_history_root(config.character_config.conf_uid)
+        logger.info(f"[数据目录] 聊天与记忆目录：{history_root.resolve()}")
+        if headless_private_bridge:
+            logger.info(
+                "[私人QQ桥接] 使用 E 盘既有记忆，跳过重复的日记与记忆生成任务"
+            )
+        else:
+            memory_startup = prepare_rinne_memories_on_startup(
+                history_root=history_root,
+                generation_settings=config.character_config.daily_child_event_generation,
+                layer2_generation_settings=config.character_config.layer2_memory_generation,
+                config_path="conf.yaml",
+            )
+            if memory_startup.diary_ready_for_archive:
+                prepare_recent_diary_context_on_startup(history_root=history_root)
+                try:
+                    archive_old_chat_history_on_startup(history_root)
+                except Exception as exc:
+                    logger.error(
+                        "[chat archive] startup archive failed; continuing server startup: {}",
+                        exc,
+                    )
+            else:
+                logger.warning(
+                    "[chat archive] diary was not generated and approved; "
+                    "keeping source JSON files for the next retry"
+                )
 
     if server_config.enable_proxy:
         logger.info("Proxy mode enabled - /proxy-ws endpoint will be available")
@@ -302,6 +545,12 @@ def run(console_log_level: str):
         config=config,
         rinne_outfit_controller=rinne_outfit_controller,
     )
+    if memory_startup.child_event_worker is not None:
+        server.watch_child_event_worker(memory_startup.child_event_worker)
+    if memory_startup.layer2_worker is not None:
+        server.watch_layer2_worker(memory_startup.layer2_worker)
+    for notification in memory_startup.notifications:
+        server.queue_system_notification(notification)
 
     # Perform asynchronous initialization (loading context, etc.)
     logger.info("Initializing server context...")
@@ -313,11 +562,11 @@ def run(console_log_level: str):
         sys.exit(1)  # Exit if initialization fails
 
     # Run the Uvicorn server
-    logger.info(f"Starting server on {server_config.host}:{server_config.port}")
+    logger.info(f"Starting server on {server_host}:{server_port}")
     uvicorn.run(
         app=server.app,
-        host=server_config.host,
-        port=server_config.port,
+        host=server_host,
+        port=server_port,
         log_level=console_log_level.lower(),
     )
 

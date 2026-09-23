@@ -11,6 +11,7 @@ import sys
 import os
 
 from .live_interface import LivePlatformInterface
+from ..privacy_logging import mapping_log_fields
 
 # Import the blivedm library
 try:
@@ -197,7 +198,7 @@ class BiliBiliLivePlatform(LivePlatformInterface):
         try:
             message = {"type": "text-input", "text": text}
             await self._websocket.send(json.dumps(message))
-            logger.info(f"Sent danmaku to VTuber: {text}")
+            logger.info("Sent danmaku to VTuber: chars={}", len(text))
             return True
         except Exception as e:
             logger.error(f"Error sending message to proxy: {e}")
@@ -226,9 +227,14 @@ class BiliBiliLivePlatform(LivePlatformInterface):
                         log_data["audio"] = (
                             f"[Audio data, length: {len(data['audio'])}]"
                         )
-                        logger.debug(f"Received message from VTuber: {log_data}")
+                        logger.debug(
+                            "Received VTuber log message: {}",
+                            mapping_log_fields(log_data),
+                        )
                     else:
-                        logger.debug(f"Received message from VTuber: {data}")
+                        logger.debug(
+                            "Received VTuber message: type={}", type(data).__name__
+                        )
 
                     # Process the message
                     await self.handle_incoming_messages(data)
@@ -278,7 +284,12 @@ class BiliBiliLivePlatform(LivePlatformInterface):
                 client: The BiliBili Live client
                 message: The danmaku message
             """
-            logger.debug(f"[Room {client.room_id}] {message.uname}: {message.msg}")
+            logger.debug(
+                "Received live-room message: room={}, user_present={}, chars={}",
+                client.room_id,
+                bool(message.uname),
+                len(message.msg or ""),
+            )
             asyncio.create_task(self.platform._handle_danmaku(message.msg))
 
         def _on_heartbeat(

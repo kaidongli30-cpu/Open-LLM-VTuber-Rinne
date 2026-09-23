@@ -8,6 +8,7 @@ from llama_cpp import Llama
 from loguru import logger
 
 from .stateless_llm_interface import StatelessLLMInterface
+from ...privacy_logging import message_batch_log_fields
 
 
 class LLM(StatelessLLMInterface):
@@ -44,7 +45,10 @@ class LLM(StatelessLLMInterface):
         Yields:
         - str: The content of each chunk from the model response.
         """
-        logger.debug(f"Generating completion for messages: {messages}")
+        logger.debug(
+            "Generating completion for messages: {}",
+            message_batch_log_fields(messages),
+        )
 
         try:
             # Add system prompt if provided

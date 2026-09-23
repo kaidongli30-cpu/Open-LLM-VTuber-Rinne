@@ -5,6 +5,7 @@ from loguru import logger
 from langdetect import detect
 from enum import Enum
 from dataclasses import dataclass
+from ..privacy_logging import text_log_fields
 
 # Constants for additional checks
 COMMAS = [
@@ -27,7 +28,19 @@ COMMAS = [
     "،",
 ]
 
-END_PUNCTUATIONS = [".", "!", "?", "。", "！", "？", "...", "。。。"]
+END_PUNCTUATIONS = [
+    ".",
+    "!",
+    "?",
+    "。",
+    "！",
+    "？",
+    "...",
+    "。。。",
+    "……",
+    ";",
+    "；",
+]
 ABBREVIATIONS = [
     "Mr.",
     "Mrs.",
@@ -529,7 +542,7 @@ class SentenceDivider:
         """
         Process and yield all remaining content in the buffer at the end of the stream.
         """
-        logger.debug(f"Flushing remaining buffer: '{self._buffer}'")
+        logger.debug("Flushing remaining buffer: {}", text_log_fields(self._buffer))
         # First, run _process_buffer to yield any standard sentences/tags
         async for sentence in self._process_buffer():
             yield sentence

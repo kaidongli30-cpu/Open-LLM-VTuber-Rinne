@@ -27,8 +27,9 @@ from .conversations.conversation_handler import (
     handle_group_interrupt,
     handle_individual_interrupt,
 )
-from .rinne_renderer_profile import RinneRuntimeOutfitController
+from .memory.session_context import load_cloud_session_memory
 from .data_paths import character_history_root
+from .rinne_renderer_profile import RinneRuntimeOutfitController
 
 
 class MessageType(Enum):
@@ -41,10 +42,10 @@ class MessageType(Enum):
         "create-new-history",
         "delete-history",
     ]
-    CONVERSATION = ["mic-audio-end", "text-input", "ai-speak-signal"]
+    CONVERSATION = ["mic-audio-end", "manual-audio-end", "text-input", "ai-speak-signal"]
     CONFIG = ["fetch-configs", "switch-config"]
     CONTROL = ["interrupt-signal", "audio-play-start"]
-    DATA = ["mic-audio-data"]
+    DATA = ["mic-audio-data", "manual-audio-data"]
 
 
 class WSMessage(TypedDict, total=False):
@@ -54,6 +55,7 @@ class WSMessage(TypedDict, total=False):
     action: Optional[str]
     text: Optional[str]
     audio: Optional[List[float]]
+    segment_id: Optional[str]
     images: Optional[List[str]]
     history_uid: Optional[str]
     file: Optional[str]
@@ -76,8 +78,9 @@ class WebSocketHandler:
         self.current_conversation_tasks: Dict[str, Optional[asyncio.Task]] = {}
         self.default_context_cache = default_context_cache
         self.received_data_buffers: Dict[str, np.ndarray] = {}
+        self.manual_audio_buffers: Dict[str, Dict[str, List[np.ndarray]]] = {}
+        self.pending_system_notifications: List[dict] = []
         self.rinne_outfit_controller = rinne_outfit_controller
-        self._rinne_outfit_switch_lock = asyncio.Lock()
 
         # Message handlers mapping
         self._message_handlers = self._init_message_handlers()
@@ -96,6 +99,8 @@ class WebSocketHandler:
             "interrupt-signal": self._handle_interrupt,
             "mic-audio-data": self._handle_audio_data,
             "mic-audio-end": self._handle_conversation_trigger,
+            "manual-audio-data": self._handle_manual_audio_data,
+            "manual-audio-end": self._handle_manual_audio_end,
             "raw-audio-data": self._handle_raw_audio_data,
             "text-input": self._handle_conversation_trigger,
             "ai-speak-signal": self._handle_conversation_trigger,
@@ -134,9 +139,12 @@ class WebSocketHandler:
             await self._send_initial_messages(
                 websocket, client_uid, session_service_context
             )
+            await self._flush_pending_system_notifications(websocket)
 
             logger.info(f"Connection established for client {client_uid}")
-            asyncio.create_task(self._proactive_window_watcher(client_uid))
+            # The legacy window watcher is intentionally not started. It clears
+            # a temp file and has no quiet-hours/daily-cap gate, which violates
+            # the current read-only local Agent boundary.
 
         except Exception as e:
             logger.error(
@@ -144,6 +152,41 @@ class WebSocketHandler:
             )
             await self._cleanup_failed_connection(client_uid)
             raise
+
+    def queue_system_notification(self, notification: dict) -> None:
+        """Keep a notification until a desktop client can receive it."""
+
+        self.pending_system_notifications.append(dict(notification))
+
+    async def publish_system_notification(self, notification: dict) -> None:
+        """Broadcast now, or retain once when no client is connected."""
+
+        payload = json.dumps(notification, ensure_ascii=False)
+        delivered = 0
+        for client_uid, websocket in list(self.client_connections.items()):
+            try:
+                await websocket.send_text(payload)
+                delivered += 1
+            except Exception as exc:
+                logger.warning(
+                    f"Failed to send system notification to {client_uid}: {exc}"
+                )
+        if delivered == 0:
+            self.queue_system_notification(notification)
+
+    async def _flush_pending_system_notifications(self, websocket: WebSocket) -> None:
+        """Deliver queued startup notifications exactly once to the first client."""
+
+        pending = self.pending_system_notifications
+        self.pending_system_notifications = []
+        for index, notification in enumerate(pending):
+            try:
+                await websocket.send_text(
+                    json.dumps(notification, ensure_ascii=False)
+                )
+            except Exception:
+                self.pending_system_notifications.extend(pending[index:])
+                raise
 
     async def _store_client_data(
         self,
@@ -155,6 +198,7 @@ class WebSocketHandler:
         self.client_connections[client_uid] = websocket
         self.client_contexts[client_uid] = session_service_context
         self.received_data_buffers[client_uid] = np.array([])
+        self.manual_audio_buffers[client_uid] = {}
 
         self.chat_group_manager.client_group_map[client_uid] = ""
         await self.send_group_update(websocket, client_uid)
@@ -188,11 +232,26 @@ class WebSocketHandler:
         # Start microphone
         await websocket.send_text(json.dumps({"type": "control", "text": "start-mic"}))
 
-        # ============================================================
-        # 自动加载记忆：非重复的月记/周记/日记 + 今日原始聊天记录
-        # 替换原来的"自动加载最新历史记录"整个 try 块
-        # ============================================================
+        await self._load_session_memory(session_service_context, client_uid)
+
+    async def _load_session_memory(
+        self,
+        session_service_context: ServiceContext,
+        client_uid: str,
+    ) -> None:
+        """Load the same rolling memory for desktop and external channels."""
+
         try:
+            set_recent_context = getattr(
+                session_service_context.agent_engine,
+                "set_recent_memory_context",
+                None,
+            )
+            if callable(set_recent_context):
+                set_recent_context("")
+            session_service_context.recent_memory_context = ""
+            session_service_context.recent_memory_diagnostics = {}
+
             ##=====2026-07-08新加：让本地模型无需读取先前记忆，只根据conf.yaml里的prompt进行输出=====
             # 本地模型模式：跳过长期记忆注入
             # 目的：让 qwen3:14b 不读取长期记忆，仅保留人格提示和今日历史
@@ -209,6 +268,8 @@ class WebSocketHandler:
             )
 
             if is_local_ollama:
+                if callable(set_recent_context):
+                    set_recent_context("")
                 if hasattr(session_service_context.agent_engine, "_memory"):
                     session_service_context.agent_engine._memory = []
 
@@ -240,12 +301,17 @@ class WebSocketHandler:
                         )
                     })
 
-                # 本地模式额外加载“当天聊天记录”作为短期记忆
-                # 不读取 diaries 文件夹，不读取过去日期聊天记录
-                history_dir = character_history_root(session_service_context.character_config.conf_uid)
-                from .memory.long_term_archive import load_today_messages
+                # 本地模式额外加载当前记忆日的完整聊天作为短期记忆。
+                history_dir = character_history_root(
+                    session_service_context.character_config.conf_uid
+                )
+                from .memory.today_history_loader import TodayHistoryLoader
 
-                today_messages = load_today_messages(history_dir)
+                today_result = TodayHistoryLoader(history_dir).load()
+                today_messages = [
+                    {"role": turn.role, "content": turn.content}
+                    for turn in today_result.turns
+                ]
                 session_service_context.agent_engine._memory.extend(today_messages)
                 today_raw_count = len(today_messages)
 
@@ -257,51 +323,82 @@ class WebSocketHandler:
 
             ##本地模型修改结束
 
-            history_dir = character_history_root(session_service_context.character_config.conf_uid)
+            history_dir = character_history_root(
+                session_service_context.character_config.conf_uid
+            )
 
             if history_dir.exists() and hasattr(session_service_context.agent_engine, '_memory'):
                 session_service_context.agent_engine._memory = []
 
-                # ── 第一部分：按“月记 > 周记 > 日记”加载非重复长期记忆 ──
-                from .memory.long_term_archive import select_long_term_memories
-
-                long_term_selection = select_long_term_memories(history_dir)
-                long_term_text = long_term_selection.to_llm_text()
-                monthly_count = len(long_term_selection.monthly_entries)
-                weekly_count = len(long_term_selection.weekly_entries)
-                diary_count = len(long_term_selection.diary_entries)
-
-                if long_term_text:
-                    session_service_context.agent_engine._memory.append({
-                        "role": "user",
-                        "content": long_term_text,
-                    })
-                    session_service_context.agent_engine._memory.append({
-                        "role": "assistant",
-                        "content": "[happy] 嗯，我记得的，用户。这些都是我们珍贵的时光。"
-                    })
-                for warning in long_term_selection.diagnostics.warnings:
-                    logger.warning(f"[长期记忆] {warning}")
-
-                # ── 第二部分：加载今天（凌晨3点至今）的原始聊天记录 ──────
-                from .memory.long_term_archive import load_today_messages
-
-                today_messages = load_today_messages(history_dir)
-                session_service_context.agent_engine._memory.extend(today_messages)
-                today_raw_count = len(today_messages)
+                retrieval_config = (
+                    session_service_context.character_config.agent_config
+                    .agent_settings.basic_memory_agent.long_term_memory_retrieval
+                )
+                memory_snapshot = load_cloud_session_memory(
+                    history_dir,
+                    recent_memory_days=retrieval_config.recent_memory_days,
+                    include_recent_context=retrieval_config.enabled,
+                )
+                session_service_context.recent_memory_context = (
+                    memory_snapshot.recent_context
+                )
+                session_service_context.recent_memory_diagnostics = (
+                    memory_snapshot.diagnostics
+                )
+                if callable(set_recent_context):
+                    set_recent_context(memory_snapshot.recent_context)
+                session_service_context.agent_engine._memory.extend(
+                    memory_snapshot.messages
+                )
 
                 logger.info(
-                    f"[记忆加载完成] 客户端 {client_uid}："
-                    f"{monthly_count} 篇月记 + {weekly_count} 篇周记 + "
-                    f"{diary_count} 篇日记 + {today_raw_count} 条今日消息，"
-                    f"共 {len(session_service_context.agent_engine._memory)} 条注入 _memory"
+                    f"[记忆加载完成] 客户端 {client_uid}：注入近期"
+                    f"{memory_snapshot.diary_count}篇此前日记（不含今天） + 当前记忆日"
+                    f"完整原始聊天 {memory_snapshot.today_raw_count} 条；"
+                    "周记/月记不作为常驻上下文，更早记忆等待云端按需检索"
                 )
+                for warning in memory_snapshot.diagnostics["warnings"]:
+                    logger.warning(f"[近期记忆] {warning}")
 
         except Exception as e:
             logger.warning(f"自动加载记忆失败: {e}")
 
+    async def create_text_channel_context(
+        self,
+        *,
+        client_uid: str,
+        send_text: Callable,
+    ) -> ServiceContext:
+        """Clone a companion-channel context with desktop-equivalent capabilities.
+
+        Local computer tools remain environment-gated and restricted to their
+        validated read-only roots.  The transport must not silently remove them
+        after the user has explicitly enabled the same capability for Rinne.
+        """
+
+        session_service_context = await self._init_service_context(
+            send_text,
+            client_uid,
+            enable_local_computer_tools=True,
+        )
+        await self._load_session_memory(session_service_context, client_uid)
+        return session_service_context
+
+    async def refresh_text_channel_memory(
+        self,
+        context: ServiceContext,
+        client_uid: str,
+    ) -> None:
+        """Refresh disk-backed shared memory immediately before a QQ turn."""
+
+        await self._load_session_memory(context, client_uid)
+
     async def _init_service_context(
-        self, send_text: Callable, client_uid: str
+        self,
+        send_text: Callable,
+        client_uid: str,
+        *,
+        enable_local_computer_tools: bool = True,
     ) -> ServiceContext:
         """Initialize service context for a new session by cloning the default context"""
         session_service_context = ServiceContext()
@@ -322,7 +419,17 @@ class WebSocketHandler:
             tool_adapter=self.default_context_cache.tool_adapter,
             send_text=send_text,
             client_uid=client_uid,
+            enable_local_computer_tools=enable_local_computer_tools,
         )
+        warmed_service = getattr(
+            self.default_context_cache,
+            "live_memory_retrieval_service",
+            None,
+        )
+        if warmed_service is not None:
+            session_service_context.live_memory_retrieval_service = (
+                warmed_service.clone_for_session()
+            )
         return session_service_context
 
     async def handle_websocket_communication(
@@ -425,6 +532,7 @@ class WebSocketHandler:
         # Clean up other client data
         self.client_connections.pop(client_uid, None)
         self.received_data_buffers.pop(client_uid, None)
+        self.manual_audio_buffers.pop(client_uid, None)
         if client_uid in self.current_conversation_tasks:
             task = self.current_conversation_tasks[client_uid]
             if task and not task.done():
@@ -443,6 +551,7 @@ class WebSocketHandler:
         context = self.client_contexts.pop(client_uid, None)
         self.client_connections.pop(client_uid, None)
         self.received_data_buffers.pop(client_uid, None)
+        self.manual_audio_buffers.pop(client_uid, None)
         self.chat_group_manager.client_group_map.pop(client_uid, None)
 
         if client_uid in self.current_conversation_tasks:
@@ -608,6 +717,51 @@ class WebSocketHandler:
                 np.array(audio_data, dtype=np.float32),
             )
 
+    async def _handle_manual_audio_data(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """Buffer one explicitly delimited manual F8 audio segment."""
+        segment_id = data.get("segment_id")
+        audio_data = data.get("audio", [])
+        if not segment_id or not audio_data:
+            return
+
+        client_buffers = self.manual_audio_buffers.setdefault(client_uid, {})
+        client_buffers.setdefault(segment_id, []).append(
+            np.array(audio_data, dtype=np.float32)
+        )
+
+    async def _handle_manual_audio_end(
+        self, websocket: WebSocket, client_uid: str, data: WSMessage
+    ) -> None:
+        """Transcribe one manual F8 segment without starting an LLM turn."""
+        segment_id = data.get("segment_id")
+        if not segment_id:
+            return
+
+        audio_chunks = self.manual_audio_buffers.setdefault(client_uid, {}).pop(
+            segment_id, []
+        )
+        audio = np.concatenate(audio_chunks) if audio_chunks else np.array([])
+        text = ""
+        if audio.size:
+            try:
+                text = await self.client_contexts[client_uid].asr_engine.async_transcribe_np(
+                    audio
+                )
+            except Exception as exc:
+                logger.error(f"Manual audio transcription failed: {exc}")
+
+        await websocket.send_text(
+            json.dumps(
+                {
+                    "type": "manual-audio-transcription",
+                    "segment_id": segment_id,
+                    "text": text or "",
+                }
+            )
+        )
+
     async def _handle_raw_audio_data(
         self, websocket: WebSocket, client_uid: str, data: WSMessage
     ) -> None:
@@ -736,7 +890,7 @@ class WebSocketHandler:
     async def _handle_fetch_rinne_outfits(
         self, websocket: WebSocket, client_uid: str, data: WSMessage
     ) -> None:
-        """Return the installed outfit catalog without exposing asset paths."""
+        """Return the runtime outfit catalog without exposing asset paths."""
 
         if self.rinne_outfit_controller is None:
             payload: dict[str, object] = {
@@ -754,7 +908,7 @@ class WebSocketHandler:
     async def _handle_switch_rinne_outfit(
         self, websocket: WebSocket, client_uid: str, data: WSMessage
     ) -> None:
-        """Persist and apply one installed outfit while the client is idle."""
+        """Persist and apply one outfit only while this client is idle."""
 
         controller = self.rinne_outfit_controller
         profile_id = str(data.get("profile_id", "")).strip()
@@ -775,30 +929,23 @@ class WebSocketHandler:
         if controller is None:
             error = "当前角色或渲染器不支持运行中换装"
             success = False
-        elif self._rinne_outfit_switch_lock.locked():
-            error = "上一项换装还在处理中，请稍后再试"
-            success = False
         else:
-            async with self._rinne_outfit_switch_lock:
-                try:
-                    target = controller.switch(
-                        profile_id,
-                        tts_engines=[
-                            self.default_context_cache.tts_engine,
-                            *(
-                                context.tts_engine
-                                for context in self.client_contexts.values()
-                            ),
-                        ],
-                    )
-                    profile_id = target.profile_id
-                    error = None
-                    success = True
-                    logger.info("凛祢运行中换装完成：{}", target.menu_label)
-                except Exception as exc:
-                    error = str(exc)
-                    success = False
-                    logger.warning("凛祢运行中换装失败：{}", error)
+            try:
+                target = controller.switch(
+                    profile_id,
+                    tts_engines=[
+                        self.default_context_cache.tts_engine,
+                        *(context.tts_engine for context in self.client_contexts.values()),
+                    ],
+                )
+                profile_id = target.profile_id
+                error = None
+                success = True
+                logger.info("凛祢运行中换装完成：{}", target.menu_label)
+            except Exception as exc:
+                error = str(exc)
+                success = False
+                logger.warning("凛祢运行中换装失败：{}", error)
         await websocket.send_text(
             json.dumps(
                 {
@@ -902,10 +1049,16 @@ class WebSocketHandler:
                     window_lower = window_title.lower()
                     is_curious = any(kw.lower() in window_lower for kw in curious_keywords)
                     if not is_curious:
-                        logger.info(f"【沉默模式】当前窗口“{window_title}”不是好奇窗口，保持沉默")
+                        logger.info(
+                            "【沉默模式】当前窗口不在好奇名单，保持沉默: title_chars={}",
+                            len(window_title),
+                        )
                         continue
                     else:
-                        logger.info(f"【好奇模式】检测到好奇窗口“{window_title}”，破例触发主动观察")
+                        logger.info(
+                            "【好奇模式】检测到好奇窗口，破例触发主动观察: title_chars={}",
+                            len(window_title),
+                        )
 
                 # 更新主动观察冷却时间
                 last_proactive_time = now_time
@@ -918,7 +1071,7 @@ class WebSocketHandler:
                         history_text += f"第{i + 1}次：窗口“{title}” → 你当时说：“{msg}”\n"
                     history_text += "\n"
 
-                prompt = f"""你是用户，正在与桌宠园神凛祢对话。
+                prompt = f"""你是用户，正在与园神凛祢对话。
 {history_text}
 你现在刚刚从“{previous_title}”切换到了“{window_title}”。
 你现在需要用简体中文，以用户的第一人称口吻，用一句话简单告诉凛祢你切换到了什么窗口。
@@ -931,7 +1084,7 @@ class WebSocketHandler:
                 try:
                     response = context.agent_engine._llm.chat_completion(
                         messages=[{"role": "user", "content": prompt}],
-                        system="你是用户，现在正在与电脑上的园神凛祢对话。",
+                        system="你是用户，现在正在与住在你电脑上的园神凛祢说话。",
                         tools=None
                     )
                     full_text = ""
@@ -948,7 +1101,7 @@ class WebSocketHandler:
                         logger.info("主动观察模型选择不说话，跳过本次触发")
                         continue
 
-                    logger.info(f"主动观察：{message}")
+                    logger.info("主动观察已生成: chars={}", len(message))
 
                     proactive_history.append((window_title, message))
 

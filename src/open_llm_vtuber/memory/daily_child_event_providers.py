@@ -57,8 +57,8 @@ def load_daily_child_event_settings(
         return default_daily_child_event_settings()
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        section = (
-            raw.get("character_config", {}).get("daily_child_event_generation", {})
+        section = raw.get("character_config", {}).get(
+            "daily_child_event_generation", {}
         )
         if not isinstance(section, dict):
             raise ValueError("daily_child_event_generation must be a mapping")
@@ -96,9 +96,7 @@ def _ollama_generate_url(base_url: str) -> str:
         path = f"{path}/generate"
     else:
         path = f"{path}/api/generate"
-    return urllib.parse.urlunsplit(
-        (parsed.scheme, parsed.netloc, path, "", "")
-    )
+    return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, path, "", ""))
 
 
 def _metadata(settings: DailyChildEventGenerationConfig) -> dict[str, Any]:
@@ -120,7 +118,9 @@ def _metadata(settings: DailyChildEventGenerationConfig) -> dict[str, Any]:
 
 def _write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def _write_text(path: Path, value: str) -> None:
@@ -177,9 +177,7 @@ def _post_json(
         with response_context as response:
             raw = response.read()
     except urllib.error.HTTPError as exc:
-        raise DailyChildEventProviderError(
-            f"provider_http_error:{exc.code}"
-        ) from exc
+        raise DailyChildEventProviderError(f"provider_http_error:{exc.code}") from exc
     except (
         urllib.error.URLError,
         http.client.IncompleteRead,
@@ -279,7 +277,9 @@ def _generate_with_ollama(
     stream_path = run_dir / "response.stream.jsonl"
     try:
         with (
-            urllib.request.urlopen(request, timeout=settings.timeout_seconds) as response,
+            urllib.request.urlopen(
+                request, timeout=settings.timeout_seconds
+            ) as response,
             stream_path.open("w", encoding="utf-8", newline="") as stream,
         ):
             for raw_line in response:
@@ -299,9 +299,7 @@ def _generate_with_ollama(
                 if chunk.get("done") is True:
                     final_chunk = chunk
     except urllib.error.HTTPError as exc:
-        raise DailyChildEventProviderError(
-            f"provider_http_error:{exc.code}"
-        ) from exc
+        raise DailyChildEventProviderError(f"provider_http_error:{exc.code}") from exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise DailyChildEventProviderError(
             f"provider_connection_error:{type(exc).__name__}"
@@ -377,6 +375,7 @@ def _generate_with_openai_compatible(
         headers,
         settings.timeout_seconds,
         run_dir / "response.json",
+        proxy_url=settings.proxy_url,
     )
     text = _text_from_openai_response(value)
     if not text.strip():
@@ -413,6 +412,7 @@ def _generate_with_claude(
         headers,
         settings.timeout_seconds,
         run_dir / "response.json",
+        proxy_url=settings.proxy_url,
     )
     text = _text_from_claude_response(value)
     if not text.strip():

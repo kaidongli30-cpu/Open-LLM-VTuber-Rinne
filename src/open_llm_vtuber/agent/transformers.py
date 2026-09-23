@@ -1,3 +1,4 @@
+import re
 from typing import AsyncIterator, Tuple, Callable, List, Union, Dict, Any
 from functools import wraps
 from .output_types import Actions, SentenceOutput, DisplayText
@@ -7,6 +8,7 @@ from ..config_manager import TTSPreprocessorConfig
 from ..utils.sentence_divider import SentenceDivider
 from ..utils.sentence_divider import SentenceWithTags, TagState
 from loguru import logger
+from ..privacy_logging import mapping_log_fields, text_log_fields
 
 
 def sentence_divider(
@@ -43,9 +45,15 @@ def sentence_divider(
 
             async for item in divider.process_stream(stream_from_func):
                 if isinstance(item, SentenceWithTags):
-                    logger.debug(f"sentence_divider yielding sentence: {item}")
+                    logger.debug(
+                        "sentence_divider yielding sentence: text={}, tag_count={}",
+                        text_log_fields(item.text),
+                        len(item.tags),
+                    )
                 elif isinstance(item, dict):
-                    logger.debug(f"sentence_divider yielding dict: {item}")
+                    logger.debug(
+                        "sentence_divider yielding dict: {}", mapping_log_fields(item)
+                    )
                 yield item
 
         return wrapper
@@ -58,11 +66,25 @@ def actions_extractor(live2d_model: Live2dModel):
         @wraps(func)
         async def wrapper(*args, **kwargs):
             stream = func(*args, **kwargs)
-            pending_expressions = []  # 暂存因空TTS而未触发的表情
+            pending_display = ""
+            pending_expression = None
+            pending_tags = []
 
             async for item in stream:
                 if isinstance(item, SentenceWithTags):
                     sentence = item
+                    # Bracketed emotion labels are a renderer contract.  Keep
+                    # registered labels for action extraction, but remove any
+                    # provider-invented labels before display, TTS, channel
+                    # delivery, and the final response assembled downstream.
+                    sanitize = getattr(
+                        live2d_model, "remove_unknown_emotion_tags", None
+                    )
+                    if callable(sanitize):
+                        sentence = SentenceWithTags(
+                            text=sanitize(sentence.text),
+                            tags=sentence.tags,
+                        )
                     actions = Actions()
                     if not any(
                         tag.state in [TagState.START, TagState.END]
@@ -70,23 +92,46 @@ def actions_extractor(live2d_model: Live2dModel):
                     ):
                         expressions = live2d_model.extract_emotion(sentence.text)
 
-                        # 判断这句话去掉表情标签和括号内容后是否还有实际文本
-                        import re
+                        # Emotion-only and parenthesized action fragments have no
+                        # useful playback duration.  Keep their complete display
+                        # text and attach it to the next audible semantic unit.
                         cleaned = sentence.text
                         for key in live2d_model.emo_map.keys():
-                            cleaned = cleaned.replace(f'[{key}]', '').replace(f'[{key.upper()}]', '')
-                        cleaned = re.sub(r'[（(][^）)]*[）)]', '', cleaned).strip()
+                            cleaned = re.sub(
+                                re.escape(f"[{key}]"),
+                                "",
+                                cleaned,
+                                flags=re.IGNORECASE,
+                            )
+                        cleaned = re.sub(r"[（(][^）)]*[）)]", "", cleaned).strip()
+                        has_spoken_content = any(char.isalnum() for char in cleaned)
 
-                        if expressions and not cleaned:
-                            # 有表情但TTS会是空的，缓存起来
-                            pending_expressions = expressions
-                        else:
-                            # 正常句子，加上之前缓存的表情
-                            if pending_expressions:
-                                expressions = pending_expressions + (expressions or [])
-                                pending_expressions = []
+                        if not has_spoken_content:
+                            pending_display += sentence.text
+                            pending_tags = sentence.tags
                             if expressions:
-                                actions.expressions = expressions
+                                # With no speech between two labels, the label
+                                # nearest to the eventual spoken text wins.
+                                pending_expression = expressions[-1]
+                            continue
+
+                        if pending_display:
+                            sentence = SentenceWithTags(
+                                text=pending_display + sentence.text,
+                                tags=sentence.tags,
+                            )
+                            pending_display = ""
+
+                        if expressions:
+                            # One playback unit has one effective emotion.  This
+                            # keeps frontend visuals and TTS reference routing in
+                            # agreement for sequences such as
+                            # [surprise](action)[shy]spoken text.
+                            actions.expressions = [expressions[-1]]
+                            pending_expression = None
+                        elif pending_expression is not None:
+                            actions.expressions = [pending_expression]
+                            pending_expression = None
 
                     yield sentence, actions
                 elif isinstance(item, dict):
@@ -95,6 +140,15 @@ def actions_extractor(live2d_model: Live2dModel):
                     logger.warning(
                         f"actions_extractor received unexpected type: {type(item)}"
                     )
+
+            if pending_display:
+                actions = Actions()
+                if pending_expression is not None:
+                    actions.expressions = [pending_expression]
+                yield SentenceWithTags(
+                    text=pending_display,
+                    tags=pending_tags,
+                ), actions
 
         return wrapper
     return decorator
@@ -215,8 +269,11 @@ def tts_filter(
                             ignore_angle_brackets=config.ignore_angle_brackets,
                         )
 
-                    logger.debug(f"[{display.name}] display: {display.text}")
-                    logger.debug(f"[{display.name}] tts: {tts}")
+                    logger.debug(
+                        "Prepared display and TTS: display={}, tts={}",
+                        text_log_fields(display.text),
+                        text_log_fields(tts),
+                    )
 
                     yield SentenceOutput(
                         display_text=display,

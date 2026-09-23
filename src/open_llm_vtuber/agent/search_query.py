@@ -9,6 +9,11 @@ FORCED_SEARCH_KEYWORDS = ("搜索",)
 MAX_SEARCH_QUERY_LENGTH = 160
 
 _SEARCH_KEYWORD_RE = re.compile(r"搜索")
+_NEGATED_SEARCH_PREFIX_RE = re.compile(
+    r"(?:不用|不要|无需|不必|不需要|禁止|停止|取消|先别|暂时别|"
+    r"不是(?:要|让你)?)"
+    r"(?:你|凛祢|老婆)?(?:再|去|帮我|给我|替我|进行|使用|联网|上网|网上)?\s*$"
+)
 _LEADING_MODIFIER_RE = re.compile(
     r"^\s*(?:(?:一下|下|一搜|看看)\s*)?(?:(?:关于|有关)\s*)?[:：]?\s*"
 )
@@ -35,8 +40,24 @@ _ERROR_RESPONSE_PREFIXES = (
 
 
 def should_force_search(text: str) -> bool:
-    """Return whether the current compatibility rule requires a web search."""
-    return bool(text) and any(keyword in text for keyword in FORCED_SEARCH_KEYWORDS)
+    """Return whether the user issued a positive, explicit web-search command."""
+
+    normalized = re.sub(r"\s+", " ", text or "").strip()
+    for match in _SEARCH_KEYWORD_RE.finditer(normalized):
+        clause_start = max(
+            normalized.rfind("。", 0, match.start()),
+            normalized.rfind("！", 0, match.start()),
+            normalized.rfind("？", 0, match.start()),
+            normalized.rfind(";", 0, match.start()),
+            normalized.rfind("；", 0, match.start()),
+            normalized.rfind("\n", 0, match.start()),
+        )
+        prefix = normalized[clause_start + 1 : match.start()]
+        if _NEGATED_SEARCH_PREFIX_RE.search(prefix):
+            continue
+        if _command_score(normalized, match) > 0:
+            return True
+    return False
 
 
 def _command_score(text: str, match: re.Match[str]) -> int:
@@ -107,7 +128,9 @@ def clean_model_search_query(
 ) -> str:
     """Validate and normalize the query-rewriter model's output."""
     cleaned = (model_text or "").strip()
-    cleaned = re.sub(r"<think>.*?</think>", "", cleaned, flags=re.DOTALL | re.IGNORECASE)
+    cleaned = re.sub(
+        r"<think>.*?</think>", "", cleaned, flags=re.DOTALL | re.IGNORECASE
+    )
     cleaned = cleaned.replace("```text", "").replace("```", "").strip()
 
     lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
