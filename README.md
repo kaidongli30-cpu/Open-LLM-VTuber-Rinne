@@ -1,19 +1,19 @@
 # Open-LLM-VTuber-Rinne
 
-凛祢桌面伙伴的公开代码版：对话、日记与第二层背景、游戏原画渲染及换装。项目基于 Open-LLM-VTuber；前端源码和网页构建位于 [前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)，本仓库的 `frontend` 是指向它的 Git 子模块。
+更新版凛祢桌宠：对话、日记与第二层背景、游戏原画渲染及换装。项目基于 Open-LLM-VTuber；前端源码和网页构建位于 [前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)，本仓库的 `frontend` 是指向它的 Git 子模块。
 
-仓库不附带游戏原文件、转换后的凛祢肖像模型、API Key、聊天记录、日记或 `rinne_library` 数据。GPT-SoVITS V2 参考 WAV 已包含在仓库中，两份语音权重由安装脚本从项目 Release 下载。请使用自己持有的游戏源文件，在本机运行肖像导入器。项目自制服装按 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md) 授权，商业使用需另行获得许可。
+仓库不附带《凛祢乌托邦》与《凛绪轮回》的游戏原文件、转换后的凛祢游戏模型，也不包含 API Key、聊天记录、日记或 `rinne_library` 数据。GPT-SoVITS V2 参考 WAV 已包含在仓库中，两份语音权重由安装脚本从项目 Release 下载。请使用自己持有的游戏源文件，在本机运行肖像导入器。项目自制服装按 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md) 授权，商业使用需另行获得许可。
 
 本指南以 Windows PowerShell 和 CMD 为主。完成安装后，可在桌面客户端看到游戏原画凛祢、进行文字或语音对话，并听到 GPT-SoVITS V2 声线。语音翻译使用本地 Ollama 的 `qwen3.5:4b-q4_K_M`；SenseVoice 用于麦克风识别。近期记忆检索、每日子事件和已审核日记的第二层背景也已启用。没有日记时不会凭空生成背景。
 
 ## 必要术语
 
-- **API Key**：你自己的模型服务凭据，像密码一样保管。DeepSeek 网页聊天和 DeepSeek API 不是同一套配置。
+- **API Key**：你自己的模型服务凭据，像密码一样保管。
 - **CMD / PowerShell**：Windows 的两种命令窗口。下面分别给出写法；不要把 PowerShell 的 `$env:` 命令粘到 CMD。
 - **Git 子模块**：后端仓库记录前端仓库的一个确定版本。因此克隆和更新都要带 `--recurse-submodules`。
-- **PCK / SDK / 运行包**：PCK 是你本机游戏的源文件；仓库附带的自制 SDK 负责只读转换；生成的肖像运行包只留在你电脑上，不进入公开仓库。语音的参考 WAV 则已公开，无需从 PCK 提取。
-- **GPT-SoVITS / Ollama**：前者使用凛祢 V2 权重把日语文字合成语音；后者用指定的本地模型把中文回复翻成日语，并用另一个本地模型生成每日子事件。它们都要作为独立服务运行，`uv sync` 不会代替安装或启动它们。
-- **第二层背景**：从你审核过的日记提炼出的长期背景。它不同于原始日记；没有日记或尚未审核时不会凭空生成。
+- **PCK / SDK / 运行包**：PCK 是你本机游戏的源文件；仓库附带的自制 SDK 负责只读转换；生成的凛祢游戏资源包只留在你电脑上，不进入公开仓库。
+- **GPT-SoVITS / Ollama**：前者使用凛祢 V2 权重把日语文字合成语音；后者用指定的本地模型把中文回复翻成日语，并用另一个 24B 本地模型生成每日子事件。它们都要作为独立服务运行，`uv sync` 不会代替安装或启动它们。
+- **第二层背景**：从你审核过的日记提炼出的长期背景，用于让凛祢了解你大致是怎样的人、目前处于什么状态。它不同于原始日记；没有日记或尚未审核时不会凭空生成。
 
 ## 1. 准备软件
 
