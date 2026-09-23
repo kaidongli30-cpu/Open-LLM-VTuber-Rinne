@@ -129,11 +129,10 @@ uv run python setup_rinne_game_assets.py status
 
 ### 从源码启动桌面前端
 
-仓库中的 `frontend` 供服务器使用。要运行 Live Mode、Pet Mode 和本地游戏肖像，请构建桌面客户端：
+仓库中的 `frontend` 同时包含服务器使用的页面和与本版后端配套的桌面客户端源码。要运行 Live Mode、Pet Mode 和本地游戏肖像，请从这个已固定版本的子模块构建桌面客户端：
 
 ```powershell
-git clone https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend.git
-Set-Location .\Open-LLM-VTuber-Rinne-Frontend\source
+Set-Location .\frontend\source
 npm ci
 npm run build:unpack
 ```
@@ -149,6 +148,26 @@ CMD 中把 `Set-Location` 换成 `cd`，其余命令相同。构建完成后，�
 ### 用 QQ 与凛祢对话（可选）
 
 要接入 QQ，请先完成上述桌面端部署，再按 [QQ 通道安装说明](public_docs/QQ_SETUP.md) 设置自己的 QQ 账号。支持 QQ 官方机器人私聊，也支持通过 NapCat／AstrBot 接入个人 QQ 小号；两种方式都需要自行完成对应平台的安装和登录。桌面端用户不需要安装 QQ 组件。
+
+### 允许凛祢只读查看本机文件夹（可选）
+
+只在你明确指定的文件夹内启用。先把示例路径换成你自己的目录，再在启动后端的同一个命令窗口设置：
+
+PowerShell：
+
+```powershell
+$env:RINNE_READONLY_ENABLED = '1'
+$env:RINNE_READONLY_ROOTS = 'D:\MyDocuments'
+```
+
+CMD：
+
+```bat
+set "RINNE_READONLY_ENABLED=1"
+set "RINNE_READONLY_ROOTS=D:\MyDocuments"
+```
+
+不设置时此功能关闭。多个文件夹可用分号分隔；不要授权整个磁盘或含有密钥的目录。
 
 ## 4. 已有用户升级而不是重装
 

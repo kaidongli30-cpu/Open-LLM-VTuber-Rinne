@@ -566,7 +566,7 @@ character_config:
     edge_tts:
       # 查看文档：https://github.com/rany2/edge-tts
       # 使用 `edge-tts --list-voices` 列出所有可用语音
-      voice: zh-CN-XiaoxiaoNeural # 'en-US-AvaMultilingualNeural' #'zh-CN-XiaoxiaoNeural' # 'ja-JP-NanamiNeural'
+      voice: ja-JP-NanamiNeural # 'en-US-AvaMultilingualNeural' #'zh-CN-XiaoxiaoNeural' # 'ja-JP-NanamiNeural'
 
     # pyttsx3_tts 没有任何配置。
 
@@ -595,8 +595,8 @@ character_config:
     cosyvoice2_tts: # Cosy Voice TTS 连接到 gradio webui
       # 查看他们的文档以了解部署和以下配置的含义
       client_url: 'http://127.0.0.1:50000/' # CosyVoice gradio 演示 webui url
-      mode_checkbox_group: '预训练音色' # 模式复选框组, 可选项: '预训练音色', '3s极速复刻', '跨语种复刻', '自然语言控制'
-      sft_dropdown: '中文女' # 微调下拉列表
+      mode_checkbox_group: '3s极速复刻' # 模式复选框组, 可选项: '预训练音色', '3s极速复刻', '跨语种复刻', '自然语言控制'
+      sft_dropdown: '' # 微调下拉列表
       prompt_text: '' # 提示文本
       prompt_wav_upload_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav' # 提示 wav 上传 url
       prompt_wav_record_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav' # 提示 wav 录制 url
@@ -799,6 +799,14 @@ character_config:
         proxy_url: null # 可选：仅 DeepSeek 翻译请求使用的 HTTP 代理
         source_lang: 'zh'
         target_lang: 'ja'
+        extra_body:
+          glossary:
+            '园神凛祢': 'そのがみりんね'
+            '圆神凛绪': 'そのがみりお'
+            '凛绪': 'りお'
+            '凛祢': 'りんね'
+            '诱宵美九': 'いざよいみく'
+            '约会大作战': 'デート・ア・ライブ'
 
 # 直播平台集成
 live_config:

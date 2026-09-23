@@ -513,7 +513,7 @@ def run(console_log_level: str):
         logger.info(f"[数据目录] 聊天与记忆目录：{history_root.resolve()}")
         if headless_private_bridge:
             logger.info(
-                "[私人QQ桥接] 使用 E 盘既有记忆，跳过重复的日记与记忆生成任务"
+                "[QQ桥接] 使用本实例既有记忆，跳过重复的日记与记忆生成任务"
             )
         else:
             memory_startup = prepare_rinne_memories_on_startup(
