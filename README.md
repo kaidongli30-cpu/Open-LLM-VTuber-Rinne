@@ -80,7 +80,7 @@ uv run python setup_rinne_game_assets.py status
 
 ### 从源码启动桌面前端
 
-仓库的 `frontend` 是已编译网页；桌面客户端源码在另一个公开仓库。要使用当前源码的 Live Mode、Pet Mode 与本机游戏资源接口，可自行构建：
+仓库的 `frontend` 是服务器使用的页面资源，**不是桌面客户端**；Electron 桌面客户端源码在另一个公开仓库。要使用当前源码的 Live Mode、Pet Mode 与本机游戏资源接口，可自行构建：
 
 ```powershell
 git clone https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend.git
@@ -92,6 +92,8 @@ npm run build:unpack
 CMD 中把 `Set-Location` 换成 `cd`，其余命令相同。构建完成后，在 `source\release\1.2.1\win-unpacked` 中启动 `open-llm-vtuber-electron.exe`。请保持上一步启动的后端窗口运行。如果构建输出目录随版本变化，以实际 `win-unpacked` 目录为准。不要把旧版安装包的 `app.asar` 当作当前源码；本项目不会自动替换用户已安装客户端。
 
 验收顺序：`status` 显示本地资源完整 → 桌面前端显示凛祢 → Live Mode 选择服装无闪退 → 输入文字能取得回复 → 关闭重启后仍能继续对话。若首次无画面，先检查导入器状态与桌面客户端是否彻底重启。
+
+如果同一台电脑上还运行着另一套凛祢，不能仅换后端端口：桌面客户端的聊天设置、窗口状态和换装设置也必须分开。启动独立测试客户端前，可给它设置绝对路径环境变量 `RINNE_CLIENT_USER_DATA_DIR`（客户端数据目录）与 `RINNE_RENDERER_SETTINGS_PATH`（换装设置文件）；后端也使用同一个 `RINNE_RENDERER_SETTINGS_PATH`，并用 `RINNE_DATA_ROOT` 隔离日记和记忆。测试客户端连接地址必须指向测试后端的端口。普通首次安装无需设置这些变量。
 
 ## 3. 代理仅按需设置
 
