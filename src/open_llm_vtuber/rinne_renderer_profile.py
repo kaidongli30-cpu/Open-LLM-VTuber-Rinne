@@ -208,10 +208,22 @@ class RinneRuntimeOutfitController:
             return target
 
         _validate_profile_assets(target)
-        reference = self._tts_reference_for(target)
         engines = self._unique_compatible_tts_engines(tts_engines)
         if not engines:
-            raise RuntimeError("当前 TTS 不支持在运行中同步凛祢形态参考音")
+            character = self._source_config_data.get("character_config")
+            tts_config = (
+                character.get("tts_config") if isinstance(character, dict) else None
+            )
+            active_tts_model = (
+                tts_config.get("tts_model") if isinstance(tts_config, dict) else None
+            )
+            if active_tts_model == "gpt_sovits_tts":
+                raise RuntimeError("当前 TTS 不支持在运行中同步凛祢形态参考音")
+            write_renderer_settings(target, self._settings_path)
+            self._current_profile = target
+            return target
+
+        reference = self._tts_reference_for(target)
 
         previous = self._current_profile
         snapshots = [
