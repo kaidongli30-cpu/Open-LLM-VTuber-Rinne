@@ -6,11 +6,22 @@ from pydantic import BaseModel, ValidationError
 import os
 import re
 import chardet
+from copy import deepcopy
 from loguru import logger
 
 from .main import Config
 
 T = TypeVar("T", bound=BaseModel)
+
+
+def _merge_config(base: dict, local: dict) -> dict:
+    merged = deepcopy(base)
+    for key, value in local.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge_config(merged[key], value)
+        else:
+            merged[key] = deepcopy(value)
+    return merged
 
 
 def read_yaml(config_path: str) -> Dict[str, Any]:
@@ -46,7 +57,22 @@ def read_yaml(config_path: str) -> Dict[str, Any]:
     content = pattern.sub(replacer, content)
 
     try:
-        return yaml.safe_load(content)
+        config = yaml.safe_load(content)
+        # The published conf.yaml stays unchanged. Each installation may keep
+        # credentials and personal settings in a Git-ignored local overlay.
+        local_path = Path(config_path).with_name("conf.local.yaml")
+        if Path(config_path).name.lower() == "conf.yaml" and local_path.is_file():
+            if not isinstance(config, dict):
+                raise ValueError("conf.yaml must contain a YAML mapping")
+            local_content = load_text_file_with_guess_encoding(str(local_path))
+            if local_content is None:
+                raise IOError(f"Failed to read configuration file: {local_path}")
+            local_content = pattern.sub(replacer, local_content)
+            local_config = yaml.safe_load(local_content)
+            if not isinstance(local_config, dict):
+                raise ValueError("conf.local.yaml must contain a YAML mapping")
+            return _merge_config(config, local_config)
+        return config
     except yaml.YAMLError as e:
         logger.critical("Error parsing YAML file: {}", type(e).__name__)
         raise e

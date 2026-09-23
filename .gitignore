@@ -1,5 +1,6 @@
-# ignore the user configuration file
-conf.yaml
+# The public runtime configuration is tracked; local overrides stay private.
+conf.local.yaml
+conf.local.yaml.backup-*
 
 # ignore non-default background images
 /backgrounds/*

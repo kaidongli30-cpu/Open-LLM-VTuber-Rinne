@@ -1,4 +1,4 @@
-"""Update an existing Rinne conf.yaml in place without moving personal data."""
+"""Upgrade a private Rinne configuration overlay without editing public conf.yaml."""
 
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ from ruamel.yaml import YAML
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TEMPLATE = ROOT / "config_templates" / "conf.rinne.public.yaml"
-CONFIG = ROOT / "conf.yaml"
+TEMPLATE = ROOT / "conf.yaml"
+CONFIG = ROOT / "conf.local.yaml"
 
 # These values belong to each installation. An update must never publish, print,
 # replace, or move them, even when all other runtime settings are upgraded.
@@ -67,10 +67,26 @@ def _upgrade(existing: Any, desired: Any, path: tuple[str, ...] = ()) -> list[st
     return changed
 
 
+def _local_overrides(existing: dict, public: dict) -> dict:
+    """Keep only installation-specific differences after applying public updates."""
+
+    overrides: dict = {}
+    for key, value in existing.items():
+        if key not in public:
+            overrides[key] = value
+        elif isinstance(value, dict) and isinstance(public[key], dict):
+            nested = _local_overrides(value, public[key])
+            if nested:
+                overrides[key] = nested
+        elif value != public[key]:
+            overrides[key] = value
+    return overrides
+
+
 def update_config(config_path: Path = CONFIG, *, apply: bool = False) -> tuple[list[str], Path | None]:
     config_path = config_path.resolve(strict=True)
-    if config_path.name.lower() != "conf.yaml":
-        raise ValueError("只接受现有的 conf.yaml")
+    if config_path.name.lower() != "conf.local.yaml":
+        raise ValueError("只接受本地 conf.local.yaml")
     yaml = YAML(typ="rt")
     yaml.preserve_quotes = True
     with config_path.open("r", encoding="utf-8") as stream:
@@ -84,11 +100,14 @@ def update_config(config_path: Path = CONFIG, *, apply: bool = False) -> tuple[l
         raise ValueError("此工具只更新已有的凛祢配置；未修改文件")
 
     changed = _upgrade(existing, desired)
+    overrides = _local_overrides(existing, desired)
+    if overrides != existing:
+        changed.append("conf.local.yaml（仅保留与公开配置不同的本地值）")
     if not apply or not changed:
         return changed, None
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup = config_path.with_name(f"conf.yaml.backup-{stamp}")
+    backup = config_path.with_name(f"conf.local.yaml.backup-{stamp}")
     if backup.exists():
         raise FileExistsError(f"备份已存在：{backup}")
     shutil.copy2(config_path, backup)
@@ -96,10 +115,10 @@ def update_config(config_path: Path = CONFIG, *, apply: bool = False) -> tuple[l
     try:
         with tempfile.NamedTemporaryFile(
             mode="w", encoding="utf-8", dir=config_path.parent,
-            prefix="conf.yaml.updating-", suffix=".tmp", delete=False,
+            prefix="conf.local.yaml.updating-", suffix=".tmp", delete=False,
         ) as stream:
             temporary = Path(stream.name)
-            yaml.dump(existing, stream)
+            yaml.dump(overrides, stream)
             stream.flush()
             os.fsync(stream.fileno())
         with temporary.open("r", encoding="utf-8") as stream:
@@ -113,7 +132,7 @@ def update_config(config_path: Path = CONFIG, *, apply: bool = False) -> tuple[l
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="在原有 conf.yaml 上更新凛祢设置")
+    parser = argparse.ArgumentParser(description="更新本机 conf.local.yaml，不修改公开 conf.yaml")
     parser.add_argument("--apply", action="store_true", help="先备份再写入；省略时只预览")
     args = parser.parse_args()
     changed, backup = update_config(apply=args.apply)

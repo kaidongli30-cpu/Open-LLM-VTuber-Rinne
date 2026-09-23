@@ -37,7 +37,6 @@ PowerShell：
 git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git
 Set-Location .\Open-LLM-VTuber-Rinne
 uv sync
-Copy-Item .\config_templates\conf.rinne.public.yaml .\conf.yaml
 $env:RINNE_DEEPSEEK_API_KEY = '填入你自己的 DeepSeek API Key'
 $env:RINNE_APINEBULA_API_KEY = '填入你自己的 APINebula API Key'
 $env:RINNE_MEDIA_GEMINI_API_KEY = '填入可调用 Gemini 的 API Key'
@@ -50,14 +49,13 @@ CMD：
 git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git
 cd Open-LLM-VTuber-Rinne
 uv sync
-copy config_templates\conf.rinne.public.yaml conf.yaml
 set "RINNE_DEEPSEEK_API_KEY=填入你自己的 DeepSeek API Key"
 set "RINNE_APINEBULA_API_KEY=填入你自己的 APINebula API Key"
 set "RINNE_MEDIA_GEMINI_API_KEY=填入可调用 Gemini 的 API Key"
 set "BOCHA_API_KEY=填入你自己的博查 API Key"
 ```
 
-`conf.yaml` 被 Git 忽略。默认使用 APINebula 的 `claude-opus-4-6` 对话、DeepSeek 生成第二层背景、Gemini 观察视频和屏幕、博查搜索、GPT-SoVITS V2 合成语音，以及本地 Ollama 翻译。以上 Key 分别由对应功能读取；使用这些功能需持有相应服务的凭据。若 Gemini 也通过 APINebula 调用，可按服务提供的说明使用相应 Key。环境变量只在当前命令窗口及从它启动的程序中生效，不要把 Key 写进 Git 仓库。
+根目录的 `conf.yaml` 已包含凛祢的公开运行设置，无需复制模板。默认使用 APINebula 的 `claude-opus-4-6` 对话、DeepSeek 生成第二层背景、Gemini 观察视频和屏幕、博查搜索、GPT-SoVITS V2 合成语音，以及本地 Ollama 翻译。以上 Key 分别由对应功能读取；使用这些功能需持有相应服务的凭据。若 Gemini 也通过 APINebula 调用，可按服务提供的说明使用相应 Key。环境变量只在当前命令窗口及从它启动的程序中生效。需保存本机专用设置时，新建 `conf.local.yaml`，只写与公开配置不同的字段；它不受 Git 跟踪。不要把 Key 写进 `conf.yaml`。
 
 ### 安装 V2 语音
 
@@ -99,7 +97,7 @@ cd /d "D:\Rinne-Voice\GPT-SoVITS-v2pro-20250604"
 runtime\python.exe api_v2.py -c rinne_public_v2_tts_infer.yaml
 ```
 
-让这个语音窗口保持运行，默认监听本机 `9880`，与 `conf.yaml` 中的语音地址一致。若端口已被占用，可启动语音服务时指定其他端口，并同步修改 `gpt_sovits_tts.api_url`。参考 WAV 已包含在仓库中，无需从游戏提取。
+让这个语音窗口保持运行，默认监听本机 `9880`，与 `conf.yaml` 中的语音地址一致。若端口已被占用，可启动语音服务时指定其他端口，并在 `conf.local.yaml` 中覆盖 `character_config.tts_config.gpt_sovits_tts.api_url`。参考 WAV 已包含在仓库中，无需从游戏提取。
 
 回到最初设置了各项 API Key 的项目窗口启动后端，并让它保持运行。下面的游戏资源导入和桌面客户端构建命令请**另开命令窗口**执行；在运行 `uv run` 前先进入刚克隆的后端项目根目录。
 
@@ -146,7 +144,7 @@ CMD 中把 `Set-Location` 换成 `cd`，其余命令相同。构建完成后，�
 
 ## 3. 代理仅按需设置
 
-`proxy_url: null` 表示直连 DeepSeek。只有直连失败且已有可用 HTTP 代理时，才在本地 `conf.yaml` 中设置 `agent_config.llm_configs.deepseek_llm.proxy_url`。第二层背景沿用该连接设置。不要把自己的代理地址或凭据提交到仓库。
+`proxy_url: null` 表示直连 DeepSeek。只有直连失败且已有可用 HTTP 代理时，才在本地 `conf.local.yaml` 中覆盖 `character_config.agent_config.llm_configs.deepseek_llm.proxy_url`。第二层背景沿用该连接设置。不要把自己的代理地址或凭据提交到仓库。
 
 ### 用 QQ 与凛祢对话（可选）
 
@@ -154,9 +152,9 @@ CMD 中把 `Set-Location` 换成 `cd`，其余命令相同。构建完成后，�
 
 ## 4. 已有用户升级而不是重装
 
-升级前先备份私人 `conf.yaml` 与整个 `chat_history`，并停掉旧后端。不要运行会覆盖私人文件的复制命令。
+升级前先停掉旧后端，并在文件资源管理器中把旧 `conf.yaml`、整个 `chat_history` 和 `rinne_library` 复制到项目目录之外保存。确认备份可打开后，再按下面命令把旧 `conf.yaml` 改名为 `conf.local.yaml` 并更新代码。若已经有同名的 `conf.local.yaml`，不要覆盖，先检查它的内容。
 
-- **原目录内升级**：更新代码和子模块，保留未受 Git 跟踪的 `conf.yaml`、`chat_history`、`rinne_library` 和 `local_config`；检查 `conf_uid` 仍是 `rinne_01`。代码默认继续使用 `chat_history\rinne_01`，不会清空旧记忆。
+- **原目录内升级**：更新代码和子模块，保留本机的 `conf.local.yaml`、`chat_history`、`rinne_library` 和 `local_config`；检查 `conf_uid` 仍是 `rinne_01`。代码默认继续使用 `chat_history\rinne_01`，不会清空旧记忆。
 - **换到新目录**：把私人数据复制到新目录的 `chat_history`，或在启动窗口设置 `RINNE_DATA_ROOT` 为一个独立、绝对的数据目录，程序会在其下读写 `chat_history\rinne_01`。不要把两个正在运行的后端同时指向同一份数据；先在副本上验证，再切换。
 - **保留 Library**：`rinne_library\rinne_01` 是独立的私人文件库，`RINNE_DATA_ROOT` 不会替它改位置。换目录时把旧库复制到新目录的同名位置，或用绝对路径环境变量 `RINNE_LIBRARY_ROOT` 指向要继续使用的旧库；并行测试应使用副本，避免两个进程同时写同一库。不要把库里的数据提交到 GitHub。
 
@@ -165,12 +163,13 @@ CMD 中把 `Set-Location` 换成 `cd`，其余命令相同。构建完成后，�
 PowerShell 更新代码：
 
 ```powershell
+Rename-Item .\conf.yaml conf.local.yaml
 git pull --ff-only
 git submodule update --init --recursive
 uv sync
 ```
 
-CMD 中命令相同。接着在原项目目录预览配置更新：
+CMD 中先执行 `ren conf.yaml conf.local.yaml`，然后依次执行上面后三条命令。接着在原项目目录预览本机配置更新：
 
 ```text
 uv run python scripts/update_rinne_config.py
@@ -182,9 +181,9 @@ uv run python scripts/update_rinne_config.py
 uv run python scripts/update_rinne_config.py --apply
 ```
 
-脚本会先把原有 `conf.yaml` 备份为同目录下带日期的文件，然后在原文件中更新模型、V2 语音参考音、翻译和记忆设置；保留原有 API Key、代理、个人称呼及提示词、角色 ID 和本机服务地址。聊天、日记、背景与 `rinne_library` 不会被移动或清空。请在启动窗口设置对话、第二层和媒体功能所需的 Key。日记、聊天和 `rinne_library` 数据不能提交到 GitHub。
+脚本会先把 `conf.local.yaml` 备份为同目录下带日期的文件，再将新版公开运行设置应用到本机配置，同时保留原有 API Key、代理、个人称呼及提示词、角色 ID 和本机服务地址。之后它只在 `conf.local.yaml` 保留与公开配置不同的本机值；仓库中的 `conf.yaml` 不会被修改。聊天、日记、背景与 `rinne_library` 不会被移动或清空。日记、聊天和 `rinne_library` 数据不能提交到 GitHub。
 
-已有用户也按“安装 V2 语音”一节配置语音服务，再使用上述脚本更新原 `conf.yaml`。脚本会切换到项目自带的 V2 参考音；若已有自己的翻译词表，仍会保留其路径。确认 `ollama list` 有指定模型，重启后端和桌面客户端，检查日常与灵装语音。
+已有用户也按“安装 V2 语音”一节配置语音服务，再使用上述脚本更新本机配置。脚本会切换到项目自带的 V2 参考音；若已有自己的翻译词表，仍会保留其路径。确认 `ollama list` 有指定模型，重启后端和桌面客户端，检查日常与灵装语音。
 
 ### 用已审核日记建立或续写第二层背景
 

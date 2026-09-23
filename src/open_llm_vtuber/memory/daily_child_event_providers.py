@@ -16,8 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
-
+from ..config_manager.utils import read_yaml
 from ..config_manager.daily_child_event import DailyChildEventGenerationConfig
 
 
@@ -56,7 +55,7 @@ def load_daily_child_event_settings(
     if not path.is_file():
         return default_daily_child_event_settings()
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        raw = read_yaml(str(path)) or {}
         section = raw.get("character_config", {}).get(
             "daily_child_event_generation", {}
         )

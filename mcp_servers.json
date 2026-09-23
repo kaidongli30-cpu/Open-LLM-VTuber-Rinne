@@ -38,6 +38,12 @@
       "env": {
         "RINNE_LIBRARY_ROOT": "rinne_library/rinne_01"
       }
+    },
+    "rinne-computer-readonly": {
+      "command": ".venv/Scripts/python.exe",
+      "args": [
+        "mcp_tools/rinne-computer-readonly-mcp/server.py"
+      ]
     }
   }
 }
