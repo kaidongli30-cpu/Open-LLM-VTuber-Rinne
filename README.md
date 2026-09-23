@@ -2,9 +2,9 @@
 
 凛祢桌面伙伴的公开代码版：对话、日记与第二层背景、游戏原画渲染及换装。项目基于 Open-LLM-VTuber；前端源码和网页构建位于 [前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)，本仓库的 `frontend` 是指向它的 Git 子模块。
 
-公开仓库**不附带**游戏原文件或转换后的凛祢肖像模型、作者的 API Key、个人聊天与日记、`rinne_library` 数据和本机代理设置；但**附带作者当前使用的 GPT-SoVITS V2 参考 WAV**，对应的两份 V2 权重通过本项目 Release 下载。你需要使用自己持有的游戏源文件，在**自己的电脑上**运行肖像导入器。作者自制服装与程序代码分开授权；服装为 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md)，不能未经另行授权用于商业用途。
+仓库不附带游戏原文件、转换后的凛祢肖像模型、API Key、聊天记录、日记或 `rinne_library` 数据。GPT-SoVITS V2 参考 WAV 已包含在仓库中，两份语音权重由安装脚本从项目 Release 下载。请使用自己持有的游戏源文件，在本机运行肖像导入器。项目自制服装按 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md) 授权，商业使用需另行获得许可。
 
-本指南以 Windows PowerShell 和 CMD 为主。初次安装的目标是“在桌面客户端看到游戏原画凛祢、输入文字并听到 GPT-SoVITS V2 声线回复”。语音翻译与作者当前配置一样，使用本地 Ollama 的 `qwen3.5:4b-q4_K_M`。公开模板也启用了 SenseVoice 麦克风识别、近期记忆检索、每日子事件与已审核日记的第二层背景；初次安装尚无日记时不会凭空产生背景。不要把私人运行目录或密钥上传到 Git。
+本指南以 Windows PowerShell 和 CMD 为主。完成安装后，可在桌面客户端看到游戏原画凛祢、进行文字或语音对话，并听到 GPT-SoVITS V2 声线。语音翻译使用本地 Ollama 的 `qwen3.5:4b-q4_K_M`；SenseVoice 用于麦克风识别。近期记忆检索、每日子事件和已审核日记的第二层背景也已启用。没有日记时不会凭空生成背景。
 
 ## 必要术语
 
@@ -51,9 +51,9 @@ copy config_templates\conf.rinne.public.yaml conf.yaml
 set "RINNE_DEEPSEEK_API_KEY=填入你自己的 DeepSeek API Key"
 ```
 
-`conf.yaml` 被 Git 忽略；公开模板通过 `RINNE_DEEPSEEK_API_KEY` 环境变量读取凭据。上述临时变量只在当前命令窗口及从它启动的程序中生效。长期保存凭据应使用自己掌控的私有配置方式，**不要把 Key 写进受 Git 跟踪的源码或提交记录**。公开模板默认用 DeepSeek 对话、文字输入、**凛祢 GPT-SoVITS V2 声线**和本地 Ollama 日语翻译，不使用 Edge TTS。
+`conf.yaml` 被 Git 忽略；配置通过 `RINNE_DEEPSEEK_API_KEY` 环境变量读取凭据。上述变量只在当前命令窗口及从它启动的程序中生效。不要把 Key 写进 Git 仓库。默认使用 DeepSeek 对话、GPT-SoVITS V2 合成语音，并由本地 Ollama 翻译成日语。
 
-### 安装与作者相同的 V2 语音链路
+### 安装 V2 语音
 
 先确保 Ollama 已启动，再在 PowerShell 或 CMD 执行：
 
@@ -63,7 +63,7 @@ ollama pull mistral-small3.2:24b
 ollama list
 ```
 
-最后一行应能看到两个模型。`mistral-small3.2:24b` 专供每日子事件；如果机器内存或磁盘不足，先在私人 `conf.yaml` 把 `character_config.daily_child_event_generation.enabled` 改成 `False`，但这会与作者现用体验不同。在**后端项目根目录**安装凛祢 V2 权重并校验仓库自带的五段参考 WAV。把下面的语音目录示例换成你解压后的真实路径，绝不能指向别人的私人安装目录。
+最后一行应能看到两个模型。`mistral-small3.2:24b` 用于每日子事件；如果机器内存或磁盘不足，可在本地 `conf.yaml` 把 `character_config.daily_child_event_generation.enabled` 改成 `False`。接着在**后端项目根目录**安装凛祢 V2 权重。把下面的语音目录示例换成你的实际解压路径。
 
 PowerShell：
 
@@ -77,7 +77,7 @@ CMD：
 uv run python setup_rinne_voice.py --gpt-root "D:\Rinne-Voice\GPT-SoVITS-v2pro-20250604"
 ```
 
-脚本仅下载和校验本项目 [V2 语音权重 Release](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases/tag/rinne-gpt-sovits-v2-20260923) 中的两份模型（GPT 权重与 SoVITS 权重），并在语音目录生成独立的 `rinne_public_v2_tts_infer.yaml`；不会修改官方整合包原配置。它还会核对关键运行文件及五段 WAV 的 SHA-256；文件不匹配会停止，不会悄悄退回 Edge TTS。公开仓库中的 WAV 与作者当前使用的默认、惊讶/慌乱、害羞辅助、愤怒、灵装参考音逐字节一致；只有仓库路径不同。翻译词表也与作者当前运行的词表一致。
+脚本从 [V2 语音权重 Release](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases/tag/rinne-gpt-sovits-v2-20260923) 下载并校验两份模型，在语音目录生成 `rinne_public_v2_tts_infer.yaml`。文件校验失败时会报错并停止，请检查下载和整合包版本。
 
 另开一个命令窗口，进入**语音目录**并启动 GPT-SoVITS。PowerShell：
 
@@ -93,7 +93,7 @@ cd /d "D:\Rinne-Voice\GPT-SoVITS-v2pro-20250604"
 runtime\python.exe api_v2.py -c rinne_public_v2_tts_infer.yaml
 ```
 
-让这个语音窗口保持运行，默认监听本机 `9880`。公开配置已指向该端口；如果你要与另一套凛祢**同时运行**，请给隔离实例改用独立端口，并只在该实例私有的 `conf.yaml` 改 `gpt_sovits_tts.api_url`。运行声音并非只靠两份权重：公开配置还固定了作者当前的日语翻译模型、分词和情绪/灵装参考音路由；参考 WAV 不需要再次从游戏提取。
+让这个语音窗口保持运行，默认监听本机 `9880`，与 `conf.yaml` 中的语音地址一致。若端口已被占用，可启动语音服务时指定其他端口，并同步修改 `gpt_sovits_tts.api_url`。参考 WAV 已包含在仓库中，无需从游戏提取。
 
 回到最初设置了 `RINNE_DEEPSEEK_API_KEY` 的项目窗口启动后端，并让它保持运行。下面的游戏资源导入和桌面客户端构建命令请**另开命令窗口**执行；在运行 `uv run` 前先进入刚克隆的后端项目根目录。
 
@@ -103,7 +103,7 @@ uv run run_server.py
 
 默认网页地址通常是 `http://127.0.0.1:12393`。但游戏原画渲染与本地资源读取需要桌面前端；仅打开网页不代表桌宠的衣服或语音已可用。
 
-首次启动时，麦克风识别会按模板路径下载 SenseVoice 的 ONNX 模型，记忆检索会准备 `BAAI/bge-base-zh-v1.5` 与 `BAAI/bge-reranker-base`；这些不是翻译或每日子事件模型。保持网络连接并等待相关下载完成。公开模板还启用工具服务：`uvx`（随 uv 安装）会按需启动搜索工具，本机音乐及 Library 工具使用仓库附带程序；Library 的私人数据不随公开代码分发，新用户最初为空。
+首次启动时会下载 SenseVoice 识别模型以及记忆检索所需的 `BAAI/bge-base-zh-v1.5`、`BAAI/bge-reranker-base`。保持网络连接并等待下载完成。搜索、音乐与 Library 工具也会随程序启动；新安装的 Library 为空。
 
 ### 把自己的游戏源文件导入
 
@@ -125,7 +125,7 @@ uv run python setup_rinne_game_assets.py status
 
 ### 从源码启动桌面前端
 
-仓库的 `frontend` 是服务器使用的页面资源，**不是桌面客户端**；Electron 桌面客户端源码在另一个公开仓库。要使用当前源码的 Live Mode、Pet Mode 与本机游戏资源接口，可自行构建：
+仓库中的 `frontend` 供服务器使用。要运行 Live Mode、Pet Mode 和本地游戏肖像，请构建桌面客户端：
 
 ```powershell
 git clone https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend.git
@@ -134,15 +134,13 @@ npm ci
 npm run build:unpack
 ```
 
-CMD 中把 `Set-Location` 换成 `cd`，其余命令相同。构建完成后，在 `source\release\1.2.1\win-unpacked` 中启动 `open-llm-vtuber-electron.exe`。请保持上一步启动的后端窗口运行。如果构建输出目录随版本变化，以实际 `win-unpacked` 目录为准。不要把旧版安装包的 `app.asar` 当作当前源码；本项目不会自动替换用户已安装客户端。
+CMD 中把 `Set-Location` 换成 `cd`，其余命令相同。构建完成后，在 `source\release\1.2.1\win-unpacked` 中启动 `open-llm-vtuber-electron.exe`。请保持后端窗口运行。如果输出目录随版本变化，以实际 `win-unpacked` 目录为准。
 
-验收顺序：`status` 显示本地肖像资源完整 → 桌面前端显示凛祢 → Live Mode 选择服装无闪退 → 输入文字能取得回复并听到 **V2 凛祢日语声线** → 切换灵装后听到对应灵装参考音 → 关闭重启后仍能继续对话。文字出现但无语音**不算安装成功**；检查 Ollama、GPT-SoVITS 两个窗口和后端日志，不要换用 Edge TTS 冒充通过。若首次无画面，先检查导入器状态与桌面客户端是否彻底重启。
-
-如果同一台电脑上还运行着另一套凛祢，不能仅换后端端口：桌面客户端的聊天设置、窗口状态和换装设置也必须分开。启动独立测试客户端前，可给它设置绝对路径环境变量 `RINNE_CLIENT_USER_DATA_DIR`（客户端数据目录）与 `RINNE_RENDERER_SETTINGS_PATH`（换装设置文件）；后端也使用同一个 `RINNE_RENDERER_SETTINGS_PATH`，并用 `RINNE_DATA_ROOT` 隔离日记和记忆。测试客户端连接地址必须指向测试后端的端口。普通首次安装无需设置这些变量。
+安装后依次检查：`status` 显示肖像资源完整；桌面客户端显示凛祢；Live Mode 可以选择服装；输入文字后能收到回复并听到语音；切换灵装后仍能正常对话。若有文字但没有声音，检查 Ollama、GPT-SoVITS 两个窗口和后端日志。若没有画面，检查导入器状态并完全重启桌面客户端。
 
 ## 3. 代理仅按需设置
 
-公开模板中 DeepSeek 的 `proxy_url: null` 表示**直接连接**，没有作者的 Clash Verge 地址或端口。大多数能直接访问 DeepSeek 的用户无需改动。确实需要代理时，只改私人 `conf.yaml` 中 `agent_config.llm_configs.deepseek_llm.proxy_url`，填写自己可用的 HTTP 代理地址；第二层背景会沿用该 DeepSeek 配置。代理软件必须自行运行，填了地址并不代表连接一定通过。不要把个人网络规则或凭据提交到仓库。
+`proxy_url: null` 表示直连 DeepSeek。只有直连失败且已有可用 HTTP 代理时，才在本地 `conf.yaml` 中设置 `agent_config.llm_configs.deepseek_llm.proxy_url`。第二层背景沿用该连接设置。不要把自己的代理地址或凭据提交到仓库。
 
 ## 4. 已有用户升级而不是重装
 
@@ -151,6 +149,8 @@ CMD 中把 `Set-Location` 换成 `cd`，其余命令相同。构建完成后，�
 - **原目录内升级**：更新代码和子模块，保留未受 Git 跟踪的 `conf.yaml`、`chat_history`、`rinne_library` 和 `local_config`；检查 `conf_uid` 仍是 `rinne_01`。代码默认继续使用 `chat_history\rinne_01`，不会清空旧记忆。
 - **换到新目录**：把私人数据复制到新目录的 `chat_history`，或在启动窗口设置 `RINNE_DATA_ROOT` 为一个独立、绝对的数据目录，程序会在其下读写 `chat_history\rinne_01`。不要把两个正在运行的后端同时指向同一份数据；先在副本上验证，再切换。
 - **保留 Library**：`rinne_library\rinne_01` 是独立的私人文件库，`RINNE_DATA_ROOT` 不会替它改位置。换目录时把旧库复制到新目录的同名位置，或用绝对路径环境变量 `RINNE_LIBRARY_ROOT` 指向要继续使用的旧库；并行测试应使用副本，避免两个进程同时写同一库。不要把库里的数据提交到 GitHub。
+
+如果要在同一台电脑上同时运行两套凛祢，还要为新实例分别设置 `RINNE_CLIENT_USER_DATA_DIR`（客户端数据）、`RINNE_RENDERER_SETTINGS_PATH`（换装设置）与 `RINNE_DATA_ROOT`（日记和记忆），并让客户端连接新实例的后端端口。各变量应指向独立的绝对路径；不要让两个运行中的实例写入同一份数据。
 
 PowerShell 更新代码：
 
@@ -162,7 +162,7 @@ uv sync
 
 CMD 中命令相同。私人 `conf.yaml` 不应被模板覆盖；需要新选项时，对照 `config_templates/conf.rinne.public.yaml` 在私人文件中增补。日记、聊天和 `rinne_library` 数据不属于代码升级包，也不能提交到 GitHub。
 
-已有用户要升级到与作者相同的 V2 声线时，仍使用本节的原目录/新目录数据升级方式，**不要**用公开模板覆盖已积累记忆的私人 `conf.yaml`。先按“安装与作者相同的 V2 语音链路”在自己的独立语音目录运行安装脚本并启动服务；然后仅把公开模板里 `character_config.tts_config.tts_model`、`gpt_sovits_tts` 整段和 `tts_preprocessor_config.translator_config` 中的翻译开关、模型及参数合并到私人 `conf.yaml`。若已有自己的翻译词表，保留其路径和私人词条，不要被公开词表覆盖。原有 DeepSeek Key、角色 ID、日记与 Library 保持不变。确认 `ollama list` 有指定模型，重启后端和桌面客户端，再按上面的语音验收顺序检查日常与灵装。
+已有用户升级 V2 语音时，仍按本节保留原有数据，**不要**用模板覆盖自己的 `conf.yaml`。先按“安装 V2 语音”一节配置语音服务；然后将模板中的 `character_config.tts_config.tts_model`、`gpt_sovits_tts` 和 `tts_preprocessor_config.translator_config` 相关设置合并到本地配置。若已有自己的翻译词表，保留其路径和词条。确认 `ollama list` 有指定模型，重启后端和桌面客户端，检查日常与灵装语音。
 
 ### 用已审核日记建立或续写第二层背景
 
@@ -172,21 +172,20 @@ CMD 中命令相同。私人 `conf.yaml` 不应被模板覆盖；需要新选项
 uv run python -m src.open_llm_vtuber.memory.layer2_backfill --dry-run
 ```
 
-只有已验收、具备匹配批准标记的日记才会自动补齐。若需要逐篇在终端确认：
+只有你明确批准的日记才会用于背景更新。若需要逐篇在终端确认：
 
 ```powershell
 uv run python -m src.open_llm_vtuber.memory.layer2_backfill --approve-interactively
 ```
 
-命令会按日期顺序处理；缺失内容不会被猜测或补写。成功后新对话读取已发布的第二层背景，原始私人日记仍留在本地。后台启动时也只会补齐**已批准**的日记；未审核的日记不会被自动批准。周记/月记沿原有独立生成流程，不要把它们误认为第二层背景由 DeepSeek 生成。
+命令会按日期顺序处理；缺失内容不会被猜测或补写。成功后新对话会读取生成的第二层背景，原始日记仍留在本地。后台启动时也只会补齐**已批准**的日记；未审核的日记不会被自动批准。
 
 ## 5. 范围与常见问题
 
 - **换装菜单没有某套**：先运行该套 `build --outfit-number N` 并用 `status` 验证；菜单只展示完整可用的资源。作者自制服装的本地游戏头部合成也依赖用户自己的原画运行包。
-- **API 连接失败**：先检查自己的 Key、额度与网络；只有确实受网络限制时才设置私人代理。公开项目不会替你启动 Clash Verge。
+- **API 连接失败**：检查自己的 Key、额度与网络；需要代理时，先确认代理服务已启动，再设置本地代理地址。
 - **运行时找不到前端**：执行 `git submodule update --init --recursive`，确认 `frontend\index.html` 存在。
-- **文字正常但没声音**：确认 Ollama 的 `qwen3.5:4b-q4_K_M` 已安装并运行、GPT-SoVITS 由 `rinne_public_v2_tts_infer.yaml` 启动、语音端口与私人 `conf.yaml` 匹配。不要把“GPT-SoVITS 程序版本 V2Pro”误认为已加载“凛祢 V2 权重”；安装脚本和启动配置会分别检查这两件事。
+- **文字正常但没声音**：确认 Ollama 的 `qwen3.5:4b-q4_K_M` 已安装并运行、GPT-SoVITS 使用 `rinne_public_v2_tts_infer.yaml` 启动、语音端口与本地 `conf.yaml` 匹配。
 - **旧记忆没出现**：确认正在启动的是正确的后端目录、`conf_uid=rinne_01`、`RINNE_DATA_ROOT` 没指错；不要删除旧 `chat_history`。
-- **TypeScript 检查报警**：当前前端附带的旧 WebSDK 类型定义尚有历史报错。以构建和实际交互验收为准，并把新发现的独立问题单独报告；不能据此宣称所有功能已通过。
 
-若要开发或反馈问题，请只提供脱敏的日志和复现步骤，不上传 API Key、游戏 PCK、转换后的资源、私人聊天或日记。使用本地文件、游戏资源和第三方服务时，请自行遵守其使用条款。
+反馈问题时，请勿附上 API Key、游戏 PCK、转换后的资源、聊天记录或日记。使用游戏资源和第三方服务时，请遵守其使用条款。
