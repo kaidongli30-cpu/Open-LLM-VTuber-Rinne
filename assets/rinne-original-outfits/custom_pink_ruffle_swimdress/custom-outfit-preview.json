@@ -1,5 +1,5 @@
 {
-  "asset_count": 1,
+  "asset_count": 2,
   "assets": [
     {
       "byte_length": 1572593,
@@ -11,6 +11,17 @@
       "mode": "RGBA",
       "role": "body",
       "sha256": "ba534e26f703d6f974f8bcb4625b4dc44b0a4590f707f868ff587c86f202c899"
+    },
+    {
+      "byte_length": 37768,
+      "canvas": [
+        2048,
+        2048
+      ],
+      "file": "layers/native-head-mask.png",
+      "mode": "RGBA",
+      "role": "native_head_mask",
+      "sha256": "ca85c4b18da193fb36bfdf20a3f17262c700170e30422a4087d5f0b4109759af"
     }
   ],
   "canvas": [
@@ -38,18 +49,7 @@
       "happy": 68,
       "neutral": 68
     },
-    "native_head_mask_role": "native_head_mask",
-    "native_hidden_draw_types": [
-      3,
-      4,
-      8,
-      11,
-      15,
-      16,
-      22,
-      24,
-      25
-    ]
+    "native_head_mask_role": "native_head_mask"
   },
   "display_name": "粉色蝴蝶结荷叶边裙式泳装",
   "donor_runtime": {

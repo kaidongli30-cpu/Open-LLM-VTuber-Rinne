@@ -1,5 +1,5 @@
 {
-  "asset_count": 1,
+  "asset_count": 2,
   "assets": [
     {
       "byte_length": 2908616,
@@ -11,6 +11,17 @@
       "mode": "RGBA",
       "role": "body",
       "sha256": "7f901b1243f3d940e04a7c4fb9d6c2ed709b33ed564ba703acf4d33922ecb042"
+    },
+    {
+      "byte_length": 67349,
+      "canvas": [
+        2048,
+        2048
+      ],
+      "file": "layers/native-head-mask.png",
+      "mode": "RGBA",
+      "role": "native_head_mask",
+      "sha256": "be16a021b3aef3f74bd90d197733cb65b95bed4bd4321fa1d14bd96d85249bff"
     }
   ],
   "canvas": [
@@ -38,18 +49,7 @@
       "happy": 68,
       "neutral": 68
     },
-    "native_head_mask_role": "native_head_mask",
-    "native_hidden_draw_types": [
-      3,
-      4,
-      8,
-      11,
-      15,
-      16,
-      22,
-      24,
-      25
-    ]
+    "native_head_mask_role": "native_head_mask"
   },
   "display_name": "象牙白牛角扣连帽棉服",
   "donor_runtime": {

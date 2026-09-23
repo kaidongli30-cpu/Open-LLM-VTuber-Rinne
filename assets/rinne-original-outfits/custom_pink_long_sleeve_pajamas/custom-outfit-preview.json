@@ -1,5 +1,5 @@
 {
-  "asset_count": 1,
+  "asset_count": 2,
   "assets": [
     {
       "byte_length": 1232732,
@@ -11,6 +11,17 @@
       "mode": "RGBA",
       "role": "body",
       "sha256": "8f2335c5712a160d02361094324892f6b36c13d6b964d58bdd7c851950980654"
+    },
+    {
+      "byte_length": 65358,
+      "canvas": [
+        2048,
+        2048
+      ],
+      "file": "layers/native-head-mask.png",
+      "mode": "RGBA",
+      "role": "native_head_mask",
+      "sha256": "38119bf7198b1ff0377a7af5ed05cd5d497f32bb67a443b20565beef213dad79"
     }
   ],
   "canvas": [
@@ -38,18 +49,7 @@
       "happy": 68,
       "neutral": 68
     },
-    "native_head_mask_role": "native_head_mask",
-    "native_hidden_draw_types": [
-      3,
-      4,
-      8,
-      11,
-      15,
-      16,
-      22,
-      24,
-      25
-    ]
+    "native_head_mask_role": "native_head_mask"
   },
   "display_name": "作者自制：粉色长袖睡衣",
   "donor_runtime": {
