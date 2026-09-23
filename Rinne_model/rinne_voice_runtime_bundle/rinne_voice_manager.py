@@ -7,6 +7,7 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -30,16 +31,17 @@ RUNTIME_PYTHON = GSV_ROOT / "runtime" / "python.exe"
 API_SCRIPT = GSV_ROOT / "api_v2.py"
 BASE_TTS_CONFIG = GSV_ROOT / "GPT_SoVITS" / "configs" / "tts_infer.yaml"
 PROJECT_CONFIG = PROJECT_ROOT / "conf.yaml"
+LOCAL_CONFIG = PROJECT_ROOT / "conf.local.yaml"
 STATE_PATH = HERE / "runtime_state.json"
 CONFIG_DIR = HERE / "configs"
 LOG_DIR = HERE / "logs"
 BACKUP_DIR = HERE / "配置备份"
 PROXY_SCRIPT = HERE / "rinne_v4br1_proxy.py"
 EMOTION_REFERENCES = (
-    HERE / "emotion_references" / "rinne_default.wav",
-    HERE / "emotion_references" / "surprise_RINNE_JP_000093.wav",
-    HERE / "emotion_references" / "shy_RINNE_JP_001192.wav",
-    HERE / "emotion_references" / "angry_RINNE_JP_000533.wav",
+    PROJECT_ROOT / "assets" / "rinne-voice-v2" / "default.wav",
+    PROJECT_ROOT / "assets" / "rinne-voice-v2" / "surprise.wav",
+    PROJECT_ROOT / "assets" / "rinne-voice-v2" / "shy_aux.wav",
+    PROJECT_ROOT / "assets" / "rinne-voice-v2" / "angry.wav",
 )
 
 V2_GPT = GSV_ROOT / "GPT_weights_v2" / "rinne_e15.ckpt"
@@ -220,22 +222,55 @@ def wait_port(port: int, timeout: float = 240.0) -> None:
 
 def backup_and_set_first_response(enabled: bool) -> Path | None:
     with PROJECT_CONFIG.open("r", encoding="utf-8") as handle:
-        config = yaml.safe_load(handle)
-    agent_config = config["character_config"]["agent_config"]
+        public_config = yaml.safe_load(handle)
+    local_config = {}
+    if LOCAL_CONFIG.is_file():
+        with LOCAL_CONFIG.open("r", encoding="utf-8") as handle:
+            local_config = yaml.safe_load(handle)
+        if not isinstance(local_config, dict):
+            raise ValueError("conf.local.yaml 必须是 YAML 对象")
+
+    def merge(base: dict, override: dict) -> dict:
+        result = dict(base)
+        for key, value in override.items():
+            if isinstance(value, dict) and isinstance(result.get(key), dict):
+                result[key] = merge(result[key], value)
+            else:
+                result[key] = value
+        return result
+
+    agent_config = merge(public_config, local_config)["character_config"]["agent_config"]
     selected = agent_config["conversation_agent_choice"]
     selected_config = agent_config["agent_settings"][selected]
     if bool(selected_config.get("faster_first_response")) == enabled:
         return None
-    selected_config["faster_first_response"] = enabled
+
+    local_config.setdefault("character_config", {}).setdefault(
+        "agent_config", {}
+    ).setdefault("agent_settings", {}).setdefault(selected, {})[
+        "faster_first_response"
+    ] = enabled
 
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup = BACKUP_DIR / f"conf_切换前_{timestamp}.yaml"
-    backup.write_bytes(PROJECT_CONFIG.read_bytes())
-    PROJECT_CONFIG.write_text(
-        yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
-        encoding="utf-8",
-    )
+    backup = None
+    if LOCAL_CONFIG.is_file():
+        backup = BACKUP_DIR / f"conf_local_切换前_{timestamp}.yaml"
+        backup.write_bytes(LOCAL_CONFIG.read_bytes())
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=PROJECT_ROOT,
+            prefix="conf.local.yaml.updating-", suffix=".tmp", delete=False,
+        ) as stream:
+            temporary = Path(stream.name)
+            yaml.safe_dump(local_config, stream, allow_unicode=True, sort_keys=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, LOCAL_CONFIG)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     return backup
 
 

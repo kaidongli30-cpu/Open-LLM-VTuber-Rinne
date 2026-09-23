@@ -1,6 +1,7 @@
 # The public runtime configuration is tracked; local overrides stay private.
 conf.local.yaml
 conf.local.yaml.backup-*
+conf.local.yaml.updating-*.tmp
 
 # ignore non-default background images
 /backgrounds/*
@@ -89,6 +90,7 @@ mcp_servers.json
 /Rinne_model/*
 !/Rinne_model/rinne_voice_runtime_bundle/
 !/Rinne_model/rinne_voice_runtime_bundle/**
+/Rinne_model/rinne_voice_runtime_bundle/__pycache__/
 /Rinne_model/rinne_voice_runtime_bundle/emotion_references/
 /Rinne_model/rinne_voice_runtime_bundle/configs/
 /Rinne_model/rinne_voice_runtime_bundle/logs/
