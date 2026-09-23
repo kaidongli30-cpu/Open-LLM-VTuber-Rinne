@@ -57,6 +57,20 @@ set "BOCHA_API_KEY=填入你自己的博查 API Key"
 
 根目录的 `conf.yaml` 已包含凛祢的公开运行设置，无需复制模板。默认使用 APINebula 的 `claude-opus-4-6` 对话、DeepSeek 生成第二层背景、Gemini 观察视频和屏幕、博查搜索、GPT-SoVITS V2 合成语音，以及本地 Ollama 翻译。以上 Key 分别由对应功能读取；使用这些功能需持有相应服务的凭据。若 Gemini 也通过 APINebula 调用，可按服务提供的说明使用相应 Key。环境变量只在当前命令窗口及从它启动的程序中生效。需保存本机专用设置时，新建 `conf.local.yaml`，只写与公开配置不同的字段；它不受 Git 跟踪。不要把 Key 写进 `conf.yaml`。
 
+若不想每次打开命令窗口都重填对话和 DeepSeek Key，可在项目根目录新建 `conf.local.yaml`，填写下面的内容。先前在命令窗口设置过的环境变量不是必需的，两种方法任选一种即可。文件只留在自己电脑上，不要上传或发给别人。
+
+```yaml
+character_config:
+  agent_config:
+    llm_configs:
+      openai_compatible_llm:
+        llm_api_key: '填入你自己的 APINebula API Key'
+      deepseek_llm:
+        llm_api_key: '填入你自己的 DeepSeek API Key'
+```
+
+Gemini 视频观察的 Key 可继续使用启动窗口中的环境变量；若要长期保存，请在 Git 忽略的 `local_config` 文件夹中新建 `gemini_video_api_key.txt`，文件中只放 Key 本身。博查搜索可用 `BOCHA_API_KEY` 环境变量，或在 `conf.local.yaml` 的 `character_config.agent_config.agent_settings.basic_memory_agent.bocha_api_key` 中设置。
+
 ### 安装 V2 语音
 
 先确保 Ollama 已启动，再在 PowerShell 或 CMD 执行：
