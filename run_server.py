@@ -57,16 +57,24 @@ def prepare_rinne_memories_on_startup(
     )
 
     logger.info(f"[记忆生成] 检查上一完整记忆日：{last_complete_day:%Y-%m-%d}")
+    skip_empty_day = False
+    if not diary_path.exists():
+        start, end = diary_generator.get_day_range(last_complete_day)
+        skip_empty_day = not diary_generator.load_messages_in_range(start, end)
+    if skip_empty_day:
+        logger.info("[记忆生成] 上一完整记忆日没有聊天记录，跳过空白日记")
     try:
-        diary_generator.generate_for_date(last_complete_day)
+        if not skip_empty_day:
+            diary_generator.generate_for_date(last_complete_day)
     except Exception as exc:
         logger.error(f"[记忆生成] 日记生成出现异常，暂停周记和月记：{exc}")
     else:
         if not diary_path.exists() or diary_path.stat().st_size == 0:
-            logger.error(
-                "[记忆生成] 上一完整记忆日的日记未成功生成，"
-                "本次暂停周记和月记；后端仍会继续启动。"
-            )
+            if not skip_empty_day:
+                logger.error(
+                    "[记忆生成] 上一完整记忆日的日记未成功生成，"
+                    "本次暂停周记和月记；后端仍会继续启动。"
+                )
         else:
             try:
                 weekly_result = weekly_generator.generate_latest_completed_week(now)

@@ -188,6 +188,9 @@ def generate_for_date(target_date: datetime):
     chat_text  = format_for_llm(messages)
 
     print(f"  找到 {len(messages)} 条消息")
+    if not chat_text.strip():
+        print(f"  [跳过] {date_str} 没有可写入日记的聊天内容")
+        return
     diary_text = call_llm_api(chat_text, date_str)
 
     if diary_text:
