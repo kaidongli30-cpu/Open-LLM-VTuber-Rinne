@@ -139,7 +139,17 @@ uv run python setup_rinne_game_assets.py build "D:\Games\DATE A LIVE Rio Reincar
 uv run python setup_rinne_game_assets.py status
 ```
 
-把示例路径换成你实际的游戏目录。也可以运行 `uv run python setup_rinne_game_assets.py build --gui` 打开文件夹选择窗口。导入器会把转换结果放入本机应用数据目录，并在被忽略的 `local_config` 建立指针；不会修改 PCK。第 2–4 套、手动配置、状态检查与安全移除见 [游戏资源导入说明](public_docs/GAME_ASSET_SETUP.md)。第一套转换要处理 15 个肖像，可能需要一些时间。导入完成后应完全退出并重新启动桌面前端。
+把示例路径换成你实际的游戏目录。也可以运行 `uv run python setup_rinne_game_assets.py build --gui` 打开文件夹选择窗口。要获得完整的游戏服装和灵装，再依次执行下面四条命令；其中 `Mp\2nd` 是同一款游戏中的另一个文件夹：
+
+```powershell
+uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\1st' --outfit-number 2
+uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\2nd' --outfit-number 3
+uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\2nd' --outfit-number 4
+uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\1st' --outfit-number 5
+uv run python setup_rinne_game_assets.py status
+```
+
+在 CMD 中把路径两侧的单引号改成双引号。第 5 套是灵装：七个原生肖像从你本机的 PCK 生成，三个自制透明表情补丁已包含在项目中。导入器把转换结果放入本机应用数据目录，并在被忽略的 `local_config` 建立指针；不会修改 PCK。每套转换可能需要较长时间。手动配置、状态检查与安全移除见 [游戏资源导入说明](public_docs/GAME_ASSET_SETUP.md)。全部导入后应完全退出并重新启动桌面前端。
 
 ### 从源码启动桌面前端
 

@@ -1,7 +1,7 @@
 """Install user-owned Rinne game assets without redistributing them.
 
-The public project contains only this setup program and renderer code. Original
-PCK files and generated GPU bundles stay on the user's computer.
+The public project contains setup code and three approved transparent spirit
+expression overlays. Original PCK files and generated GPU bundles stay local.
 """
 
 from __future__ import annotations
@@ -42,6 +42,11 @@ OUTFIT_PROFILES = {
         "mp_dark_navy_winter_uniform",
         "rinne-legacy-gpu-outfit-family",
         "outfit-manifest.json",
+    ),
+    5: (
+        "mp_spirit_dress",
+        "rinne-spirit-dress-expression-preview",
+        "spirit-expression-preview.json",
     ),
 }
 EXPECTED_RUNTIME_FILES = frozenset(
@@ -162,6 +167,8 @@ def validate_first_outfit_bundle(
         raise AssetSetupError(f"运行资源目录不存在：{root}")
     if outfit_number not in OUTFIT_PROFILES:
         raise AssetSetupError(f"不支持的服装编号：{outfit_number}")
+    if outfit_number == 5:
+        return validate_spirit_bundle(root)
     profile_id, format_name, manifest_name = OUTFIT_PROFILES[outfit_number]
     expected_ids = tuple(range(60000 + outfit_number * 100 + 1, 60000 + outfit_number * 100 + 16))
     manifest_path = root / manifest_name
@@ -254,8 +261,39 @@ def validate_first_outfit_bundle(
     )
 
 
+def validate_spirit_bundle(bundle_directory: str | Path) -> BundleValidation:
+    """Verify the seven native portraits and fifteen spirit expressions."""
+
+    from .sdk.rinne_legacy_runtime.spirit_expression_preview import (
+        verify_rinne_spirit_expression_preview_directory,
+    )
+
+    root = Path(bundle_directory).expanduser().resolve()
+    try:
+        manifest = verify_rinne_spirit_expression_preview_directory(root)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        raise AssetSetupError(f"灵装运行资源校验失败：{exc}") from exc
+    if manifest.get("portrait_count") != 7 or manifest.get("expression_count") != 15:
+        raise AssetSetupError("灵装必须包含七个原生肖像和十五个表情")
+    total_bytes = (root / "spirit-expression-preview.json").stat().st_size
+    for entry in (*manifest["portraits"], *manifest["overlays"]):
+        total_bytes += sum(
+            item["byte_length"] for item in entry.get("files", [entry])
+        )
+    return BundleValidation(
+        root=root,
+        profile_id="mp_spirit_dress",
+        outfit_number=5,
+        manifest_sha256=_sha256(root / "spirit-expression-preview.json"),
+        portrait_count=7,
+        total_bytes=total_bytes,
+    )
+
+
 def detect_outfit_number(bundle_directory: str | Path) -> int:
     root = Path(bundle_directory).expanduser().resolve()
+    if (root / "spirit-expression-preview.json").is_file():
+        return 5
     first = root / FAMILY_MANIFEST
     if first.is_file():
         return 1
@@ -311,8 +349,13 @@ def _public_config_payload(
     existing = dict(current or {})
     old_assets = existing.get("assets")
     assets = dict(old_assets) if isinstance(old_assets, dict) else {}
+    kind = (
+        "legacy_first_outfit" if validation.outfit_number == 1
+        else "spirit" if validation.outfit_number == 5
+        else "legacy_outfit_family"
+    )
     assets[validation.profile_id] = {
-        "kind": "legacy_first_outfit" if validation.outfit_number == 1 else "legacy_outfit_family",
+        "kind": kind,
         "path": str(validation.root),
         "managed_by_setup": managed,
         **validation.public_payload(),
@@ -330,6 +373,10 @@ def _desktop_settings_payload(
 ) -> dict[str, object]:
     payload = dict(current or {})
     normalized = validation.root.as_posix()
+    first_outfit = (
+        normalized if validation.outfit_number == 1
+        else payload.get("first_outfit_dir") or normalized
+    )
     payload.update(
         {
             "version": 2,
@@ -337,8 +384,8 @@ def _desktop_settings_payload(
             "renderer": "rinne",
             "outfit_id": validation.profile_id,
             "outfit_dir": normalized,
-            "first_outfit_dir": normalized,
-            "asset_kind": "outfit",
+            "first_outfit_dir": first_outfit,
+            "asset_kind": "spirit" if validation.outfit_number == 5 else "outfit",
         }
     )
     payload.pop("custom_outfit_dir", None)
@@ -379,19 +426,27 @@ def _write_runtime_pointers(
     config_path: Path,
     settings_path: Path,
 ) -> None:
+    config_payload = _public_config_payload(
+        validation,
+        managed=managed,
+        current=_existing_json_or_empty(config_path),
+    )
     _write_json_atomic(
         config_path,
-        _public_config_payload(
-            validation,
-            managed=managed,
-            current=_existing_json_or_empty(config_path),
-        ),
+        config_payload,
     )
+    current_settings = _existing_json_or_empty(settings_path)
+    assets = config_payload.get("assets")
+    first_entry = assets.get("mp_summer_uniform") if isinstance(assets, dict) else None
+    if isinstance(first_entry, dict) and isinstance(first_entry.get("path"), str):
+        current_settings["first_outfit_dir"] = (
+            Path(first_entry["path"]).expanduser().resolve().as_posix()
+        )
     _write_json_atomic(
         settings_path,
         _desktop_settings_payload(
             validation,
-            current=_existing_json_or_empty(settings_path),
+            current=current_settings,
         ),
     )
 
@@ -513,15 +568,23 @@ def build_from_game_source(
     output = Path(output_directory).expanduser().resolve()
     if outfit_number not in OUTFIT_PROFILES:
         raise AssetSetupError(f"不支持的服装编号：{outfit_number}")
-    expected_ids = range(60000 + outfit_number * 100 + 1, 60000 + outfit_number * 100 + 16)
+    expected_ids = (
+        range(160101, 160108)
+        if outfit_number == 5
+        else range(60000 + outfit_number * 100 + 1, 60000 + outfit_number * 100 + 16)
+    )
     expected = tuple(source / f"MP{portrait_id:06d}.pck" for portrait_id in expected_ids)
     missing = [item.name for item in expected if not item.is_file()]
     if missing:
         raise AssetSetupError(
-            f"所选目录缺少第 {outfit_number} 套服装的 15 个 PCK："
+            f"所选目录缺少第 {outfit_number} 套服装的 PCK："
             + ", ".join(missing[:5])
         )
-    exporter = sdk_root / "tools" / "export_rinne_gpu_first_outfit_bundle.py"
+    exporter = sdk_root / "tools" / (
+        "export_rinne_spirit_dress_bundle.py"
+        if outfit_number == 5
+        else "export_rinne_gpu_first_outfit_bundle.py"
+    )
     package = sdk_root / "rinne_legacy_runtime" / "__init__.py"
     if not exporter.is_file() or not package.is_file():
         raise AssetSetupError("SDK 目录缺少导出器或 rinne_legacy_runtime 包")
@@ -529,14 +592,13 @@ def build_from_game_source(
         raise AssetSetupError(f"SDK 输出目录必须尚不存在：{output}")
     output.parent.mkdir(parents=True, exist_ok=True)
     executable = str(python_executable or sys.executable)
-    command = [
-        executable,
-        str(exporter),
-        str(source),
-        str(output),
-        "--outfit-number",
-        str(outfit_number),
-    ]
+    command = [executable, str(exporter), str(source), str(output)]
+    if outfit_number == 5:
+        command.extend(
+            ["--overlay-directory", str(project_root() / "assets" / "rinne-spirit-overlays")]
+        )
+    else:
+        command.extend(["--outfit-number", str(outfit_number)])
     try:
         subprocess.run(command, cwd=sdk_root, check=True)
     except (OSError, subprocess.CalledProcessError) as exc:
@@ -628,7 +690,7 @@ def remove_installed_bundle(
                     "outfit_id": next_id,
                     "outfit_dir": normalized,
                     "first_outfit_dir": normalized,
-                    "asset_kind": "outfit",
+                    "asset_kind": "spirit" if next_id == "mp_spirit_dress" else "outfit",
                 }
             )
         _write_json_atomic(desktop_config, current)
@@ -669,7 +731,7 @@ def _parser() -> argparse.ArgumentParser:
     build = subparsers.add_parser("build", help="调用本机 SDK 从原版 PCK 生成并安装")
     build.add_argument("game_directory", nargs="?", type=Path)
     build.add_argument("--sdk-directory", type=Path)
-    build.add_argument("--outfit-number", type=int, choices=(1, 2, 3, 4), default=1)
+    build.add_argument("--outfit-number", type=int, choices=(1, 2, 3, 4, 5), default=1)
     build.add_argument("--destination", type=Path)
     build.add_argument("--replace", action="store_true")
     build.add_argument("--gui", action="store_true")
@@ -738,7 +800,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             game_directory = args.game_directory
             sdk_directory = args.sdk_directory
             if args.gui:
-                game_directory = _select_directory("选择包含该套服装 MP060x01.pck 的目录")
+                game_directory = _select_directory("选择包含该套服装 PCK 的目录")
             if game_directory is None:
                 raise AssetSetupError("必须选择游戏 PCK 目录")
             build_parent = default_asset_root().parent

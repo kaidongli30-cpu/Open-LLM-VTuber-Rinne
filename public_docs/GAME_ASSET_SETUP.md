@@ -1,10 +1,10 @@
 # 用自己的游戏文件启用游戏原画凛祢
 
-公开仓库和发布包不包含凛祢的游戏原文件、转换纹理、语音片段或生成后的运行包。导入器只在本机读取用户自己选择的文件，不联网上传，也不会修改游戏安装目录。
+公开仓库和发布包不包含凛祢的游戏 PCK、转换纹理或生成后的运行包。语音合成需要的参考 WAV 已由项目提供。导入器只在本机读取用户自己选择的游戏文件，不联网上传，也不会修改游戏安装目录。
 
 ## 先理解三个目录
 
-- **游戏 PCK 目录**：游戏安装目录下的 `Data\Data\Mp\1st`（第 1、2 套）或 `Mp\2nd`（第 3、4 套）。每套需要对应的 15 个 `MP060x01.pck` 至 `MP060x15.pck` 文件。
+- **游戏 PCK 目录**：游戏安装目录下的 `Data\Data\Mp\1st`（第 1、2 套和灵装）或 `Mp\2nd`（第 3、4 套）。普通服装每套需要对应的 15 个 PCK；灵装需要 `MP160101.pck` 至 `MP160107.pck`。
 - **SDK 根目录**：项目已经附带自制的格式读取与转换程序，普通用户不需要另行下载 SDK。需要替换转换实现的开发者才会用到 `--sdk-directory`。
 - **本地运行资源目录**：SDK 从 PCK 生成、供桌宠 WebGL 渲染器读取的文件。它不是 Live2D/Cubism 模型，也不能改名伪装成 `.model3.json`。
 
@@ -41,7 +41,7 @@ CMD：
 uv run python setup_rinne_game_assets.py build "D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\1st"
 ```
 
-不想手输路径时可以打开两个文件夹选择窗口：
+不想手输第一套的路径时可以打开文件夹选择窗口：
 
 ```powershell
 uv run python setup_rinne_game_assets.py build --gui
@@ -53,11 +53,12 @@ uv run python setup_rinne_game_assets.py build --gui
 uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\1st' --outfit-number 2
 uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\2nd' --outfit-number 3
 uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\2nd' --outfit-number 4
+uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\1st' --outfit-number 5
 ```
 
-每次成功安装会增加一个本地服装入口，不会删掉先前安装的入口；项目仓库仍不包含从游戏生成的任何运行资源。
+第 5 套是灵装；它从 `MP160101.pck` 至 `MP160107.pck` 构建，并使用项目附带的三个自制透明表情补丁。每次成功安装会增加一个本地服装入口，不会删掉先前安装的入口；项目仓库仍不包含从游戏生成的任何运行资源。
 
-转换会逐个校验并生成 15 个肖像，耗时和磁盘占用都明显高于普通安装。中途失败时，导入器删除未完成的临时输出，不改动 PCK，也不会覆盖已有安装。
+转换会逐个校验并生成普通服装每套 15 个肖像，或灵装 7 个原生肖像与 15 个表情映射，耗时和磁盘占用都明显高于普通安装。中途失败时，导入器删除未完成的临时输出，不改动 PCK，也不会覆盖已有安装。
 
 如果目标目录已经存在，命令默认停止。确认要用新生成包替换旧包时加 `--replace`。替换先把旧目录移到同盘临时备份，只有新包通过完整校验后才删除备份。
 
@@ -101,7 +102,7 @@ uv run python setup_rinne_game_assets.py install `
 uv run python setup_rinne_game_assets.py status
 ```
 
-只想快速检查目录结构和长度时：
+只想快速检查普通服装的目录结构和长度时（灵装仍会做完整校验）：
 
 ```powershell
 uv run python setup_rinne_game_assets.py status --fast
@@ -156,7 +157,7 @@ uv run python setup_rinne_game_assets.py remove
 uv run python setup_rinne_game_assets.py remove --delete-generated-data --yes
 ```
 
-其他服装可用 `--profile mp_red_white_ruffled_casual`、`mp_red_cardigan_brown_skirt` 或 `mp_dark_navy_winter_uniform` 指定。
+其他服装可用 `--profile mp_red_white_ruffled_casual`、`mp_red_cardigan_brown_skirt`、`mp_dark_navy_winter_uniform` 或 `mp_spirit_dress` 指定。
 
 删除前会核对隐藏安装标记。就地引用、手工目录、游戏安装目录和 SDK 目录都不会被删除。移除后桌面设置回到 `live2d`；若公开发行版没有安装任何用户自备 Live2D 模型，前端会显示缺少模型，而不会从仓库恢复游戏资源。
 
