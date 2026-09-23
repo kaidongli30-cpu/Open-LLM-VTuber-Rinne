@@ -104,7 +104,6 @@ mcp_servers.json
 !/rinne_library/.gitignore
 !/rinne_library/README.md
 /QQ凛祢维护工具/
-/integrations/astrbot_plugin_rinne_private/
 /characters_conf_yaml/
 
 # User-supplied game resources and derived runtime bundles stay local.

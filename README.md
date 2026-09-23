@@ -148,6 +148,10 @@ CMD 中把 `Set-Location` 换成 `cd`，其余命令相同。构建完成后，�
 
 `proxy_url: null` 表示直连 DeepSeek。只有直连失败且已有可用 HTTP 代理时，才在本地 `conf.yaml` 中设置 `agent_config.llm_configs.deepseek_llm.proxy_url`。第二层背景沿用该连接设置。不要把自己的代理地址或凭据提交到仓库。
 
+### 用 QQ 与凛祢对话（可选）
+
+要接入 QQ，请先完成上述桌面端部署，再按 [QQ 通道安装说明](public_docs/QQ_SETUP.md) 设置自己的 QQ 账号。支持 QQ 官方机器人私聊，也支持通过 NapCat／AstrBot 接入个人 QQ 小号；两种方式都需要自行完成对应平台的安装和登录。桌面端用户不需要安装 QQ 组件。
+
 ## 4. 已有用户升级而不是重装
 
 升级前先备份私人 `conf.yaml` 与整个 `chat_history`，并停掉旧后端。不要运行会覆盖私人文件的复制命令。
@@ -178,9 +182,9 @@ uv run python scripts/update_rinne_config.py
 uv run python scripts/update_rinne_config.py --apply
 ```
 
-脚本会先把原有 `conf.yaml` 备份为同目录下带日期的文件，然后在原文件中更新模型、语音、翻译和记忆设置；保留原有 API Key、代理、个人称呼及提示词、角色 ID、本机路径和语音参考文件。聊天、日记、背景与 `rinne_library` 不会被移动或清空。请在启动窗口设置对话、第二层和媒体功能所需的 Key。日记、聊天和 `rinne_library` 数据不能提交到 GitHub。
+脚本会先把原有 `conf.yaml` 备份为同目录下带日期的文件，然后在原文件中更新模型、V2 语音参考音、翻译和记忆设置；保留原有 API Key、代理、个人称呼及提示词、角色 ID 和本机服务地址。聊天、日记、背景与 `rinne_library` 不会被移动或清空。请在启动窗口设置对话、第二层和媒体功能所需的 Key。日记、聊天和 `rinne_library` 数据不能提交到 GitHub。
 
-已有用户也按“安装 V2 语音”一节配置语音服务，再使用上述脚本更新原 `conf.yaml`。若已有自己的翻译词表和参考音，脚本会保留其路径；确认 `ollama list` 有指定模型，重启后端和桌面客户端，检查日常与灵装语音。
+已有用户也按“安装 V2 语音”一节配置语音服务，再使用上述脚本更新原 `conf.yaml`。脚本会切换到项目自带的 V2 参考音；若已有自己的翻译词表，仍会保留其路径。确认 `ollama list` 有指定模型，重启后端和桌面客户端，检查日常与灵装语音。
 
 ### 用已审核日记建立或续写第二层背景
 

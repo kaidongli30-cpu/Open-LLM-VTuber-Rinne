@@ -3,7 +3,7 @@
 This module is deliberately separate from the live conversation pipeline.  The
 backend may launch it after yesterday's diary is available, but event results
 are not injected into chat.  A date is published only after strict validation;
-failures remain in the private G:\\tmp run directory for a later retry.
+failures remain in the installation's private cache directory for a later retry.
 """
 
 from __future__ import annotations
@@ -39,7 +39,9 @@ MOJIBAKE_EVENT_DIRECTORY_NAME = "\u6d5c\u5b29\u6b22TXT"
 MANIFEST_FILENAME = "\u53d1\u5e03\u6e05\u5355.json"
 PROMPT_VERSION = "v2.3-neutral"
 SCHEMA_VERSION = 2
-DEFAULT_WORK_ROOT = Path(r"G:\tmp\rinne_daily_child_event_pipeline")
+DEFAULT_WORK_ROOT = (
+    Path(__file__).resolve().parents[3] / "cache" / "rinne_daily_child_event_pipeline"
+)
 PROMPT_ROOT = Path(__file__).with_name("prompts")
 SYSTEM_PROMPT_PATH = PROMPT_ROOT / "child_event_system_v23.txt"
 TASK_PROMPT_PATH = PROMPT_ROOT / "child_event_task_v23.txt"

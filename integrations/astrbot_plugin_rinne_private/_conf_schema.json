@@ -1,0 +1,31 @@
+{
+  "allowed_sender_id": {
+    "description": "唯一允许与凛祢私聊的主 QQ 号",
+    "type": "string",
+    "default": "",
+    "obvious_hint": true,
+    "hint": "留空时所有私聊都会被静默拦截；只填写你的主 QQ 号。"
+  },
+  "data_root": {
+    "description": "QQ 缓冲与状态数据目录",
+    "type": "string",
+    "default": "",
+    "hint": "请填写本机独立的绝对目录，例如 D:\\RinneData\\qq_private；不要填写盘符根目录。"
+  },
+  "bridge_url": {
+    "description": "本机凛祢后端桥接地址",
+    "type": "string",
+    "default": "http://127.0.0.1:12393/agent/private/v1/turn",
+    "hint": "安全检查只允许 127.0.0.1 或 ::1。"
+  },
+  "max_pending_messages": {
+    "description": "一次 over 前最多缓存的消息条数",
+    "type": "int",
+    "default": 64
+  },
+  "max_pending_chars": {
+    "description": "一次 over 前最多缓存的文字数",
+    "type": "int",
+    "default": 45000
+  }
+}

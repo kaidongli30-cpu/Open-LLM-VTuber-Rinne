@@ -1,4 +1,4 @@
-"""Validate QQ media staged in the private G-drive inbox.
+"""Validate QQ media staged in the user-selected private inbox.
 
 The AstrBot process may download transport media, but the Rinne backend never
 accepts an arbitrary filesystem path.  It receives a basename plus size and

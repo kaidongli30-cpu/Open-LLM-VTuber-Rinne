@@ -143,8 +143,12 @@ class PrivateBridgeConfig:
             )
 
         data_root_value = str(values.get("RINNE_DATA_ROOT", "")).strip()
+        if not data_root_value:
+            raise PrivateBridgeConfigurationError(
+                "RINNE_DATA_ROOT must be set when the private bridge is enabled"
+            )
         default_data_root = _require_scoped_absolute_path(
-            Path(data_root_value) if data_root_value else Path("G:/Rinne-Agent-Data"),
+            Path(data_root_value),
             environment_name="RINNE_DATA_ROOT",
         )
         inbox_root = _require_private_data_path(
@@ -190,10 +194,6 @@ def _require_private_data_path(
     if resolved == Path(resolved.anchor).resolve(strict=False):
         raise PrivateBridgeConfigurationError(
             f"{environment_name} must not be a drive root"
-        )
-    if os.name == "nt" and resolved.drive.casefold() != "g:":
-        raise PrivateBridgeConfigurationError(
-            f"{environment_name} must stay on the G drive"
         )
     return resolved
 

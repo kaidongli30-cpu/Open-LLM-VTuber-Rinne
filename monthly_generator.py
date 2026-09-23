@@ -15,14 +15,15 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
-import requests
-
 import memory_generation_config as memory_config
 from src.open_llm_vtuber.data_paths import character_history_root
+from src.open_llm_vtuber.memory.diary_review import diary_approval_status
+from src.open_llm_vtuber.memory.openai_compatible_stream import (
+    request_chat_completion_text,
+)
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-HISTORY_ROOT = (PROJECT_ROOT / character_history_root("rinne_01")).resolve()
+HISTORY_ROOT = character_history_root("rinne_01")
 DIARY_DIR = HISTORY_ROOT / "diaries"
 MONTHLY_DIR = HISTORY_ROOT / "monthly"
 
@@ -203,6 +204,15 @@ def collect_month_diaries(
     cursor = period_start
     while cursor <= period_end:
         path = _diary_path(cursor)
+        approval_status = diary_approval_status(
+            HISTORY_ROOT,
+            cursor.isoformat(),
+            path,
+        )
+        if approval_status not in {"approved", "changed"}:
+            missing.append(cursor)
+            cursor += timedelta(days=1)
+            continue
         try:
             content = path.read_text(encoding="utf-8").strip()
         except (OSError, UnicodeError):
@@ -230,30 +240,20 @@ def call_monthly_llm(source_text: str, period_label: str) -> str:
         ],
         "max_tokens": memory_config.MONTHLY_MAX_TOKENS,
         "temperature": 0.78,
+        "stream": True,
     }
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {memory_config.API_KEY}",
     }
-    try:
-        response = requests.post(
-            memory_config.BASE_URL,
-            json=payload,
-            headers=headers,
-            timeout=memory_config.MONTHLY_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        content = response.json()["choices"][0]["message"]["content"]
-        return content.strip() if isinstance(content, str) else ""
-    except (
-        requests.RequestException,
-        KeyError,
-        IndexError,
-        TypeError,
-        ValueError,
-    ) as exc:
-        print(f"  [错误] 月记API调用失败：{exc}")
-        return ""
+    return request_chat_completion_text(
+        url=memory_config.BASE_URL,
+        headers=headers,
+        payload=payload,
+        output_label="月记",
+        output_token_limit=memory_config.MONTHLY_MAX_TOKENS,
+        read_timeout_seconds=memory_config.MONTHLY_TIMEOUT_SECONDS,
+    )
 
 
 def _format_sources(sources: list[tuple[date, str]]) -> str:

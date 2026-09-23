@@ -1,0 +1,9 @@
+name: astrbot_plugin_rinne_private
+display_name: 私人凛祢 QQ 桥接
+desc: 只接收指定 QQ 私聊，等待 over 后交给既有凛祢后端，并按句回复。
+version: v0.7.1
+author: local
+repo: https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne
+astrbot_version: ">=4.5.0"
+support_platforms:
+  - aiocqhttp
