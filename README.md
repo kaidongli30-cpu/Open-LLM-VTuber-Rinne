@@ -1,6 +1,6 @@
 # Open-LLM-VTuber-Rinne
 
-凛祢桌面伙伴的公开代码版：对话、日记与第二层背景、游戏原画渲染及换装。项目基于 Open-LLM-VTuber；前端源码和网页构建位于 [前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)，本仓库的 `frontend` 是指向它的 Git 子模块。
+更新版凛祢桌宠：对话、日记与第二层背景、游戏原画渲染及换装。项目基于 Open-LLM-VTuber；前端源码和网页构建位于 [前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)，本仓库的 `frontend` 是指向它的 Git 子模块。
 
 公开仓库**不附带**游戏原文件或转换后的凛祢肖像模型、作者的 API Key、个人聊天与日记、`rinne_library` 数据和本机代理设置；但**附带作者当前使用的 GPT-SoVITS V2 参考 WAV**，对应的两份 V2 权重通过本项目 Release 下载。你需要使用自己持有的游戏源文件，在**自己的电脑上**运行肖像导入器。作者自制服装与程序代码分开授权；服装为 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md)，不能未经另行授权用于商业用途。
 
