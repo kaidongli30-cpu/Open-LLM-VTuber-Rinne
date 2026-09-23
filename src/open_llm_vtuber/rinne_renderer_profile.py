@@ -736,9 +736,13 @@ def apply_rinne_renderer_profile_to_config(
 
         reference_path = Path(ref_audio_path).expanduser()
         if not reference_path.is_absolute():
-            if profile.outfit_dir is None:
-                raise ValueError("无法确定灵装参考音相对路径的项目根目录")
-            reference_path = profile.outfit_dir.parent.parent / reference_path
+            public_reference = Path(__file__).resolve().parents[2] / reference_path
+            if public_reference.is_file():
+                reference_path = public_reference
+            else:
+                if profile.outfit_dir is None:
+                    raise ValueError("无法确定灵装参考音相对路径的项目根目录")
+                reference_path = profile.outfit_dir.parent.parent / reference_path
         reference_path = reference_path.resolve()
         if not reference_path.is_file():
             raise FileNotFoundError(f"灵装凛祢默认语音参考音不存在：{reference_path}")

@@ -12,6 +12,21 @@ from loguru import logger
 from .tts_interface import TTSInterface
 
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _resolve_bundled_reference(value: str) -> str:
+    """Make public repo WAVs usable by the separate GPT-SoVITS process.
+
+    Keep pre-existing relative GPT-SoVITS paths unchanged for private installs.
+    """
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return value
+    bundled = _PROJECT_ROOT / path
+    return bundled.resolve().as_posix() if bundled.is_file() else value
+
+
 class TTSEngine(TTSInterface):
     def __init__(
         self,
@@ -43,7 +58,7 @@ class TTSEngine(TTSInterface):
 
     def _default_reference(self) -> dict[str, Any]:
         return {
-            "ref_audio_path": self.ref_audio_path,
+            "ref_audio_path": _resolve_bundled_reference(self.ref_audio_path),
             "aux_ref_audio_paths": [],
             "prompt_lang": self.prompt_lang,
             "prompt_text": self.prompt_text,
@@ -84,6 +99,10 @@ class TTSEngine(TTSInterface):
                 "using the default reference."
             )
             return self._default_reference(), None
+        ref_audio_path = _resolve_bundled_reference(ref_audio_path)
+        aux_ref_audio_paths = [
+            _resolve_bundled_reference(path) for path in aux_ref_audio_paths
+        ]
         if not Path(ref_audio_path).is_file():
             logger.warning(
                 f"GPT-SoVITS reference audio not found for emotion "
