@@ -1,8 +1,4 @@
-"""Install user-owned Rinne game assets without redistributing them.
-
-The public project contains setup code and three approved transparent spirit
-expression overlays. Original PCK files and generated GPU bundles stay local.
-"""
+"""Validate or install Rinne game-asset runtime bundles."""
 
 from __future__ import annotations
 
@@ -756,6 +752,10 @@ def _status(*, verify_hashes: bool, profile_id: str | None = None) -> int:
     count = 0
     for candidate in selected:
         configured = configured_bundle_path(candidate)
+        if configured is None:
+            bundled = project_root() / "local_game_assets" / candidate
+            if bundled.is_dir():
+                configured = bundled
         if configured is None:
             continue
         outfit_number = next(

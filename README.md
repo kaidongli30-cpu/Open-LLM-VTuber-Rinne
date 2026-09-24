@@ -2,7 +2,7 @@
 
 凛祢桌面客户端：对话、日记与第二层背景、游戏原画渲染及换装。项目基于 Open-LLM-VTuber；桌面客户端源码位于 [前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)，本仓库的 `frontend` 是指向它的 Git 子模块。
 
-准备好自己电脑上的《凛祢乌托邦》与《凛绪轮回》游戏文件，安装过程中会从中导入凛祢肖像。GPT-SoVITS V2 参考 WAV 已包含在项目中，两份语音权重从项目 Release 手动下载。项目自制服装按 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md) 授权，商业使用需另行获得许可。
+仓库已包含凛祢的五套游戏服装和四套作者自制服装，克隆后不必再导入游戏文件。GPT-SoVITS V2 参考 WAV 已包含在项目中，两份语音权重从项目 Release 手动下载。项目自制服装按 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md) 授权，商业使用需另行获得许可。
 
 本指南以 Windows PowerShell 和 CMD 为主。完成安装后，可在桌面客户端看到游戏原画凛祢、进行文字或语音对话，并听到 GPT-SoVITS V2 声线。语音翻译使用本地 Ollama 的 `qwen3.5:4b-q4_K_M`；SenseVoice 用于麦克风识别。近期记忆检索、每日子事件和已审核日记的第二层背景也已启用。没有日记时不会凭空生成背景。
 
@@ -11,7 +11,6 @@
 - **API Key**：你自己的模型服务凭据，像密码一样保管。
 - **CMD / PowerShell**：Windows 的两种命令窗口。下面分别给出写法，请按自己打开的窗口选择。
 - **Git 子模块**：后端仓库记录前端仓库的一个确定版本。因此克隆和更新都要带 `--recurse-submodules`。
-- **PCK / SDK / 运行包**：PCK 是你本机游戏的源文件；项目附带的 SDK 会读取并转换它，生成凛祢画面需要的文件。
 - **GPT-SoVITS / Ollama**：前者使用凛祢 V2 权重把日语文字合成语音；后者用指定的本地模型把中文回复翻成日语，并用另一个 24B 本地模型生成每日子事件。它们都要作为独立服务运行，`uv sync` 不会代替安装或启动它们。
 - **第二层背景**：从你审核过的日记提炼出的长期背景，用于让凛祢了解你大致是怎样的人、目前处于什么状态。它不同于原始日记；没有日记或尚未审核时不会凭空生成。
 
@@ -120,7 +119,7 @@ runtime\python.exe api_v2.py
 
 让这个语音窗口保持运行；语音服务默认使用本机 `9880` 端口，与 `conf.yaml` 中的语音地址一致。参考 WAV 已包含在项目中，无需从游戏提取。
 
-回到项目目录的命令窗口启动后端，并让它保持运行。下面的游戏资源导入命令请**另开命令窗口**执行；新窗口先进入项目根目录（PowerShell：`Set-Location 'D:\AI\Open-LLM-VTuber-Rinne'`；CMD：`cd /d "D:\AI\Open-LLM-VTuber-Rinne"`），再运行后面的命令。
+回到项目目录的命令窗口启动后端，并让它保持运行。五套游戏服装和四套自制服装已随项目下载，不需要另找游戏文件或运行导入命令。
 
 ```text
 uv run run_server.py
@@ -130,39 +129,11 @@ uv run run_server.py
 
 首次启动时会下载 SenseVoice 识别模型以及记忆检索所需的 `BAAI/bge-base-zh-v1.5`、`BAAI/bge-reranker-base`。保持网络连接并等待下载完成。搜索、音乐与 Library 工具也会随程序启动；新安装的 Library 为空。
 
-### 把自己的游戏源文件导入
-
-先在游戏目录里找到包含 `MP060101.pck` 等文件的 `Data\Data\Mp\1st` 文件夹。项目不提供这些 PCK，也不自动下载。默认第一套的 PowerShell 示例：
-
-```powershell
-uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\1st'
-uv run python setup_rinne_game_assets.py status
-```
-
-CMD：
-
-```bat
-uv run python setup_rinne_game_assets.py build "D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\1st"
-uv run python setup_rinne_game_assets.py status
-```
-
-把示例路径换成你实际的游戏目录。也可以运行 `uv run python setup_rinne_game_assets.py build --gui` 打开文件夹选择窗口。要获得完整的游戏服装和灵装，再依次执行下面四条命令；其中 `Mp\2nd` 是同一款游戏中的另一个文件夹：
-
-```powershell
-uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\1st' --outfit-number 2
-uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\2nd' --outfit-number 3
-uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\2nd' --outfit-number 4
-uv run python setup_rinne_game_assets.py build 'D:\Games\DATE A LIVE Rio Reincarnation\Data\Data\Mp\1st' --outfit-number 5
-uv run python setup_rinne_game_assets.py status
-```
-
-在 CMD 中把路径两侧的单引号改成双引号。第 5 套是灵装：七个原生肖像从你本机的 PCK 生成，三个自制透明表情补丁已包含在项目中。导入器把转换结果放入本机应用数据目录，并在被忽略的 `local_config` 建立指针；不会修改 PCK。每套转换可能需要较长时间。手动配置、状态检查与安全移除见 [游戏资源导入说明](public_docs/GAME_ASSET_SETUP.md)。全部导入后应完全退出并重新启动桌面前端。
-
 ### 安装桌面客户端
 
 在后端窗口保持运行的情况下，打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v1.2.1-20260924)，下载与本版后端配套的 64 位安装程序 `open-llm-vtuber-1.2.1-setup.exe`。双击运行，安装过程中可以选择 D 盘等位置；完成后双击桌面快捷方式打开凛祢。先启动后端，再点击客户端与凛祢对话。
 
-安装后依次检查：`status` 显示肖像资源完整；桌面客户端显示凛祢；Live Mode 可以选择服装；输入文字后能收到回复并听到语音；切换灵装后仍能正常对话。若有文字但没有声音，检查 Ollama、GPT-SoVITS 两个窗口和后端日志。若没有画面，检查导入器状态并完全重启桌面客户端。
+安装后依次检查：桌面客户端显示凛祢；Live Mode 可以选择九套服装；输入文字后能收到回复并听到语音；切换灵装后仍能正常对话。若有文字但没有声音，检查 Ollama、GPT-SoVITS 两个窗口和后端日志。若没有画面，请完全退出客户端并重新启动；仍不正常时，在项目目录运行 `uv run python setup_rinne_game_assets.py status` 检查服装文件。
 
 ## 3. 代理仅按需设置
 

@@ -293,13 +293,25 @@ def rinne_renderer_profiles(
 ) -> tuple[RinneRendererProfile, ...]:
     root = Path(project_root).resolve()
     model_root = root / "Rinne_model"
+    bundled_root = root / "local_game_assets"
     entries = _load_local_asset_entries(root)
     first_outfit = _configured_path(entries, "mp_summer_uniform", "path")
     if first_outfit is None:
-        first_outfit = model_root / "rinne_legacy_runtime_bundle"
+        legacy_first = model_root / "rinne_legacy_runtime_bundle"
+        first_outfit = (
+            legacy_first
+            if (legacy_first / "first-outfit-manifest.json").is_file()
+            else bundled_root / "mp_summer_uniform"
+        )
 
-    def game_path(profile_id: str, fallback_name: str) -> Path:
-        return _configured_path(entries, profile_id, "path") or model_root / fallback_name
+    def game_path(profile_id: str, fallback_name: str, manifest_name: str) -> Path:
+        configured = _configured_path(entries, profile_id, "path")
+        if configured is not None:
+            return configured
+        legacy = model_root / fallback_name
+        if (legacy / manifest_name).is_file():
+            return legacy
+        return bundled_root / profile_id
 
     def custom_path(profile_id: str, fallback_name: str) -> Path:
         configured = _configured_path(entries, profile_id, "custom_outfit_path")
@@ -326,6 +338,7 @@ def rinne_renderer_profiles(
             outfit_dir=game_path(
                 "mp_red_white_ruffled_casual",
                 "rinne_legacy_runtime_bundle_red_white_ruffled_casual",
+                "outfit-manifest.json",
             ),
         ),
         RinneRendererProfile(
@@ -336,6 +349,7 @@ def rinne_renderer_profiles(
             outfit_dir=game_path(
                 "mp_red_cardigan_brown_skirt",
                 "rinne_legacy_runtime_bundle_red_cardigan_brown_skirt",
+                "outfit-manifest.json",
             ),
         ),
         RinneRendererProfile(
@@ -346,6 +360,7 @@ def rinne_renderer_profiles(
             outfit_dir=game_path(
                 "mp_dark_navy_winter_uniform",
                 "rinne_legacy_runtime_bundle_dark_navy_winter_uniform",
+                "outfit-manifest.json",
             ),
         ),
         RinneRendererProfile(
@@ -364,6 +379,7 @@ def rinne_renderer_profiles(
             outfit_dir=game_path(
                 "mp_spirit_dress",
                 "rinne_spirit_dress_runtime_bundle",
+                "spirit-expression-preview.json",
             ),
             asset_kind="spirit",
             tts_reference_config_key=_SPIRIT_TTS_REFERENCE_CONFIG_KEY,

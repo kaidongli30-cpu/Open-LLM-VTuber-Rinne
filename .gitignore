@@ -115,7 +115,7 @@ mcp_servers.json
 /Rinne_model/rinne_legacy_runtime_bundle/
 /Rinne_model/rinne_spirit_runtime_bundle/
 /Rinne_model/rinne_outfit_runtime_bundle_*/
-/local_game_assets/
+/local_game_assets/**/.rinne-local-install.json
 /rinne-game-build-*/
 /game_assets/
 /runtime_data/rinne_game/
