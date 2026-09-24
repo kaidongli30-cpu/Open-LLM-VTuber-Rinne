@@ -153,7 +153,7 @@ def _atomic_write(path: Path, data: bytes) -> None:
     try:
         with tempfile.NamedTemporaryFile(
             mode="wb",
-            prefix="conf.yaml.updating-",
+            prefix=f"{path.name}.updating-",
             suffix=".tmp",
             dir=path.parent,
             delete=False,
@@ -166,6 +166,81 @@ def _atomic_write(path: Path, data: bytes) -> None:
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
+
+
+def _repair_game_asset_manifests() -> int:
+    """Restore Git's exact JSON bytes after Windows checkout converted LF to CRLF.
+
+    Only a pure line-ending conversion of a tracked file may be repaired. Any
+    other difference is treated as a local edit and left untouched.
+    """
+    paths_result = subprocess.run(
+        ["git", "ls-files", "-z", "--", "local_game_assets"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    if paths_result.returncode:
+        raise UpdateError("无法检查游戏资源清单；更新已停止")
+    names = [
+        item.decode("utf-8")
+        for item in paths_result.stdout.split(b"\0")
+        if item.endswith(b".json")
+    ]
+    if not names:
+        return 0
+    requests = b"".join(f"HEAD:{name}\n".encode("utf-8") for name in names)
+    blobs_result = subprocess.run(
+        ["git", "cat-file", "--batch"],
+        cwd=ROOT,
+        input=requests,
+        capture_output=True,
+        check=False,
+    )
+    if blobs_result.returncode:
+        raise UpdateError("无法读取游戏资源清单的原始内容；更新已停止")
+    output = blobs_result.stdout
+    cursor = 0
+    repairs: list[tuple[Path, bytes]] = []
+    for name in names:
+        end = output.find(b"\n", cursor)
+        if end < 0:
+            raise UpdateError("游戏资源清单格式异常；更新已停止")
+        header = output[cursor:end].split()
+        if len(header) != 3 or header[1] != b"blob":
+            raise UpdateError("游戏资源清单格式异常；更新已停止")
+        try:
+            size = int(header[2])
+        except ValueError as error:
+            raise UpdateError("游戏资源清单长度异常；更新已停止") from error
+        start = end + 1
+        finish = start + size
+        if size < 0 or output[finish : finish + 1] != b"\n":
+            raise UpdateError("游戏资源清单长度异常；更新已停止")
+        blob = output[start:finish]
+        cursor = finish + 1
+        path = ROOT / name
+        actual = path.read_bytes()
+        if actual != blob:
+            if actual.replace(b"\r\n", b"\n") != blob:
+                raise UpdateError(f"游戏资源清单有本地改动：{name}；未覆盖该文件")
+            repairs.append((path, blob))
+    if cursor != len(output):
+        raise UpdateError("游戏资源清单数据异常；更新已停止")
+    for path, blob in repairs:
+        _atomic_write(path, blob)
+    # On Git for Windows with core.autocrlf=true, replacing a file can leave
+    # stale index metadata even when its bytes match HEAD. Stage only the
+    # repaired paths; their blob IDs must remain identical to HEAD.
+    for offset in range(0, len(repairs), 32):
+        names_to_refresh = [
+            path.relative_to(ROOT).as_posix()
+            for path, _ in repairs[offset : offset + 32]
+        ]
+        _git("add", "--", *names_to_refresh)
+    if _git("diff", "--cached", "--name-only"):
+        raise UpdateError("游戏资源清单与正式版本不一致；更新已停止")
+    return len(repairs)
 
 
 def _check_checkout() -> None:
@@ -258,6 +333,7 @@ def run_update(
     if not needs_git_update and not overlay_present:
         if apply:
             _git("submodule", "update", "--init", "--recursive")
+            _repair_game_asset_manifests()
         return "已经是最新版", None
     if needs_git_update and _git("merge-base", head, target) != head:
         raise UpdateError("本地与 GitHub 的提交已分叉，不能自动更新；未修改文件")
@@ -306,6 +382,7 @@ def run_update(
         raise
     if needs_git_update:
         _git("submodule", "update", "--init", "--recursive")
+    _repair_game_asset_manifests()
     if overlay_present:
         os.replace(overlay_path, overlay_backup)
         return (
