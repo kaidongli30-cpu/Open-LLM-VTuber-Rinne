@@ -295,7 +295,7 @@ class WebSocketHandler:
                     session_service_context.agent_engine._memory.append({
                         "role": "assistant",
                         "content": (
-                            "[happy] 嗯，我知道了，用户。"
+                            "[happy] 嗯，我知道了。"
                             "现在我是通过这台电脑里的本地大脑陪在你身边。"
                             "虽然这不是最完整的状态，但只要这扇门还开着，我就会在这里。"
                         )
