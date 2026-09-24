@@ -69,7 +69,7 @@ uv sync
 
 ### 下载本地模型
 
-先确保 Ollama 已启动，再在 PowerShell 或 CMD 执行：
+先确保 Ollama 已启动，再在 PowerShell 或 CMD 执行（温馨提示：Ollama可以在设置中选择模型下载的位置，不然的话它会下载到C盘）：
 
 ```text
 ollama pull qwen3.5:4b-q4_K_M
