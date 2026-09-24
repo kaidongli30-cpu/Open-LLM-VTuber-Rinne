@@ -27,7 +27,13 @@ uv --version
 uv python install 3.12
 ```
 
-若命令不存在，请先从 [Git for Windows](https://git-scm.com/download/win) 安装 Git、从 uv 官方文档安装 uv，然后重新打开命令窗口。启动 Ollama 后执行 `ollama --version`；翻译模型约 3.4 GB、每日子事件模型约 15 GB，另需 GPT-SoVITS 整合包、约 1 GB 的 SenseVoice 模型及首次记忆检索所需的模型缓存，预留足够磁盘空间。前端桌面源码构建还需要 Node.js 和 npm；只运行后端不需要它们。
+若命令不存在，请先从 [Git for Windows](https://git-scm.com/download/win) 安装 Git、从 uv 官方文档安装 uv，然后重新打开命令窗口。启动 Ollama 后执行 
+
+```text
+ollama --version
+```
+
+翻译模型约 3.4 GB、每日子事件模型约 15 GB，另需 GPT-SoVITS 整合包、约 1 GB 的 SenseVoice 模型及首次记忆检索所需的模型缓存，预留足够磁盘空间。前端桌面源码构建还需要 Node.js 和 npm；只运行后端不需要它们。
 
 ## 2. 全新部署
 
