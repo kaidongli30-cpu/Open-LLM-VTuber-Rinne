@@ -1,0 +1,481 @@
+{
+  "acceptance_sample": {
+    "neck_rotation": [
+      2.0,
+      -1.5,
+      1.0
+    ],
+    "neck_translation": [
+      0.015,
+      -0.01,
+      0.005
+    ],
+    "record_opacities": [
+      0.800000011920929,
+      0.8500000238418579,
+      0.8999999761581421,
+      0.949999988079071,
+      1.0,
+      0.800000011920929,
+      0.8500000238418579,
+      0.8999999761581421,
+      0.949999988079071,
+      1.0,
+      0.800000011920929,
+      0.8500000238418579,
+      0.8999999761581421,
+      0.949999988079071,
+      1.0,
+      0.800000011920929,
+      0.8500000238418579,
+      0.8999999761581421,
+      0.949999988079071,
+      1.0,
+      0.800000011920929,
+      0.8500000238418579,
+      0.8999999761581421,
+      0.949999988079071,
+      1.0,
+      1.0
+    ]
+  },
+  "capabilities": [
+    "neck_pose",
+    "render_record_opacity"
+  ],
+  "eye_bundle": {
+    "base_topology_sha256": "b5df566dde0fc8598199b67144dc9c46dba77da75c23f7df3a6df3c0686fccbf",
+    "deformation_sha256": "69d2b5beb0e3419373843f149fc17b2616e8670485787598b630aa1a1c534e87",
+    "manifest_sha256": "5be7c4ba8111979dca0926e13b21d4b9824133e656a25c9a4b7a7aa8629cf39b"
+  },
+  "format": "rinne-legacy-gpu-runtime-controls",
+  "neck": {
+    "input_rotation_unit": "degrees",
+    "input_translation_space": "legacy_model_xyz",
+    "matrix_convention": "row_vector_x_then_y_then_z_float32",
+    "pivot_xyz": [
+      -0.00010943412780761719,
+      1.2477154731750488,
+      -0.3326805830001831
+    ]
+  },
+  "opacity": {
+    "mesh_bindings": [
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 0,
+        "pass": "eye_buffer",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 1,
+        "pass": "eye_buffer",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 2,
+        "pass": "eye_buffer",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 3,
+        "pass": "eye_buffer",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 0,
+        "pass": "mask_buffer",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 1,
+        "pass": "mask_buffer",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 2,
+        "pass": "mask_buffer",
+        "record_index": 10
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 0,
+        "pass": "before_trigger",
+        "record_index": 0
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 1,
+        "pass": "before_trigger",
+        "record_index": 1
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 2,
+        "pass": "before_trigger",
+        "record_index": 2
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 3,
+        "pass": "before_trigger",
+        "record_index": 3
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 4,
+        "pass": "before_trigger",
+        "record_index": 6
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 5,
+        "pass": "before_trigger",
+        "record_index": 7
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 6,
+        "pass": "before_trigger",
+        "record_index": 8
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 7,
+        "pass": "before_trigger",
+        "record_index": 9
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 8,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 9,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 10,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 11,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 12,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 13,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 14,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 15,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 16,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 17,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 18,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 19,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 20,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 21,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 22,
+        "pass": "before_trigger",
+        "record_index": 13
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 23,
+        "pass": "before_trigger",
+        "record_index": 14
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 24,
+        "pass": "before_trigger",
+        "record_index": 14
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 25,
+        "pass": "before_trigger",
+        "record_index": 15
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 26,
+        "pass": "before_trigger",
+        "record_index": 16
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 27,
+        "pass": "before_trigger",
+        "record_index": 17
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 28,
+        "pass": "before_trigger",
+        "record_index": 19
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 0,
+        "pass": "final_eye_overlay",
+        "record_index": 10
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 1,
+        "pass": "final_eye_overlay",
+        "record_index": 10
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 0,
+        "pass": "after_trigger",
+        "record_index": 21
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 1,
+        "pass": "after_trigger",
+        "record_index": 22
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 2,
+        "pass": "after_trigger",
+        "record_index": 23
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 3,
+        "pass": "after_trigger",
+        "record_index": 23
+      }
+    ],
+    "record_count": 26,
+    "records": [
+      {
+        "curve": "direct",
+        "index": 0,
+        "initial_opacity": 1.0,
+        "type_id": 12
+      },
+      {
+        "curve": "direct",
+        "index": 1,
+        "initial_opacity": 1.0,
+        "type_id": 16
+      },
+      {
+        "curve": "direct",
+        "index": 2,
+        "initial_opacity": 1.0,
+        "type_id": 5
+      },
+      {
+        "curve": "direct",
+        "index": 3,
+        "initial_opacity": 1.0,
+        "type_id": 17
+      },
+      {
+        "curve": "direct",
+        "index": 4,
+        "initial_opacity": 1.0,
+        "type_id": 8
+      },
+      {
+        "curve": "direct",
+        "index": 5,
+        "initial_opacity": 1.0,
+        "type_id": 4
+      },
+      {
+        "curve": "direct",
+        "index": 6,
+        "initial_opacity": 1.0,
+        "type_id": 3
+      },
+      {
+        "curve": "direct",
+        "index": 7,
+        "initial_opacity": 1.0,
+        "type_id": 22
+      },
+      {
+        "curve": "direct",
+        "index": 8,
+        "initial_opacity": 1.0,
+        "type_id": 11
+      },
+      {
+        "curve": "direct",
+        "index": 9,
+        "initial_opacity": 1.0,
+        "type_id": 15
+      },
+      {
+        "curve": "type0_fourth_power",
+        "index": 10,
+        "initial_opacity": 1.0,
+        "type_id": 0
+      },
+      {
+        "curve": "direct",
+        "index": 11,
+        "initial_opacity": 1.0,
+        "type_id": 6
+      },
+      {
+        "curve": "direct",
+        "index": 12,
+        "initial_opacity": 1.0,
+        "type_id": 20
+      },
+      {
+        "curve": "direct",
+        "index": 13,
+        "initial_opacity": 1.0,
+        "type_id": 7
+      },
+      {
+        "curve": "direct",
+        "index": 14,
+        "initial_opacity": 1.0,
+        "type_id": 2
+      },
+      {
+        "curve": "direct",
+        "index": 15,
+        "initial_opacity": 1.0,
+        "type_id": 9
+      },
+      {
+        "curve": "direct",
+        "index": 16,
+        "initial_opacity": 1.0,
+        "type_id": 19
+      },
+      {
+        "curve": "direct",
+        "index": 17,
+        "initial_opacity": 1.0,
+        "type_id": 21
+      },
+      {
+        "curve": "direct",
+        "index": 18,
+        "initial_opacity": 1.0,
+        "type_id": 10
+      },
+      {
+        "curve": "direct",
+        "index": 19,
+        "initial_opacity": 1.0,
+        "type_id": 18
+      },
+      {
+        "curve": "direct",
+        "index": 20,
+        "initial_opacity": 1.0,
+        "type_id": 14
+      },
+      {
+        "curve": "direct",
+        "index": 21,
+        "initial_opacity": 1.0,
+        "type_id": 23
+      },
+      {
+        "curve": "direct",
+        "index": 22,
+        "initial_opacity": 1.0,
+        "type_id": 13
+      },
+      {
+        "curve": "direct",
+        "index": 23,
+        "initial_opacity": 1.0,
+        "type_id": 1
+      },
+      {
+        "curve": "direct",
+        "index": 24,
+        "initial_opacity": 1.0,
+        "type_id": 24
+      },
+      {
+        "curve": "direct",
+        "index": 25,
+        "initial_opacity": 1.0,
+        "type_id": 25
+      }
+    ]
+  },
+  "unsupported_controls": [
+    "amb_playback"
+  ],
+  "version": 1
+}

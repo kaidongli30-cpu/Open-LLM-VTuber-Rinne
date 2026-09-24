@@ -1,0 +1,524 @@
+{
+  "acceptance_sample": {
+    "left_pupil_position": [
+      0.45,
+      -0.25
+    ],
+    "raw_expression_weights": [
+      0.25,
+      0.4,
+      0.0,
+      0.0,
+      0.37,
+      0.16,
+      0.28,
+      0.44,
+      0.2,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "right_pupil_position": [
+      -0.6,
+      0.35
+    ]
+  },
+  "base_bundle": {
+    "geometry_sha256": "9ec3f66a0d012f6c83ad7f4078ce666111bea60b768c0d3ba55a7c0be2e6452e",
+    "manifest_sha256": "ede49ba1da9f55f70612526f0f191abbe42c6530078e76dc1639f3a4c6ca28d0",
+    "texture_sha256": "81fa0543d941ce29d806d18a7b1c35efb0e8374a60b5e16d8ae976efbe13ecae",
+    "topology_sha256": "147c5720b68110208b7a37a2057ab53729f8da658997fb7a65eb4cbc16027fbc"
+  },
+  "capabilities": [
+    "expression_weights",
+    "mouth_expression_slots_5_6_7",
+    "breath_expression_slot_4",
+    "bilateral_pupil_position"
+  ],
+  "deformation": {
+    "byte_length": 10010624,
+    "control_count": 35,
+    "controls": [
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 0,
+        "name": "expression_0"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 1,
+        "name": "expression_1"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 2,
+        "name": "expression_2"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 3,
+        "name": "expression_3"
+      },
+      {
+        "coefficient_mode": "threshold_0_01",
+        "index": 4,
+        "name": "expression_4"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 5,
+        "name": "expression_5"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 6,
+        "name": "expression_6"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 7,
+        "name": "expression_7"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 8,
+        "name": "expression_8"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 9,
+        "name": "expression_9"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 10,
+        "name": "expression_10"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 11,
+        "name": "expression_11"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 12,
+        "name": "expression_12"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 13,
+        "name": "expression_13"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 14,
+        "name": "expression_14"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 15,
+        "name": "expression_15"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 16,
+        "name": "expression_16"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 17,
+        "name": "expression_17"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 18,
+        "name": "expression_18"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 19,
+        "name": "expression_19"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 20,
+        "name": "expression_20"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 21,
+        "name": "expression_21"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 22,
+        "name": "expression_22"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 23,
+        "name": "expression_23"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 24,
+        "name": "expression_24"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 25,
+        "name": "expression_25"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 26,
+        "name": "expression_26"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 27,
+        "name": "expression_27"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 28,
+        "name": "expression_28"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 29,
+        "name": "expression_29"
+      },
+      {
+        "coefficient_mode": "cosine_ease_then_threshold_0_01",
+        "index": 30,
+        "name": "expression_30"
+      },
+      {
+        "coefficient_mode": "identity",
+        "index": 31,
+        "name": "right_pupil_x"
+      },
+      {
+        "coefficient_mode": "identity",
+        "index": 32,
+        "name": "right_pupil_y"
+      },
+      {
+        "coefficient_mode": "identity",
+        "index": 33,
+        "name": "left_pupil_x"
+      },
+      {
+        "coefficient_mode": "identity",
+        "index": 34,
+        "name": "left_pupil_y"
+      }
+    ],
+    "file": "deformation.rgba32f",
+    "format": "rgba32f_little_endian",
+    "mesh_vertex_offsets": [
+      {
+        "mesh_index": 0,
+        "pass": "eye_buffer",
+        "vertex_count": 4,
+        "vertex_offset": 0
+      },
+      {
+        "mesh_index": 1,
+        "pass": "eye_buffer",
+        "vertex_count": 4,
+        "vertex_offset": 4
+      },
+      {
+        "mesh_index": 2,
+        "pass": "eye_buffer",
+        "vertex_count": 4,
+        "vertex_offset": 8
+      },
+      {
+        "mesh_index": 3,
+        "pass": "eye_buffer",
+        "vertex_count": 4,
+        "vertex_offset": 12
+      },
+      {
+        "mesh_index": 0,
+        "pass": "mask_buffer",
+        "vertex_count": 2266,
+        "vertex_offset": 16
+      },
+      {
+        "mesh_index": 1,
+        "pass": "mask_buffer",
+        "vertex_count": 88,
+        "vertex_offset": 2282
+      },
+      {
+        "mesh_index": 2,
+        "pass": "mask_buffer",
+        "vertex_count": 88,
+        "vertex_offset": 2370
+      },
+      {
+        "mesh_index": 0,
+        "pass": "before_trigger",
+        "vertex_count": 528,
+        "vertex_offset": 2458
+      },
+      {
+        "mesh_index": 1,
+        "pass": "before_trigger",
+        "vertex_count": 483,
+        "vertex_offset": 2986
+      },
+      {
+        "mesh_index": 2,
+        "pass": "before_trigger",
+        "vertex_count": 528,
+        "vertex_offset": 3469
+      },
+      {
+        "mesh_index": 3,
+        "pass": "before_trigger",
+        "vertex_count": 528,
+        "vertex_offset": 3997
+      },
+      {
+        "mesh_index": 4,
+        "pass": "before_trigger",
+        "vertex_count": 483,
+        "vertex_offset": 4525
+      },
+      {
+        "mesh_index": 5,
+        "pass": "before_trigger",
+        "vertex_count": 483,
+        "vertex_offset": 5008
+      },
+      {
+        "mesh_index": 6,
+        "pass": "before_trigger",
+        "vertex_count": 483,
+        "vertex_offset": 5491
+      },
+      {
+        "mesh_index": 7,
+        "pass": "before_trigger",
+        "vertex_count": 483,
+        "vertex_offset": 5974
+      },
+      {
+        "mesh_index": 8,
+        "pass": "before_trigger",
+        "vertex_count": 4,
+        "vertex_offset": 6457
+      },
+      {
+        "mesh_index": 9,
+        "pass": "before_trigger",
+        "vertex_count": 4,
+        "vertex_offset": 6461
+      },
+      {
+        "mesh_index": 10,
+        "pass": "before_trigger",
+        "vertex_count": 4,
+        "vertex_offset": 6465
+      },
+      {
+        "mesh_index": 11,
+        "pass": "before_trigger",
+        "vertex_count": 4,
+        "vertex_offset": 6469
+      },
+      {
+        "mesh_index": 12,
+        "pass": "before_trigger",
+        "vertex_count": 2266,
+        "vertex_offset": 6473
+      },
+      {
+        "mesh_index": 13,
+        "pass": "before_trigger",
+        "vertex_count": 88,
+        "vertex_offset": 8739
+      },
+      {
+        "mesh_index": 14,
+        "pass": "before_trigger",
+        "vertex_count": 88,
+        "vertex_offset": 8827
+      },
+      {
+        "mesh_index": 15,
+        "pass": "before_trigger",
+        "vertex_count": 88,
+        "vertex_offset": 8915
+      },
+      {
+        "mesh_index": 16,
+        "pass": "before_trigger",
+        "vertex_count": 88,
+        "vertex_offset": 9003
+      },
+      {
+        "mesh_index": 17,
+        "pass": "before_trigger",
+        "vertex_count": 88,
+        "vertex_offset": 9091
+      },
+      {
+        "mesh_index": 18,
+        "pass": "before_trigger",
+        "vertex_count": 88,
+        "vertex_offset": 9179
+      },
+      {
+        "mesh_index": 19,
+        "pass": "before_trigger",
+        "vertex_count": 88,
+        "vertex_offset": 9267
+      },
+      {
+        "mesh_index": 20,
+        "pass": "before_trigger",
+        "vertex_count": 88,
+        "vertex_offset": 9355
+      },
+      {
+        "mesh_index": 21,
+        "pass": "before_trigger",
+        "vertex_count": 603,
+        "vertex_offset": 9443
+      },
+      {
+        "mesh_index": 22,
+        "pass": "before_trigger",
+        "vertex_count": 528,
+        "vertex_offset": 10046
+      },
+      {
+        "mesh_index": 23,
+        "pass": "before_trigger",
+        "vertex_count": 2266,
+        "vertex_offset": 10574
+      },
+      {
+        "mesh_index": 24,
+        "pass": "before_trigger",
+        "vertex_count": 22,
+        "vertex_offset": 12840
+      },
+      {
+        "mesh_index": 25,
+        "pass": "before_trigger",
+        "vertex_count": 22,
+        "vertex_offset": 12862
+      },
+      {
+        "mesh_index": 26,
+        "pass": "before_trigger",
+        "vertex_count": 528,
+        "vertex_offset": 12884
+      },
+      {
+        "mesh_index": 27,
+        "pass": "before_trigger",
+        "vertex_count": 528,
+        "vertex_offset": 13412
+      },
+      {
+        "mesh_index": 28,
+        "pass": "before_trigger",
+        "vertex_count": 528,
+        "vertex_offset": 13940
+      },
+      {
+        "mesh_index": 29,
+        "pass": "before_trigger",
+        "vertex_count": 528,
+        "vertex_offset": 14468
+      },
+      {
+        "mesh_index": 0,
+        "pass": "final_eye_overlay",
+        "vertex_count": 88,
+        "vertex_offset": 14996
+      },
+      {
+        "mesh_index": 1,
+        "pass": "final_eye_overlay",
+        "vertex_count": 88,
+        "vertex_offset": 15084
+      },
+      {
+        "mesh_index": 0,
+        "pass": "after_trigger",
+        "vertex_count": 528,
+        "vertex_offset": 15172
+      },
+      {
+        "mesh_index": 1,
+        "pass": "after_trigger",
+        "vertex_count": 528,
+        "vertex_offset": 15700
+      },
+      {
+        "mesh_index": 2,
+        "pass": "after_trigger",
+        "vertex_count": 528,
+        "vertex_offset": 16228
+      },
+      {
+        "mesh_index": 3,
+        "pass": "after_trigger",
+        "vertex_count": 556,
+        "vertex_offset": 16756
+      },
+      {
+        "mesh_index": 4,
+        "pass": "after_trigger",
+        "vertex_count": 556,
+        "vertex_offset": 17312
+      }
+    ],
+    "sha256": "6edd067a8ba08d9250a424f711ec74773f3f3982113a8c4ef82d8aef48893d81",
+    "texture_height": 611,
+    "texture_width": 1024,
+    "used_texel_count": 625380,
+    "vertex_count": 17868
+  },
+  "format": "rinne-legacy-gpu-linear-dynamics",
+  "reconstruction": {
+    "maximum_position_error": 2e-06,
+    "position_space": "projected_normalized_xyz_before_neck_pose"
+  },
+  "unsupported_controls": [
+    "blink_deformation",
+    "bilateral_eye_close",
+    "neck_pose",
+    "render_record_opacity",
+    "amb_playback"
+  ],
+  "version": 1
+}
