@@ -131,7 +131,7 @@ uv run run_server.py
 
 ### 安装桌面客户端
 
-在后端窗口保持运行的情况下，打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v1.2.2-20260924)，下载与本版后端配套的 64 位安装程序 `open-llm-vtuber-1.2.2-setup.exe`。双击运行，安装过程中可以选择 D 盘等位置；完成后双击桌面快捷方式打开凛祢。先启动后端，再点击客户端与凛祢对话。
+在后端窗口保持运行的情况下，打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v1.2.3-20260924)，下载与本版后端配套的 64 位安装程序 `open-llm-vtuber-1.2.3-setup.exe`。双击运行，安装过程中可以选择 D 盘等位置；完成后双击桌面快捷方式打开凛祢。先启动后端，再点击客户端与凛祢对话。
 
 安装后依次检查：桌面客户端显示凛祢；Live Mode 可以选择九套服装；输入文字后能收到回复并听到语音；切换灵装后仍能正常对话。若有文字但没有声音，检查 Ollama、GPT-SoVITS 两个窗口和后端日志。若没有画面，请完全退出客户端并重新启动；仍不正常时，在项目目录运行 `uv run python setup_rinne_game_assets.py status` 检查服装文件。
 
@@ -145,19 +145,15 @@ uv run run_server.py
 
 ## 4. 已有用户升级而不是重装
 
-升级前先在文件资源管理器中把 `conf.yaml`、整个 `chat_history` 和 `rinne_library` 复制到项目目录之外保存；如果有 `conf.local.yaml`，也一起复制。确认备份可打开后，继续在**原项目目录**升级，不需要删除旧版或把密钥重新填写一遍。
+升级前，先在文件资源管理器中把原项目目录里的 `conf.yaml` 和整个 `chat_history` 复制到项目目录之外保存；如果本机还有 `conf.local.yaml` 或 `rinne_library`，也一起备份。**1.2.1 用户没有 `rinne_library` 时，直接跳过它，不必新建，也不必寻找。**确认备份可以打开后，在原项目目录升级，不要卸载后端或删除旧记忆。
 
-如果你已安装 1.2.2 或之后的客户端：等客户端提示有新正式版本时，先关闭正在运行的凛祢后端，再点提示中的“更新”。第一次会让你选择一次后端项目文件夹（就是你平时打开 `conf.yaml`、运行 `uv run run_server.py` 的文件夹），之后客户端会记住它。客户端先更新该文件夹中的后端和依赖，再打开新版安装包下载页。下载 `.exe` 后，完全退出旧客户端，运行安装程序；安装完后按平时的顺序重启语音服务、后端和客户端。若更新遇到配置冲突，程序会停止并说明冲突项，不会替你决定保留哪一份。
+如果你用的是 **1.2.1 客户端**：它不会自己弹出新版提示。得知更新后，打开上方的 Windows 客户端下载页，下载新版 `.exe`，完全退出旧客户端，再运行安装程序；可以选择原来的安装位置。安装完成后，先打开新版客户端。首次检查时选择**原来安装的后端项目文件夹**，也就是你平时打开 `conf.yaml`、运行 `uv run run_server.py` 的文件夹。若客户端要求关闭旧后端，先关闭运行 `run_server.py` 的命令窗口，再点击“开始更新”。客户端会在原目录备份配置、更新后端代码和依赖；完成后按原顺序启动语音服务、后端和客户端。旧 `chat_history`、日记和记忆留在原处，不需要重新填写 API Key。
 
-如果你现在用的是 1.2.1 或更早的客户端，请先用下面的命令把后端升级到配套正式版本，**然后**再安装新版客户端。旧客户端的版本提示只会打开安装包页面，不会替你更新后端。
+如果你用的是 **1.2.2 或之后的客户端**：以后有配套的正式版本时，客户端会显示更新提示。点击“更新”后按提示关闭后端、确认项目文件夹；客户端先更新后端，再打开新客户端的安装包页面。下载 `.exe`，完全退出旧客户端后安装。客户端会记住选过的后端文件夹，搬家后也可以重新选择。
 
-- **原目录内升级**：更新代码和子模块，保留本机的 `conf.yaml`、`chat_history`、`rinne_library` 和 `local_config`；检查 `conf_uid` 仍是 `rinne_01`。代码默认继续使用 `chat_history\rinne_01`，不会清空旧记忆。旧版如有 `conf.local.yaml`，更新工具会把其中的设置转入 `conf.yaml`，并留下备份。
-- **换到新目录**：把私人数据复制到新目录的 `chat_history`，或在启动窗口设置 `RINNE_DATA_ROOT` 为一个独立、绝对的数据目录，程序会在其下读写 `chat_history\rinne_01`。不要把两个正在运行的后端同时指向同一份数据；先在副本上验证，再切换。
-- **保留 Library**：`rinne_library\rinne_01` 是独立的个人文件库，`RINNE_DATA_ROOT` 不会替它改位置。换目录时把旧库复制到新目录的同名位置，或用绝对路径环境变量 `RINNE_LIBRARY_ROOT` 指向要继续使用的旧库；并行测试应使用副本，避免两个进程同时写同一库。
+更新工具只自动合并没有被你改过的配置项；如果你和新版改了同一项，它会停下来报告冲突，不会覆盖你的选择。如果你自己改动过其他代码，自动更新也会停下来。已有的聊天、日记和私人文件不会被清空。
 
-如果要在同一台电脑上同时运行两套凛祢，还要为新实例分别设置 `RINNE_CLIENT_USER_DATA_DIR`（客户端数据）、`RINNE_RENDERER_SETTINGS_PATH`（换装设置）与 `RINNE_DATA_ROOT`（日记和记忆），并让客户端连接新实例的后端端口。各变量应指向独立的绝对路径；不要让两个运行中的实例写入同一份数据。
-
-先关闭旧后端。在原项目目录的 PowerShell 或 CMD 中依次运行。第一条下载更新工具；第二条只检查是否能安全更新，不修改配置；检查通过后运行第三、四条：
+如果客户端无法完成更新，可先关闭旧后端，在原项目目录的 PowerShell 或 CMD 中依次运行下面的命令。第一条下载更新工具，第二条只检查，确认通过后再运行第三、四条：
 
 ```text
 curl.exe --fail --location --output rinne-update-now.py https://raw.githubusercontent.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/main/tools/rinne_safe_update.py
@@ -166,7 +162,7 @@ uv run python rinne-update-now.py --apply
 uv sync
 ```
 
-工具会先备份原配置。只有新版改了、你没有改过的设置会自动更新；双方改了同一项时，工具会列出冲突的配置项并停止，让你自己决定。你填的 API Key、代理、个人称呼等设置不会被悄悄覆盖。聊天、日记、背景与 `rinne_library` 不会被移动或清空。更新成功后可删除临时下载的 `rinne-update-now.py`；下次可直接运行项目自带的 `uv run python tools/rinne_safe_update.py --apply`。
+更新成功后可删除临时下载的 `rinne-update-now.py`；下次可直接运行项目自带的 `uv run python tools/rinne_safe_update.py --apply`。
 
 已有用户也按“安装 V2 语音”一节检查语音服务及两个权重文件。若已有自己的翻译词表，更新会保留你填写的路径。确认 `ollama list` 有指定模型，重启后端和桌面客户端，检查日常与灵装语音。
 
