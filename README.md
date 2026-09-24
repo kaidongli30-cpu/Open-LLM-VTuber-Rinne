@@ -61,7 +61,7 @@ set "RINNE_MEDIA_GEMINI_API_KEY=填入可调用 Gemini 的 API Key"
 set "BOCHA_API_KEY=填入你自己的博查 API Key"
 ```
 
-根目录的 `conf.yaml` 已包含凛祢的公开运行设置，无需复制模板。默认使用 APINebula 的 `claude-opus-4-6` 对话、DeepSeek 生成第二层背景、Gemini 观察视频和屏幕、博查搜索、GPT-SoVITS V2 合成语音，以及本地 Ollama 翻译。以上 Key 分别由对应功能读取；使用这些功能需持有相应服务的凭据。若 Gemini 也通过 APINebula 调用，可按服务提供的说明使用相应 Key。环境变量只在当前命令窗口及从它启动的程序中生效。需保存本机专用设置时，新建 `conf.local.yaml`，只写与公开配置不同的字段；它不受 Git 跟踪。不要把 Key 写进 `conf.yaml`。
+根目录的 `conf.yaml` 已包含凛祢的公开运行设置，无需复制模板。默认使用 APINebula 的 `claude-opus-4-6` 对话、DeepSeek 生成第二层背景、Gemini 观察视频和屏幕、博查搜索、GPT-SoVITS V2 合成语音，以及本地 Ollama 翻译。以上 Key 分别由对应功能读取；使用这些功能需持有相应服务的凭据。若 Gemini 也通过 APINebula 调用，可按服务提供的说明使用相应 Key。
 
 若不想每次打开命令窗口都重填对话和 DeepSeek Key，可在项目根目录新建 `conf.local.yaml`，填写下面的内容。先前在命令窗口设置过的环境变量不是必需的，两种方法任选一种即可。文件只留在自己电脑上，不要上传或发给别人。
 
