@@ -170,6 +170,7 @@ def settings_from_character_config(character_config: Any) -> VideoAnalyzerSettin
         api_key = (
             os.environ.get(MEDIA_API_KEY_ENV)
             or os.environ.get(VIDEO_API_KEY_ENV)
+            or str(getattr(media, "api_key", "") or "")
             or _read_api_key_file(getattr(media, "api_key_file", ""))
         )
         base_url = (

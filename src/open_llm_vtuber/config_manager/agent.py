@@ -274,6 +274,7 @@ class MediaAnalysisConfig(I18nMixin, BaseModel):
         "https://generativelanguage.googleapis.com", alias="base_url"
     )
     model: str = Field("gemini-2.0-flash", alias="model")
+    api_key: str = Field("", alias="api_key", repr=False)
     api_key_file: Optional[str] = Field(None, alias="api_key_file")
     timeout_seconds: float = Field(
         180.0, ge=10.0, le=900.0, alias="timeout_seconds"
@@ -308,6 +309,10 @@ class MediaAnalysisConfig(I18nMixin, BaseModel):
         "api_key_file": Description(
             en="Path to a private API-key file",
             zh="私密 API 密钥文件路径",
+        ),
+        "api_key": Description(
+            en="API key for the video observer",
+            zh="视频观察模块的 API 密钥",
         ),
     }
 

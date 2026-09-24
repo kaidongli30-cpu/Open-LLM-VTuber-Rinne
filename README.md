@@ -2,16 +2,16 @@
 
 凛祢桌面客户端：对话、日记与第二层背景、游戏原画渲染及换装。项目基于 Open-LLM-VTuber；桌面客户端源码位于 [前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)，本仓库的 `frontend` 是指向它的 Git 子模块。
 
-仓库不附带《凛祢乌托邦》与《凛绪轮回》的游戏原文件、转换后的凛祢游戏模型，也不包含 API Key、聊天记录、日记或 `rinne_library` 数据。GPT-SoVITS V2 参考 WAV 已包含在仓库中，两份语音权重由安装脚本从项目 Release 下载。请使用自己持有的游戏源文件，在本机运行肖像导入器。项目自制服装按 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md) 授权，商业使用需另行获得许可。
+准备好自己电脑上的《凛祢乌托邦》与《凛绪轮回》游戏文件，安装过程中会从中导入凛祢肖像。GPT-SoVITS V2 参考 WAV 已包含在项目中，两份语音权重由安装脚本下载。项目自制服装按 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md) 授权，商业使用需另行获得许可。
 
 本指南以 Windows PowerShell 和 CMD 为主。完成安装后，可在桌面客户端看到游戏原画凛祢、进行文字或语音对话，并听到 GPT-SoVITS V2 声线。语音翻译使用本地 Ollama 的 `qwen3.5:4b-q4_K_M`；SenseVoice 用于麦克风识别。近期记忆检索、每日子事件和已审核日记的第二层背景也已启用。没有日记时不会凭空生成背景。
 
 ## 必要术语
 
 - **API Key**：你自己的模型服务凭据，像密码一样保管。
-- **CMD / PowerShell**：Windows 的两种命令窗口。下面分别给出写法；不要把 PowerShell 的 `$env:` 命令粘到 CMD。
+- **CMD / PowerShell**：Windows 的两种命令窗口。下面分别给出写法，请按自己打开的窗口选择。
 - **Git 子模块**：后端仓库记录前端仓库的一个确定版本。因此克隆和更新都要带 `--recurse-submodules`。
-- **PCK / SDK / 运行包**：PCK 是你本机游戏的源文件；仓库附带的自制 SDK 负责只读转换；生成的凛祢游戏资源包只留在你电脑上，不进入公开仓库。
+- **PCK / SDK / 运行包**：PCK 是你本机游戏的源文件；项目附带的 SDK 会读取并转换它，生成凛祢画面需要的文件。
 - **GPT-SoVITS / Ollama**：前者使用凛祢 V2 权重把日语文字合成语音；后者用指定的本地模型把中文回复翻成日语，并用另一个 24B 本地模型生成每日子事件。它们都要作为独立服务运行，`uv sync` 不会代替安装或启动它们。
 - **第二层背景**：从你审核过的日记提炼出的长期背景，用于让凛祢了解你大致是怎样的人、目前处于什么状态。它不同于原始日记；没有日记或尚未审核时不会凭空生成。
 
@@ -37,45 +37,36 @@ ollama --version
 
 ## 2. 全新部署
 
+先决定把凛祢放在哪个盘。以下以 `D:\AI\Open-LLM-VTuber-Rinne` 为例；把 `D:\AI` 换成你想使用的文件夹。即使当前命令窗口显示 `C:\Users\...`，下面的命令也会把项目放在指定的 D 盘目录，而不是 C 盘。
+
 PowerShell：
 
 ```powershell
-git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git
-Set-Location .\Open-LLM-VTuber-Rinne
+New-Item -ItemType Directory -Force 'D:\AI' | Out-Null
+git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git 'D:\AI\Open-LLM-VTuber-Rinne'
+Set-Location 'D:\AI\Open-LLM-VTuber-Rinne'
 uv sync
-$env:RINNE_DEEPSEEK_API_KEY = '填入你自己的 DeepSeek API Key'
-$env:RINNE_APINEBULA_API_KEY = '填入你自己的 APINebula API Key'
-$env:RINNE_MEDIA_GEMINI_API_KEY = '填入可调用 Gemini 的 API Key'
-$env:BOCHA_API_KEY = '填入你自己的博查 API Key'
 ```
 
 CMD：
 
 ```bat
-git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git
-cd Open-LLM-VTuber-Rinne
+if not exist "D:\AI" mkdir "D:\AI"
+git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git "D:\AI\Open-LLM-VTuber-Rinne"
+cd /d "D:\AI\Open-LLM-VTuber-Rinne"
 uv sync
-set "RINNE_DEEPSEEK_API_KEY=填入你自己的 DeepSeek API Key"
-set "RINNE_APINEBULA_API_KEY=填入你自己的 APINebula API Key"
-set "RINNE_MEDIA_GEMINI_API_KEY=填入可调用 Gemini 的 API Key"
-set "BOCHA_API_KEY=填入你自己的博查 API Key"
 ```
 
-根目录的 `conf.yaml` 已包含凛祢的公开运行设置，无需复制模板。默认使用 APINebula 的 `claude-opus-4-6` 对话、DeepSeek 生成第二层背景、Gemini 观察视频和屏幕、博查搜索、GPT-SoVITS V2 合成语音，以及本地 Ollama 翻译。以上 Key 分别由对应功能读取；使用这些功能需持有相应服务的凭据。若 Gemini 也通过 APINebula 调用，可按服务提供的说明使用相应 Key。
+安装完成后，在项目目录执行 `notepad .\conf.yaml`，或用文件资源管理器打开 `D:\AI\Open-LLM-VTuber-Rinne\conf.yaml`。这是凛祢的运行设置文件。找到下列四处，把各自的密钥填在单引号中间，保存文件即可；只改引号里的内容，不要删除缩进或冒号：
 
-若不想每次打开命令窗口都重填对话和 DeepSeek Key，可在项目根目录新建 `conf.local.yaml`，填写下面的内容。先前在命令窗口设置过的环境变量不是必需的，两种方法任选一种即可。文件只留在自己电脑上，不要上传或发给别人。
+| 用途 | 在 `conf.yaml` 中找到 | 填写位置 |
+| --- | --- | --- |
+| 对话 | `openai_compatible_llm:` | 其下的 `llm_api_key: ''`，填写 APINebula API Key |
+| 第二层背景等 DeepSeek 调用 | `deepseek_llm:` | 其下的 `llm_api_key: ''`，填写 DeepSeek API Key |
+| 视频与屏幕观察 | `media_analysis:` | 其下的 `api_key: ''`，填写可调用 Gemini 的 API Key |
+| 联网搜索 | `basic_memory_agent:` | 其下的 `bocha_api_key: ''`，填写博查 API Key |
 
-```yaml
-character_config:
-  agent_config:
-    llm_configs:
-      openai_compatible_llm:
-        llm_api_key: '填入你自己的 APINebula API Key'
-      deepseek_llm:
-        llm_api_key: '填入你自己的 DeepSeek API Key'
-```
-
-Gemini 视频观察的 Key 可继续使用启动窗口中的环境变量；若要长期保存，请在 Git 忽略的 `local_config` 文件夹中新建 `gemini_video_api_key.txt`，文件中只放 Key 本身。博查搜索可用 `BOCHA_API_KEY` 环境变量，或在 `conf.local.yaml` 的 `character_config.agent_config.agent_settings.basic_memory_agent.bocha_api_key` 中设置。
+例如，拿到 APINebula 密钥后，把 `openai_compatible_llm` 下面的 `llm_api_key: ''` 改成 `llm_api_key: '你的实际密钥'`。其余三处做法相同。如果 Gemini 也通过 APINebula 调用，在视频观察那一处填写可用于该模型的密钥。保存后重新启动后端，修改才会生效。项目目录里的虚拟环境和前端构建文件会留在所选磁盘；其他软件自己的下载缓存可能仍按各自默认设置使用 C 盘。
 
 ### 安装 V2 语音
 
@@ -117,9 +108,9 @@ cd /d "D:\Rinne-Voice\GPT-SoVITS-v2pro-20250604"
 runtime\python.exe api_v2.py -c rinne_public_v2_tts_infer.yaml
 ```
 
-让这个语音窗口保持运行，默认监听本机 `9880`，与 `conf.yaml` 中的语音地址一致。若端口已被占用，可启动语音服务时指定其他端口，并在 `conf.local.yaml` 中覆盖 `character_config.tts_config.gpt_sovits_tts.api_url`。参考 WAV 已包含在仓库中，无需从游戏提取。
+让这个语音窗口保持运行，默认监听本机 `9880`，与 `conf.yaml` 中的语音地址一致。若端口已被占用，可启动语音服务时指定其他端口，并在 `conf.yaml` 中修改 `character_config.tts_config.gpt_sovits_tts.api_url`。参考 WAV 已包含在项目中，无需从游戏提取。
 
-回到最初设置了各项 API Key 的项目窗口启动后端，并让它保持运行。下面的游戏资源导入和桌面客户端构建命令请**另开命令窗口**执行；在运行 `uv run` 前先进入刚克隆的后端项目根目录。
+回到项目目录的命令窗口启动后端，并让它保持运行。下面的游戏资源导入和桌面客户端构建命令请**另开命令窗口**执行；新窗口先进入项目根目录（PowerShell：`Set-Location 'D:\AI\Open-LLM-VTuber-Rinne'`；CMD：`cd /d "D:\AI\Open-LLM-VTuber-Rinne"`），再运行后面的命令。
 
 ```text
 uv run run_server.py
@@ -173,7 +164,7 @@ CMD 中把 `Set-Location` 换成 `cd`，其余命令相同。构建完成后，�
 
 ## 3. 代理仅按需设置
 
-`proxy_url: null` 表示直连 DeepSeek。只有直连失败且已有可用 HTTP 代理时，才在本地 `conf.local.yaml` 中覆盖 `character_config.agent_config.llm_configs.deepseek_llm.proxy_url`。第二层背景沿用该连接设置。不要把自己的代理地址或凭据提交到仓库。
+`conf.yaml` 中 `deepseek_llm` 下的 `proxy_url: null` 表示直连 DeepSeek。只有直连失败且已有可用 HTTP 代理时，才把 `null` 改成引号包住的实际代理地址。第二层背景沿用该连接设置。
 
 ### 用 QQ 与凛祢对话（可选）
 
@@ -205,7 +196,7 @@ set "RINNE_READONLY_ROOTS=D:\MyDocuments"
 
 - **原目录内升级**：更新代码和子模块，保留本机的 `conf.local.yaml`、`chat_history`、`rinne_library` 和 `local_config`；检查 `conf_uid` 仍是 `rinne_01`。代码默认继续使用 `chat_history\rinne_01`，不会清空旧记忆。
 - **换到新目录**：把私人数据复制到新目录的 `chat_history`，或在启动窗口设置 `RINNE_DATA_ROOT` 为一个独立、绝对的数据目录，程序会在其下读写 `chat_history\rinne_01`。不要把两个正在运行的后端同时指向同一份数据；先在副本上验证，再切换。
-- **保留 Library**：`rinne_library\rinne_01` 是独立的私人文件库，`RINNE_DATA_ROOT` 不会替它改位置。换目录时把旧库复制到新目录的同名位置，或用绝对路径环境变量 `RINNE_LIBRARY_ROOT` 指向要继续使用的旧库；并行测试应使用副本，避免两个进程同时写同一库。不要把库里的数据提交到 GitHub。
+- **保留 Library**：`rinne_library\rinne_01` 是独立的个人文件库，`RINNE_DATA_ROOT` 不会替它改位置。换目录时把旧库复制到新目录的同名位置，或用绝对路径环境变量 `RINNE_LIBRARY_ROOT` 指向要继续使用的旧库；并行测试应使用副本，避免两个进程同时写同一库。
 
 如果要在同一台电脑上同时运行两套凛祢，还要为新实例分别设置 `RINNE_CLIENT_USER_DATA_DIR`（客户端数据）、`RINNE_RENDERER_SETTINGS_PATH`（换装设置）与 `RINNE_DATA_ROOT`（日记和记忆），并让客户端连接新实例的后端端口。各变量应指向独立的绝对路径；不要让两个运行中的实例写入同一份数据。
 
@@ -213,12 +204,13 @@ PowerShell 更新代码：
 
 ```powershell
 Rename-Item .\conf.yaml conf.local.yaml
+git restore -- conf.yaml
 git pull --ff-only
 git submodule update --init --recursive
 uv sync
 ```
 
-CMD 中先执行 `ren conf.yaml conf.local.yaml`，然后依次执行上面后三条命令。接着在原项目目录预览本机配置更新：
+CMD 中先执行 `ren conf.yaml conf.local.yaml`，再执行 `git restore -- conf.yaml` 和上面后三条命令。先前已有 `conf.local.yaml` 时，不要覆盖它；如果 `conf.yaml` 没有另外修改，直接从 `git pull --ff-only` 开始。接着在原项目目录预览配置更新：
 
 ```text
 uv run python scripts/update_rinne_config.py
@@ -230,7 +222,7 @@ uv run python scripts/update_rinne_config.py
 uv run python scripts/update_rinne_config.py --apply
 ```
 
-脚本会先把 `conf.local.yaml` 备份为同目录下带日期的文件，再将新版公开运行设置应用到本机配置，同时保留原有 API Key、代理、个人称呼及提示词、角色 ID 和本机服务地址。之后它只在 `conf.local.yaml` 保留与公开配置不同的本机值；仓库中的 `conf.yaml` 不会被修改。聊天、日记、背景与 `rinne_library` 不会被移动或清空。日记、聊天和 `rinne_library` 数据不能提交到 GitHub。
+脚本会先备份原配置，再应用新版运行设置，同时保留原有 API Key、代理、个人称呼及提示词、角色 ID 和本机服务地址。聊天、日记、背景与 `rinne_library` 不会被移动或清空。
 
 已有用户也按“安装 V2 语音”一节配置语音服务，再使用上述脚本更新本机配置。脚本会切换到项目自带的 V2 参考音；若已有自己的翻译词表，仍会保留其路径。确认 `ollama list` 有指定模型，重启后端和桌面客户端，检查日常与灵装语音。
 
@@ -250,12 +242,10 @@ uv run python -m src.open_llm_vtuber.memory.layer2_backfill --approve-interactiv
 
 命令会按日期顺序处理；缺失内容不会被猜测或补写。成功后新对话会读取生成的第二层背景，原始日记仍留在本地。后台启动时也只会补齐**已批准**的日记；未审核的日记不会被自动批准。
 
-## 5. 范围与常见问题
+## 5. 常见问题
 
 - **换装菜单没有某套**：先运行该套 `build --outfit-number N` 并用 `status` 验证；菜单只展示完整可用的资源。作者自制服装的本地游戏头部合成也依赖用户自己的原画运行包。
 - **API 连接失败**：检查自己的 Key、额度与网络；需要代理时，先确认代理服务已启动，再设置本地代理地址。
 - **运行时找不到前端**：执行 `git submodule update --init --recursive`，确认 `frontend\index.html` 存在。
 - **文字正常但没声音**：确认 Ollama 的 `qwen3.5:4b-q4_K_M` 已安装并运行、GPT-SoVITS 使用 `rinne_public_v2_tts_infer.yaml` 启动、语音端口与本地 `conf.yaml` 匹配。
 - **旧记忆没出现**：确认正在启动的是正确的后端目录、`conf_uid=rinne_01`、`RINNE_DATA_ROOT` 没指错；不要删除旧 `chat_history`。
-
-反馈问题时，请勿附上 API Key、游戏 PCK、转换后的资源、聊天记录或日记。使用游戏资源和第三方服务时，请遵守其使用条款。

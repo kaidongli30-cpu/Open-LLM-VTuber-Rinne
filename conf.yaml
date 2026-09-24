@@ -257,12 +257,12 @@ character_config:
     conversation_agent_choice: 'basic_memory_agent' # 对话代理选择
 
     # 视频和屏幕观察模块；静态图片仍可直接交给对话模型查看。
-    # 密钥放在 Git 忽略的文件中，不要把密钥直接写入此 YAML。
     media_analysis:
       enabled: True
       provider: 'gemini_native'
       base_url: 'https://apinebula.ai'
       model: 'gemini-3.5-flash'
+      api_key: '' # 在引号中填写视频观察使用的 API Key
       api_key_file: 'local_config/gemini_video_api_key.txt'
       timeout_seconds: 240
       max_output_tokens: 4096
@@ -288,7 +288,7 @@ character_config:
         use_mcpp: True
         mcp_enabled_servers: ["ddg-search", "audio-player", "sing-server", "rinne-library"]
         scene_memory_enabled: False
-        bocha_api_key: '' # 可选：需要博查搜索时设置 BOCHA_API_KEY 环境变量
+        bocha_api_key: '' # 在引号中填写博查搜索 API Key
         # 与已有凛祢相同：近期上下文及按需长期记忆检索。
         long_term_memory_retrieval:
           enabled: True
@@ -340,7 +340,7 @@ character_config:
       # OpenAI 兼容推理后端
       openai_compatible_llm:
         base_url: 'https://apinebula.ai/v1'
-        llm_api_key: '${RINNE_APINEBULA_API_KEY}'
+        llm_api_key: '' # 在引号中填写 APINebula API Key
         organization_id: null # 组织 ID
         project_id: null # 项目 ID
         model: 'claude-opus-4-6'
@@ -402,7 +402,7 @@ character_config:
 
       deepseek_llm:
         base_url: 'https://api.deepseek.com/v1'
-        llm_api_key: '${RINNE_DEEPSEEK_API_KEY}'
+        llm_api_key: '' # 在引号中填写 DeepSeek API Key
         model: 'deepseek-v4-flash'
         proxy_url: null # 可选：仅 DeepSeek 请求使用的 HTTP 代理
         temperature: 0.7 # 注意，DeepSeek 的温度范围是 0 到 1
