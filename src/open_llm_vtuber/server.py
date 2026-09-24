@@ -21,6 +21,7 @@ from starlette.responses import Response
 from starlette.staticfiles import StaticFiles as StarletteStaticFiles
 
 from .routes import (
+    init_app_info_routes,
     init_client_ws_route,
     init_webtool_routes,
     init_proxy_route,
@@ -190,6 +191,7 @@ class WebSocketServer:
             init_webtool_routes(default_context_cache=self.default_context_cache),
         )
         self.app.include_router(init_library_routes())
+        self.app.include_router(init_app_info_routes())
 
         # Initialize and include proxy routes if proxy is enabled
         system_config = config.system_config

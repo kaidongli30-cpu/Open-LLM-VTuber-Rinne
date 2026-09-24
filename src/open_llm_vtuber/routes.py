@@ -10,6 +10,7 @@ from fastapi import APIRouter, WebSocket, UploadFile, File, Response, Form
 from starlette.responses import JSONResponse, FileResponse
 from starlette.websockets import WebSocketDisconnect
 from loguru import logger
+from .app_version import APP_VERSION
 from .service_context import ServiceContext
 from .rinne_renderer_profile import apply_active_rinne_emotion_map
 from .websocket_handler import WebSocketHandler
@@ -152,6 +153,16 @@ def _scan_live2d_models_from_directory() -> list[dict]:
         )
 
     return valid_characters
+
+
+def init_app_info_routes() -> APIRouter:
+    router = APIRouter()
+
+    @router.get("/api/rinne-app-version")
+    def get_app_version() -> dict[str, str]:
+        return {"product": "Open-LLM-VTuber-Rinne", "version": APP_VERSION}
+
+    return router
 
 
 def init_client_ws_route(
