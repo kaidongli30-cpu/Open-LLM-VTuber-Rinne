@@ -1,0 +1,190 @@
+{
+  "acceptance_sequence": {
+    "base_controls": {
+      "expression_weights": [
+        0.2,
+        0.3,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.15,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "left_eye_close": 0.25,
+      "left_pupil_position": [
+        0.15,
+        -0.05
+      ],
+      "mouth_gains": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "mouth_scale": 0.75,
+      "neck_rotation": [
+        1.0,
+        -0.5,
+        0.25
+      ],
+      "neck_translation": [
+        0.01,
+        -0.005,
+        0.0025
+      ],
+      "right_eye_close": 0.1,
+      "right_pupil_position": [
+        -0.2,
+        0.1
+      ],
+      "type2_intensity": 0.8
+    },
+    "blink_floor": 0.0,
+    "final_time": 3167,
+    "loop": true,
+    "random_values": [
+      0,
+      0,
+      0,
+      32767,
+      1,
+      5
+    ],
+    "start_time": 0,
+    "times": [
+      0,
+      33,
+      80,
+      160,
+      333,
+      1000,
+      2000,
+      3007,
+      3087,
+      3167
+    ]
+  },
+  "amb": {
+    "auxiliary_channel_count": 26,
+    "byte_length": 41280,
+    "channel_count": 86,
+    "continuous_interpolation": "legacy_float32_linear",
+    "discrete_selection": "following_frame_when_fraction_at_least_half",
+    "discrete_selector_count": 10,
+    "expression_channel_count": 31,
+    "file": "amb-channels.f32",
+    "format": "channel_major_float32_little_endian",
+    "frame_count": 120,
+    "groups": {
+      "auxiliary": [
+        43,
+        69
+      ],
+      "core": [
+        0,
+        12
+      ],
+      "expression": [
+        12,
+        43
+      ],
+      "extended": [
+        72,
+        86
+      ],
+      "trailing_triplet": [
+        69,
+        72
+      ]
+    },
+    "rate": 30.0,
+    "runtime_loop_end": 118,
+    "runtime_loop_start": 118,
+    "selectors_all_zero": true,
+    "sha256": "57fa34677e03d6bf5721b3bdfbaf785db3175fdb1cc4c2b33057c63b8e4a8cc3"
+  },
+  "automatic": {
+    "blink": {
+      "duration_factor": 2.5,
+      "enabled": 1,
+      "frequencies": [
+        5,
+        0,
+        1
+      ],
+      "random_contract": "inclusive_integer_0_to_32767_three_draw_cycle"
+    },
+    "breath": {
+      "clock_divisor_milliseconds": 30.0,
+      "duration_factor": 1.2999999523162842,
+      "enabled": 1,
+      "expression_index": 4,
+      "initial_phase_degrees": -90.0,
+      "phase_step_degrees": 3.5
+    },
+    "source_member": "face.uca.bin"
+  },
+  "capabilities": [
+    "amb_playback",
+    "automatic_blink",
+    "automatic_breath",
+    "baseline_expression",
+    "live_mouth"
+  ],
+  "clock": {
+    "amb_divisor": 1000.0,
+    "caller_controls_loop": true,
+    "unit": "uint32_milliseconds"
+  },
+  "composition": {
+    "extended_baseline_gain_indices": {
+      "expression": 3,
+      "eye": 1,
+      "pose": 2,
+      "pupil": 0
+    },
+    "order": [
+      "automatic_breath",
+      "amb_baseline_composition",
+      "automatic_blink",
+      "live_mouth",
+      "gpu_coefficient_easing"
+    ],
+    "pupil_x_scale": 0.1,
+    "pupil_y_scale": 0.05,
+    "speech_expression_indices": [
+      5,
+      6,
+      7
+    ]
+  },
+  "format": "rinne-legacy-gpu-resident-timeline",
+  "runtime_bundle": {
+    "base_topology_sha256": "74e93d153413ec06ba9044969c5c3ec105c6e10594154e3c5ae95325a89b4309",
+    "manifest_sha256": "f67a4749cbcd5edaf958418ed71c1310c8f67a4165d78ae42557583cb79a05c2"
+  },
+  "version": 1
+}
