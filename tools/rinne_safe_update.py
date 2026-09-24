@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import copy
 import io
+import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -13,12 +15,24 @@ from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from ruamel.yaml import YAML
 
 
 ROOT = Path.cwd().resolve()
 MISSING = object()
+APP_RELEASES_API = (
+    "https://api.github.com/repos/kaidongli30-cpu/"
+    "Open-LLM-VTuber-Rinne/releases?per_page=30"
+)
+APP_RELEASE_TAG = re.compile(r"^rinne-app-v(\d+)\.(\d+)\.(\d+)$")
+OFFICIAL_REMOTES = {
+    "https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne",
+    "git@github.com:kaidongli30-cpu/Open-LLM-VTuber-Rinne",
+    "ssh://git@github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne",
+}
 
 
 class UpdateError(Exception):
@@ -143,11 +157,54 @@ def _check_checkout() -> None:
         raise UpdateError("请从凛祢项目目录运行更新")
     if _git("symbolic-ref", "--short", "HEAD") != "main":
         raise UpdateError("仅自动更新 main 分支；当前分支未修改")
+    origin = _git("remote", "get-url", "origin").removesuffix(".git").rstrip("/")
+    if origin not in OFFICIAL_REMOTES:
+        raise UpdateError("origin 不是凛祢的官方仓库；未修改文件")
     changed = _git("status", "--porcelain", "--untracked-files=no", strip=False)
     if any(line[3:] != "conf.yaml" for line in changed.splitlines()):
         raise UpdateError("发现 conf.yaml 之外的本地改动，请先自行处理；未修改文件")
     if _git("diff", "--cached", "--name-only"):
         raise UpdateError("暂存区有本地改动；未修改文件")
+
+
+def _latest_release_tag() -> str | None:
+    request = Request(
+        APP_RELEASES_API,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "Rinne-Safe-Update",
+        },
+    )
+    try:
+        with urlopen(request, timeout=10) as response:
+            payload = response.read(2_000_001)
+    except (HTTPError, URLError, TimeoutError) as error:
+        raise UpdateError("无法检查 GitHub 正式版本；未修改文件") from error
+    if len(payload) > 2_000_000:
+        raise UpdateError("GitHub 版本信息过大；未修改文件")
+    try:
+        releases = json.loads(payload)
+    except (UnicodeError, ValueError) as error:
+        raise UpdateError("GitHub 版本信息无法解析；未修改文件") from error
+    if not isinstance(releases, list):
+        raise UpdateError("GitHub 版本信息格式异常；未修改文件")
+    candidates: list[tuple[tuple[int, int, int], str]] = []
+    for release in releases:
+        if not isinstance(release, dict):
+            continue
+        tag = release.get("tag_name")
+        if (
+            not isinstance(tag, str)
+            or release.get("draft")
+            or release.get("prerelease")
+        ):
+            continue
+        if not release.get("published_at"):
+            continue
+        match = APP_RELEASE_TAG.fullmatch(tag)
+        if match:
+            candidates.append((tuple(map(int, match.groups())), tag))
+    return max(candidates)[1] if candidates else None
 
 
 def run_update(*, apply: bool) -> tuple[str, Path | None]:
@@ -161,9 +218,12 @@ def run_update(*, apply: bool) -> tuple[str, Path | None]:
         user_text = apply_local_overlay(
             user_text, overlay_path.read_bytes().decode("utf-8-sig")
         )
-    _git("fetch", "origin", "main")
     head = _git("rev-parse", "HEAD")
-    target = _git("rev-parse", "origin/main")
+    release_tag = _latest_release_tag()
+    if release_tag is None:
+        return "暂无正式应用版本", None
+    _git("fetch", "origin", "tag", release_tag)
+    target = _git("rev-parse", f"refs/tags/{release_tag}^{{commit}}")
     needs_git_update = head != target
     if not needs_git_update and not overlay_present:
         return "已经是最新版", None
