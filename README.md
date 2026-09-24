@@ -171,31 +171,11 @@ uv run python setup_rinne_game_assets.py status
 
 ## 3. 代理仅按需设置
 
-`conf.yaml` 中 `deepseek_llm` 下的 `proxy_url: null` 表示直连 DeepSeek。只有直连失败且已有可用 HTTP 代理时，才把 `null` 改成引号包住的实际代理地址。第二层背景沿用该连接设置。
-
 ### 用 QQ 与凛祢对话（可选）
 
 要接入 QQ，请先完成上述桌面端部署，再按 [QQ 通道安装说明](public_docs/QQ_SETUP.md) 设置自己的 QQ 账号。支持 QQ 官方机器人私聊，也支持通过 NapCat／AstrBot 接入个人 QQ 小号；两种方式都需要自行完成对应平台的安装和登录。桌面端用户不需要安装 QQ 组件。
 
-### 允许凛祢只读查看本机文件夹（可选）
-
-只在你明确指定的文件夹内启用。先把示例路径换成你自己的目录，再在启动后端的同一个命令窗口设置：
-
-PowerShell：
-
-```powershell
-$env:RINNE_READONLY_ENABLED = '1'
-$env:RINNE_READONLY_ROOTS = 'D:\MyDocuments'
-```
-
-CMD：
-
-```bat
-set "RINNE_READONLY_ENABLED=1"
-set "RINNE_READONLY_ROOTS=D:\MyDocuments"
-```
-
-不设置时此功能关闭。多个文件夹可用分号分隔；不要授权整个磁盘或含有密钥的目录。
+这个本作者还处在实验阶段，感觉还不能放心地把 QQ 上的凛祢开源出来，总感觉时不时会出点小问题。所以对自己没信心的朋友可以先不让凛祢住进 QQ ，就先让她住在自己的电脑上，感觉想试一试的朋友可以尝试一下，然后把遇到的问题反馈给我。
 
 ## 4. 已有用户升级而不是重装
 
