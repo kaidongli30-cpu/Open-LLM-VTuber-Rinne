@@ -1,0 +1,1127 @@
+{
+  "default_portrait_id": 60202,
+  "display_name": "\u7b2c\u4e8c\u5957\u8863\u670d",
+  "format": "rinne-legacy-gpu-outfit-family",
+  "outfit_id": "rinne_mp0602_second_outfit",
+  "outfit_number": 2,
+  "portrait_count": 15,
+  "portrait_id_range": [
+    60201,
+    60215
+  ],
+  "portraits": [
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "48b82d418493c2fcaaa4552927478c31ee6c1fa7ae1596254f916f263f8a3ead",
+        "timeline_manifest_sha256": "1f59ec89972412ebd59d8faf70d3341900503393bf1a443da675b38c3d524bd0"
+      },
+      "compatibility_label": "thinking",
+      "directory": "MP060201",
+      "files": [
+        {
+          "byte_length": 42458,
+          "name": "manifest.json",
+          "sha256": "97ff16e920d9c44babdc22fe2f7e87c5eec406144762bf3f6373eb1320cc0918"
+        },
+        {
+          "byte_length": 16777216,
+          "name": "texture.rgba8",
+          "sha256": "f8f0b29f2f05ef01b0ad795485611769f9b5e3de8cc57c5759efa8e38f79c66e"
+        },
+        {
+          "byte_length": 439828,
+          "name": "geometry.bin",
+          "sha256": "21b00e486d352acd72c77dabc16a4a774112dde6e160da70cc85e3fbc0a90699"
+        },
+        {
+          "byte_length": 12390,
+          "name": "dynamic-manifest.json",
+          "sha256": "19d260db4e79a5a1b8ad30de77615275dfc15138a6f87fe744d9bedaf019a254"
+        },
+        {
+          "byte_length": 8404992,
+          "name": "deformation.rgba32f",
+          "sha256": "60184ed80cf9e3447d83102baf35c09d1b821194abc914dc0a4b0628945458b6"
+        },
+        {
+          "byte_length": 13924,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "f927a4552731693a27b34412f26b40ae61c66b0411a497db2cdaea22b360cb9e"
+        },
+        {
+          "byte_length": 40058880,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "267fec45e632ddf10fb240bbd5d66c2827bb399f66a74bd45f86c7a17b86e9ec"
+        },
+        {
+          "byte_length": 10838,
+          "name": "runtime-control-manifest.json",
+          "sha256": "4fdcefdb745b8eb856a040238eeaf93a4d18b4c47f19296731c6b2bdab64e0e7"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "1f59ec89972412ebd59d8faf70d3341900503393bf1a443da675b38c3d524bd0"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "425a232fc6df76d9ee47e41412b6f6ba23fb775cb6f40232dd92f7304640d75e"
+        }
+      ],
+      "game_usage_count": 20,
+      "has_closed_eye_layer": false,
+      "has_sweat_layer": false,
+      "portrait_id": 60201,
+      "source": {
+        "byte_length": 4978960,
+        "filename": "MP060201.pck",
+        "sha256": "c460a7e92f83830d1a5876f41b93f9a17ee2a79400c417c171ac79898dbf72f2"
+      },
+      "tags": [
+        "thinking"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "6f06e2d3e1698ab72a808979f6f2c1a51a6e0b70cbd5f5c4fad07a053bd071f4",
+        "timeline_manifest_sha256": "fb5084dcbefe6516ee2f70b63b5c37a1adf9a6bb7daad0c34e8e5feb2aa1942f"
+      },
+      "compatibility_label": "neutral",
+      "directory": "MP060202",
+      "files": [
+        {
+          "byte_length": 42458,
+          "name": "manifest.json",
+          "sha256": "41d4ecd28865be9fe1b416d243358c2422bb62d1e9ab27052c1b47a97b8b9b2a"
+        },
+        {
+          "byte_length": 16777216,
+          "name": "texture.rgba8",
+          "sha256": "88c82f9b6b6056b5b944f5f9b1bd6e2530e4893e1e34460411c00f3b1131204c"
+        },
+        {
+          "byte_length": 440920,
+          "name": "geometry.bin",
+          "sha256": "906b3769a6ba330a9758ab4be22d9fc9efef5b51c11ac7a3e09d7620d94177d7"
+        },
+        {
+          "byte_length": 12390,
+          "name": "dynamic-manifest.json",
+          "sha256": "fc68bcfd70f8fdbb2c89b18ab954e62ff917f3b7ad79b8fa995e78f0f1b063b8"
+        },
+        {
+          "byte_length": 8421376,
+          "name": "deformation.rgba32f",
+          "sha256": "8a6b548bdc3c2be44fc73c599d1b91525570684b826fae3c3599fed28724c7e2"
+        },
+        {
+          "byte_length": 13924,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "7d78f7daf7bbbcd851ddfebf1d1bdad8431bcff102a88635a3f8e15768c1e2b6"
+        },
+        {
+          "byte_length": 40058880,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "1c3d634943ba25c39a353e50aeffa20af58dffbcefe4e6c5acad2c93db299d9f"
+        },
+        {
+          "byte_length": 10834,
+          "name": "runtime-control-manifest.json",
+          "sha256": "750c69e3596c9179d787d0f282b69a86fc376179e80cf6605cd201f7d67504fe"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "fb5084dcbefe6516ee2f70b63b5c37a1adf9a6bb7daad0c34e8e5feb2aa1942f"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "c0bd9e3ff3b97c25c70af65e0c3c8ab4eb755772b4b00155e42932a8f5512c6b"
+        }
+      ],
+      "game_usage_count": 109,
+      "has_closed_eye_layer": false,
+      "has_sweat_layer": false,
+      "portrait_id": 60202,
+      "source": {
+        "byte_length": 4851216,
+        "filename": "MP060202.pck",
+        "sha256": "87f8f04760a4aebda341867cd589a704e53ebd84a7a75907caf1e44fb4af9ce2"
+      },
+      "tags": [
+        "neutral"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "7fc07e54fda4154a52a949eb292582867650f83f768a0df38804a3d5cab4d815",
+        "timeline_manifest_sha256": "827d8e884b2ff212a458e66258fb70e93d6696e1eeea3724051ab98c1c4ecd7e"
+      },
+      "compatibility_label": "confused",
+      "directory": "MP060203",
+      "files": [
+        {
+          "byte_length": 42458,
+          "name": "manifest.json",
+          "sha256": "3e493de09c11477a99d127cf48d3f8ba771b7613bd2bafeb78d19a560ca91925"
+        },
+        {
+          "byte_length": 16777216,
+          "name": "texture.rgba8",
+          "sha256": "a6f0dd2bed19f90336ea9e859dfdfade20f2f51464c7f270ab53099977487d4e"
+        },
+        {
+          "byte_length": 439828,
+          "name": "geometry.bin",
+          "sha256": "914368e1fd041b875162a740219a9c34e1d51b95a9cd6b3393235ae6956b449d"
+        },
+        {
+          "byte_length": 12390,
+          "name": "dynamic-manifest.json",
+          "sha256": "b5b79ef83d59f13e3f7faa55612d9e9337679f78b0f973d6068d5325d962a5f4"
+        },
+        {
+          "byte_length": 8404992,
+          "name": "deformation.rgba32f",
+          "sha256": "6c0794968cd582991ff1f571f77418a3687532b7d18493e40cf43976c7e7a2b9"
+        },
+        {
+          "byte_length": 13924,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "f026fbff614fc205a9e2a75ae5191616cc46a16e5341a91b52ba2d2f56ba0b85"
+        },
+        {
+          "byte_length": 40058880,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "267fec45e632ddf10fb240bbd5d66c2827bb399f66a74bd45f86c7a17b86e9ec"
+        },
+        {
+          "byte_length": 10838,
+          "name": "runtime-control-manifest.json",
+          "sha256": "6a80ee8c609c57ad8b13c36cb847bce31143aecfb33a4fbada8c0aea7dd72796"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "827d8e884b2ff212a458e66258fb70e93d6696e1eeea3724051ab98c1c4ecd7e"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "9202d13f4d67447daa4ab4db9e305fff06d29c0bba9fd1901ce87b23d4dfc7e7"
+        }
+      ],
+      "game_usage_count": 26,
+      "has_closed_eye_layer": false,
+      "has_sweat_layer": false,
+      "portrait_id": 60203,
+      "source": {
+        "byte_length": 4969712,
+        "filename": "MP060203.pck",
+        "sha256": "87f70c97339908fa0ab03b71c0db3cd45b3dd2591e7e66d9db836f8edc80dcec"
+      },
+      "tags": [
+        "confused"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "a8c6aed9623e0844e6abbf118854cd5a08905f5b46baca27698a5ca9eae6f71a",
+        "timeline_manifest_sha256": "9561ce4e6ae1a6f10e65df3dd9c1b40796a0112b5e710e1ce10dc08a5102cdbc"
+      },
+      "compatibility_label": "gentle",
+      "directory": "MP060204",
+      "files": [
+        {
+          "byte_length": 42470,
+          "name": "manifest.json",
+          "sha256": "9c5b7765433e1f6f73de374870fc1ec21a0eb290284dffb92e1e1f9b190ccf8c"
+        },
+        {
+          "byte_length": 33554432,
+          "name": "texture.rgba8",
+          "sha256": "af0c4eea07be3012d8b35a4ed11e76f3b413d506bbb907e7b32798567d60aebd"
+        },
+        {
+          "byte_length": 504364,
+          "name": "geometry.bin",
+          "sha256": "0d8837b541805b48f7a4c931f3553909578e18a67993a5f54a01031fbacf214a"
+        },
+        {
+          "byte_length": 12392,
+          "name": "dynamic-manifest.json",
+          "sha256": "767cd867c50e6aa46aed1af5af64ec7c68bc7b691454479e17fc444283de04ea"
+        },
+        {
+          "byte_length": 9764864,
+          "name": "deformation.rgba32f",
+          "sha256": "5e9c7c867408c001f1b761e312a3fa729d99184b5eb673596e2b1383c5c7e16b"
+        },
+        {
+          "byte_length": 13924,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "c6d9ccaad75834f687a45cdf894616ede5a7eb95e56694e2e08c8cae1d113923"
+        },
+        {
+          "byte_length": 40058880,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "25284a32cbe9e866c09a398502503781cf1d06a3dd08f5d6a77f406d07ea566b"
+        },
+        {
+          "byte_length": 10834,
+          "name": "runtime-control-manifest.json",
+          "sha256": "8bca678bf1c9f962e841cf2a266b15b59b0dbddc8a8853e1be687ab8495f52e8"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "9561ce4e6ae1a6f10e65df3dd9c1b40796a0112b5e710e1ce10dc08a5102cdbc"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "4a6c06b37e6aec1cbed1fe512634511a17edff0cde9baf82a34a126a5391a93f"
+        }
+      ],
+      "game_usage_count": 59,
+      "has_closed_eye_layer": false,
+      "has_sweat_layer": false,
+      "portrait_id": 60204,
+      "source": {
+        "byte_length": 4983104,
+        "filename": "MP060204.pck",
+        "sha256": "fca037be52107f02a8da09308fc8743ba006d37002540a4fdadd58ef75d87d0e"
+      },
+      "tags": [
+        "gentle"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "e02ac04b214b3926df96268b824d3d8f76ab2ffdc44c4e9d58cec73ccc2b93cc",
+        "timeline_manifest_sha256": "a5fb84482124a505cb9d2ce0c1cdffd369faa9d6d4ea8483bfd78bcbe44ed487"
+      },
+      "compatibility_label": "awkward",
+      "directory": "MP060205",
+      "files": [
+        {
+          "byte_length": 43294,
+          "name": "manifest.json",
+          "sha256": "ffa566745dd2f141a6c27a0da60c6efcb75cc1c01fc9887ff2fec9c4eb04cc27"
+        },
+        {
+          "byte_length": 33554432,
+          "name": "texture.rgba8",
+          "sha256": "00d3f846441779cabb67d5a303f7b864e9855f6ab3993c94b9159a1b1531f415"
+        },
+        {
+          "byte_length": 485028,
+          "name": "geometry.bin",
+          "sha256": "d938f73b6dc5c85ec2d14e1f8a0a24bdcaa93f62c9d74c335867ded6f7a0c7ed"
+        },
+        {
+          "byte_length": 12526,
+          "name": "dynamic-manifest.json",
+          "sha256": "96cf6ccd615646242f4454ca726a22f5363e24b7034c9ef8a45392b339cc48a1"
+        },
+        {
+          "byte_length": 9388032,
+          "name": "deformation.rgba32f",
+          "sha256": "25745b011d95c89e6adde52fb18b658a8d644dcba9b767129102864660f13078"
+        },
+        {
+          "byte_length": 9101,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "6074d135456413ea901478b8245d27ce19821284e8f72c794170762350c3515b"
+        },
+        {
+          "byte_length": 16859136,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "55caacb791a30b74e6fbce56ce1380ebf8319b1973755d0cef8c3a17bad7d14d"
+        },
+        {
+          "byte_length": 10962,
+          "name": "runtime-control-manifest.json",
+          "sha256": "e66c3faa5a443487a4033af1819e9bf443244f9db60542591264ff0ac5ff75e4"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "a5fb84482124a505cb9d2ce0c1cdffd369faa9d6d4ea8483bfd78bcbe44ed487"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "45fd201126418a58af8fa2faab9df2f2d26a2bb29484e3b9904e59548f708642"
+        }
+      ],
+      "game_usage_count": 21,
+      "has_closed_eye_layer": true,
+      "has_sweat_layer": false,
+      "portrait_id": 60205,
+      "source": {
+        "byte_length": 4959152,
+        "filename": "MP060205.pck",
+        "sha256": "4725e21a37f64a937ac8fa79ff4bc5a9022814a48540dd7a47a805fc667eff49"
+      },
+      "tags": [
+        "awkward"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "9f6090d312247f09a47297ac97173cb4fbae516dd204633c40f1e9fbc9c2f19a",
+        "timeline_manifest_sha256": "650059be51fd4a311ac42bb606b9f8879150ba933067a48e7b366f593c945e60"
+      },
+      "compatibility_label": "happy",
+      "directory": "MP060206",
+      "files": [
+        {
+          "byte_length": 43294,
+          "name": "manifest.json",
+          "sha256": "14461caeb3548b94c6368cd89fc042d3bcee676c7208d94e3a28098ecc569b61"
+        },
+        {
+          "byte_length": 16777216,
+          "name": "texture.rgba8",
+          "sha256": "77ed3e945de5d7f909479e5455b3f0a739668ae2378eaf656759c6fd44e41786"
+        },
+        {
+          "byte_length": 485672,
+          "name": "geometry.bin",
+          "sha256": "6fdc5d97e3a7fa34abd037233c15b6b4562e4559d8edcd3806df1f6a4f92a689"
+        },
+        {
+          "byte_length": 12526,
+          "name": "dynamic-manifest.json",
+          "sha256": "48329c3d945b643466e2376b5a6db70b007872740666505e4ad2d1decd94a9b0"
+        },
+        {
+          "byte_length": 9388032,
+          "name": "deformation.rgba32f",
+          "sha256": "cd264f9b47203adf0ee5f5683c1abbc9878e9e6eb20bd767555084deb060076a"
+        },
+        {
+          "byte_length": 8996,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "ff6f5977f6f535f01d3158c91a5833d8e813c607e2c6140994cc3107e60fd7e2"
+        },
+        {
+          "byte_length": 16351232,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "c4f79f159c994db5529b5069b2629639a1d667147c83266634cd06f7d5c35fc7"
+        },
+        {
+          "byte_length": 10963,
+          "name": "runtime-control-manifest.json",
+          "sha256": "b036fb8759e49b5545fef32eb8b4043f872800c227a8b838bc467a1f5aac5786"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "650059be51fd4a311ac42bb606b9f8879150ba933067a48e7b366f593c945e60"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "1df70eeae2284cbe15aad13c894e064277216124153f429a10a8d0633c372132"
+        }
+      ],
+      "game_usage_count": 43,
+      "has_closed_eye_layer": true,
+      "has_sweat_layer": false,
+      "portrait_id": 60206,
+      "source": {
+        "byte_length": 4870192,
+        "filename": "MP060206.pck",
+        "sha256": "14a3c12ce544fbc1292471d0e876ee3bfd9123315b9f7663dcc243be2dacdbac"
+      },
+      "tags": [
+        "happy"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "cd7d964fb54ab8dfa80798618536c8da158db481b4ee00786d16c6030031789e",
+        "timeline_manifest_sha256": "2169c5c8ae48a00bb6dfdf4176fdde4ff2d92e6f9e1ed8677c6c72318cf928af"
+      },
+      "compatibility_label": "worried",
+      "directory": "MP060207",
+      "files": [
+        {
+          "byte_length": 42470,
+          "name": "manifest.json",
+          "sha256": "c2672541c9f5deb3a3bdf72354efe7232eb4fecca706824d122f8596be07b207"
+        },
+        {
+          "byte_length": 16777216,
+          "name": "texture.rgba8",
+          "sha256": "c6185ac9eec3bfb55a068ed5a8ddd5f8938a56edfff592ab9a3222bd2db7d058"
+        },
+        {
+          "byte_length": 503496,
+          "name": "geometry.bin",
+          "sha256": "953afe2c850b407f21b7348f923e8796442a4bc3b194b9254b887e91ce1fd47d"
+        },
+        {
+          "byte_length": 12392,
+          "name": "dynamic-manifest.json",
+          "sha256": "4ffc5816a71496a99c008272ab26acb83676bac3eb5ec4d974d8753b1c45e646"
+        },
+        {
+          "byte_length": 9781248,
+          "name": "deformation.rgba32f",
+          "sha256": "ebdcdf33a25004f0bc5bee8d82dc6078d40f63b240e986d215c1d54fbd2c2358"
+        },
+        {
+          "byte_length": 13924,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "4f110359043b2a2b1807067bbe10455a11092b75548c6481e4e5c479383047f8"
+        },
+        {
+          "byte_length": 40058880,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "8b59a2018688f608835832590f953a8e7433d1cddd07874823fc44d17016dd33"
+        },
+        {
+          "byte_length": 10835,
+          "name": "runtime-control-manifest.json",
+          "sha256": "0c277187e1553798b943c5192e2e59741751c0711b02f6e2c7f45ba5a428f9f0"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "2169c5c8ae48a00bb6dfdf4176fdde4ff2d92e6f9e1ed8677c6c72318cf928af"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "d6dcecb752b525f936126b91badb40ac28b812b8aa550868cea81ddcd3c3589e"
+        }
+      ],
+      "game_usage_count": 19,
+      "has_closed_eye_layer": false,
+      "has_sweat_layer": false,
+      "portrait_id": 60207,
+      "source": {
+        "byte_length": 5285728,
+        "filename": "MP060207.pck",
+        "sha256": "60c70cd0e1023c3f93caf9c4e496d4ef05a0740cdf0bc6d2b3e9ac81abd088a9"
+      },
+      "tags": [
+        "worried"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "7589c59a36462d244fe79ed44d2c7d7656e650a737259ab87a3d7c6ee9644b3e",
+        "timeline_manifest_sha256": "031ee168b452e3c1cd4412cb423e9e91d9d0f70c5e95fbc3ca6d4ebee4c0787c"
+      },
+      "compatibility_label": "surprised",
+      "directory": "MP060208",
+      "files": [
+        {
+          "byte_length": 42458,
+          "name": "manifest.json",
+          "sha256": "7f0455433c6c481222f4e26d09963d522a925d044e2b25b2a823fa654e271cc8"
+        },
+        {
+          "byte_length": 16777216,
+          "name": "texture.rgba8",
+          "sha256": "82026fb999b9c05a283df77c6925eb7e1994d98d3a9250b2d8cb25cd2de585cd"
+        },
+        {
+          "byte_length": 440920,
+          "name": "geometry.bin",
+          "sha256": "43f6222fa3202ef4366d43c15eb18edf5aa5f90944895bed448759e061189520"
+        },
+        {
+          "byte_length": 12390,
+          "name": "dynamic-manifest.json",
+          "sha256": "078c7061b446c9850053d1b838735daf3965a89d8bf098f815fd95eabb855686"
+        },
+        {
+          "byte_length": 8421376,
+          "name": "deformation.rgba32f",
+          "sha256": "fa051c66c9b506731b58069a9a1da9d03f47e8b4e2dfa2569c7cd784ee2dfed6"
+        },
+        {
+          "byte_length": 13924,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "092cf30ab5df792e7dcc9c470fce9b1ddee5531a9e7ba0328125a680a7973d46"
+        },
+        {
+          "byte_length": 40058880,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "267fec45e632ddf10fb240bbd5d66c2827bb399f66a74bd45f86c7a17b86e9ec"
+        },
+        {
+          "byte_length": 10838,
+          "name": "runtime-control-manifest.json",
+          "sha256": "1112e7b708784732e70de173e56394c5aaabcf1e02e18ef27d28fedd097b3371"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "031ee168b452e3c1cd4412cb423e9e91d9d0f70c5e95fbc3ca6d4ebee4c0787c"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "f3f37777fe2ababcbf644bf143fb2bed7fbe87e2a93412dac60135d20f673a53"
+        }
+      ],
+      "game_usage_count": 6,
+      "has_closed_eye_layer": false,
+      "has_sweat_layer": false,
+      "portrait_id": 60208,
+      "source": {
+        "byte_length": 4974912,
+        "filename": "MP060208.pck",
+        "sha256": "49580724cad31e7f1b0998d0fa9d708afc2373185e5d6dc4a10432ee9eaf7a0a"
+      },
+      "tags": [
+        "surprised",
+        "surprise"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "87a26edb42b78efd50cbcea8cad39979f021be84b61ffb1a1050ca2907626b53",
+        "timeline_manifest_sha256": "8bdaaefb70e93a926a978829ad2a3c23e0de0217f92f1fe211d68a6830e415d5"
+      },
+      "compatibility_label": "dissatisfaction",
+      "directory": "MP060209",
+      "files": [
+        {
+          "byte_length": 44125,
+          "name": "manifest.json",
+          "sha256": "8f1057214509e191d13e0fb9e3605a0c02acf2dd0296e780e97698fd9ee62aad"
+        },
+        {
+          "byte_length": 33554432,
+          "name": "texture.rgba8",
+          "sha256": "2d3c4fe994b6f9d830cb4b40465cb4907e6cbe84f20f237229a4974d593a22ad"
+        },
+        {
+          "byte_length": 499136,
+          "name": "geometry.bin",
+          "sha256": "ff54fdd72d8e2c2d403e7639a956f4a14cb6b25f039ed016e4ba05be65cc3e02"
+        },
+        {
+          "byte_length": 12663,
+          "name": "dynamic-manifest.json",
+          "sha256": "3967910c40642fa3cf2fd65763116242c92ec29e710d7b976543a1aca66f6ed4"
+        },
+        {
+          "byte_length": 9682944,
+          "name": "deformation.rgba32f",
+          "sha256": "c9e56cafd67aaa52f59286a697c79f8786baf9b1e361b3fd218a333f064ef557"
+        },
+        {
+          "byte_length": 8996,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "9f3c24cdcf58a9beed0a563fae07c4cac682760442fe5312d71b3249086b3f2e"
+        },
+        {
+          "byte_length": 16351232,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "a3d25f67ac7069aa79c0dca0df236e1c0bdb5432cb0ef68b6322cebff1fcb9a2"
+        },
+        {
+          "byte_length": 11093,
+          "name": "runtime-control-manifest.json",
+          "sha256": "2447d68dc8f93e800e2e5848d20d33853072a78dd58694f3807d5c6a2e3a4af8"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "8bdaaefb70e93a926a978829ad2a3c23e0de0217f92f1fe211d68a6830e415d5"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "aa487eb5c8bec01dc44ea9d67bbbcc9a130e7ad1f9e76d4fac7a0f897e48dd52"
+        }
+      ],
+      "game_usage_count": 0,
+      "has_closed_eye_layer": true,
+      "has_sweat_layer": true,
+      "portrait_id": 60209,
+      "source": {
+        "byte_length": 5438336,
+        "filename": "MP060209.pck",
+        "sha256": "97ad58dd90409a47993e1a27404a1968161283c47108a9d148e7e5dd2529a48d"
+      },
+      "tags": [
+        "dissatisfaction"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "9b63ff45b7eea62c4126a1a128eb9e001cb3aba77558a7e476e82766ba8ad794",
+        "timeline_manifest_sha256": "2fa25c754c472ed305abb9561edbda2dc3cc570e6d76d14e1e68d88fe5008cce"
+      },
+      "compatibility_label": "flustered",
+      "directory": "MP060210",
+      "files": [
+        {
+          "byte_length": 42458,
+          "name": "manifest.json",
+          "sha256": "c9a4e92576906853f54d63bd1881345ecb1302be7c6a53faf9b428c599ef1b1d"
+        },
+        {
+          "byte_length": 33554432,
+          "name": "texture.rgba8",
+          "sha256": "b3953b43d6a516162f02cc8fc8414bd51f99a9f4afa6ada0fef07d14a30b24c9"
+        },
+        {
+          "byte_length": 440920,
+          "name": "geometry.bin",
+          "sha256": "65a1076a907a012cee2f4ae809537f3a8f497897797da95e2a8f060804b7ee5a"
+        },
+        {
+          "byte_length": 12390,
+          "name": "dynamic-manifest.json",
+          "sha256": "84764eaaf5501d9b0e7afbdeca1d4be73180ba38454cccb1bf693070d4d5c734"
+        },
+        {
+          "byte_length": 8421376,
+          "name": "deformation.rgba32f",
+          "sha256": "1e57e34206d5834445ac9a11cc0c1eb83e4dff6c6da6a558f2630d9e32d4d4e0"
+        },
+        {
+          "byte_length": 13924,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "5ef8ceb0467960832b2796b7c4e4772e1017cd0670ab3bfb79cf9ffdbc105a3a"
+        },
+        {
+          "byte_length": 40058880,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "1712437ff481bc56ef1f922d58f5117b8cf67a31a8cee81d053eebf28872a9c7"
+        },
+        {
+          "byte_length": 10834,
+          "name": "runtime-control-manifest.json",
+          "sha256": "45eb6672c04938ba6a964f0e2155361671eb9c06d75b12f2e1228d59d6d6c88f"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "2fa25c754c472ed305abb9561edbda2dc3cc570e6d76d14e1e68d88fe5008cce"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "f3f37777fe2ababcbf644bf143fb2bed7fbe87e2a93412dac60135d20f673a53"
+        }
+      ],
+      "game_usage_count": 3,
+      "has_closed_eye_layer": false,
+      "has_sweat_layer": false,
+      "portrait_id": 60210,
+      "source": {
+        "byte_length": 5015968,
+        "filename": "MP060210.pck",
+        "sha256": "07b4800db2a7a69d40d2a3ec6fc72aff93942cd497084a0041cf790ed3467ff5"
+      },
+      "tags": [
+        "flustered"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "66a3bb8ed5e2fdd6c79b1dcb43b82be6ae9c212eca937f4ead4057676febc508",
+        "timeline_manifest_sha256": "6cf8782b08cb04155e8b77bdd0310d0bc040124fc0a614e5fd8d512ed4f2c628"
+      },
+      "compatibility_label": "sad",
+      "directory": "MP060211",
+      "files": [
+        {
+          "byte_length": 42458,
+          "name": "manifest.json",
+          "sha256": "2ab1b5e0fb8b3a750bdff947d269a35e0e9cea136714f3016c265838eb4ccf18"
+        },
+        {
+          "byte_length": 33554432,
+          "name": "texture.rgba8",
+          "sha256": "92eb587cd0c32d37d408e9c91e02c4634761488c58063ff54e4208fcc3a84f30"
+        },
+        {
+          "byte_length": 440920,
+          "name": "geometry.bin",
+          "sha256": "37a17c1216a8c7e1559310fea3e5882312e6f8a9dd559173b37ffec84de345e6"
+        },
+        {
+          "byte_length": 12390,
+          "name": "dynamic-manifest.json",
+          "sha256": "9c90c0edcaa94cf863b1d326f93bb25ed0a982ba44e75d717e7ff94b210c8222"
+        },
+        {
+          "byte_length": 8421376,
+          "name": "deformation.rgba32f",
+          "sha256": "98f2187f78443a40b9e8af2bb9b013adeb034480623c43b1cfc0b89f2f5a89e0"
+        },
+        {
+          "byte_length": 13924,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "3ceb432c3ae4f8a10eca85632a8eca3ecf6506bbeff24fed1ed66da76bf40c66"
+        },
+        {
+          "byte_length": 40058880,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "ebc09c4f03aa626b65066e8231a79167835873a10afe5b960e2ef38fc7ef0ec1"
+        },
+        {
+          "byte_length": 10834,
+          "name": "runtime-control-manifest.json",
+          "sha256": "a85919c58e4cc25b30cf68379fc2d481ba80f320133ac2cc3d4a2b7bb895a6b6"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "6cf8782b08cb04155e8b77bdd0310d0bc040124fc0a614e5fd8d512ed4f2c628"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "d042e7000b8a452fa3dbd48f7335aa9619b379b07e9f905b4ee04236b0a2a931"
+        }
+      ],
+      "game_usage_count": 12,
+      "has_closed_eye_layer": false,
+      "has_sweat_layer": false,
+      "portrait_id": 60211,
+      "source": {
+        "byte_length": 4989264,
+        "filename": "MP060211.pck",
+        "sha256": "bccbb4541d0d449b7f31959c2e6ae8ed22fd5f7f7195b244518d27aedfda401e"
+      },
+      "tags": [
+        "sad"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "f053b0d90d37457fd8a7a12d46bda1273a4913c3a27c934271a0771faad3200b",
+        "timeline_manifest_sha256": "8f7778e9ffb173f31675e3e1dab264fdffe0bc42fce2f437235625e8fe527ad0"
+      },
+      "compatibility_label": "embarrassed",
+      "directory": "MP060212",
+      "files": [
+        {
+          "byte_length": 44125,
+          "name": "manifest.json",
+          "sha256": "b157b36a6a5a973f95451b7f687cc4ae682fff2fcfe0c647d35c83a1a9f3f765"
+        },
+        {
+          "byte_length": 33554432,
+          "name": "texture.rgba8",
+          "sha256": "e156f032d2db1e64290c168c2fc9c8f7daac5c7795659cc191aeb0bde304eae7"
+        },
+        {
+          "byte_length": 498492,
+          "name": "geometry.bin",
+          "sha256": "46f18f5199c46830b8e6907b0482ed949180e2b4e663fb47904b15593d936c7c"
+        },
+        {
+          "byte_length": 12663,
+          "name": "dynamic-manifest.json",
+          "sha256": "a24847fff21e8884811182bb94003e336750f5331b6a13de81b9dde3e8aaffc9"
+        },
+        {
+          "byte_length": 9682944,
+          "name": "deformation.rgba32f",
+          "sha256": "13cefd8b5bdf8f8d2013911ed1d91e15494e211b12c1d105a23bed3922df2f85"
+        },
+        {
+          "byte_length": 9024,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "cb8171c6957c4d81d7c1ac0b04ea0f1e99bc4cf57376b983b0813cf0a738715f"
+        },
+        {
+          "byte_length": 16482304,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "a6f69b39e7732d8192f76858e59a322cfcbbe94a71c88949ed9cfb7ca54fd0c0"
+        },
+        {
+          "byte_length": 11093,
+          "name": "runtime-control-manifest.json",
+          "sha256": "a2373e4f3bc1e66c142c091509339eb3316fd43fa460a280feff55affece32bf"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "8f7778e9ffb173f31675e3e1dab264fdffe0bc42fce2f437235625e8fe527ad0"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "53db8c9553a57646666165fb8981e4f85de877a38490004609e5d2e06fd19297"
+        }
+      ],
+      "game_usage_count": 9,
+      "has_closed_eye_layer": true,
+      "has_sweat_layer": true,
+      "portrait_id": 60212,
+      "source": {
+        "byte_length": 5410768,
+        "filename": "MP060212.pck",
+        "sha256": "95ab70bf6fff46121ea48fc96509625ae33ccc49b76e353ab622dfdc56f22c9b"
+      },
+      "tags": [
+        "embarrassed"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "660d2dcf0212506f8610cecaf64bbb03d446c1c4524408e3be9ccc901440c1d7",
+        "timeline_manifest_sha256": "b169676e5b8d7571e4c144ef6ec0c10dfc00d279c02be9a55b31547f569867a4"
+      },
+      "compatibility_label": "shy",
+      "directory": "MP060213",
+      "files": [
+        {
+          "byte_length": 42458,
+          "name": "manifest.json",
+          "sha256": "da7257d88df42076b0f1c16ba9268fc254f096ad141b3a378edbfcdcf3428130"
+        },
+        {
+          "byte_length": 16777216,
+          "name": "texture.rgba8",
+          "sha256": "2ffa64ab8a79180aa6147edd28beede6c4dbcb3ab675a853b01749101ddab9ee"
+        },
+        {
+          "byte_length": 440920,
+          "name": "geometry.bin",
+          "sha256": "0205b183aa529243aca44c38e1bc973d8cfa7a1baa425ec70059deffa718029e"
+        },
+        {
+          "byte_length": 12390,
+          "name": "dynamic-manifest.json",
+          "sha256": "596320495ee3442adcaefc0f2369457ea3ee65155743195260f7603a5f401f35"
+        },
+        {
+          "byte_length": 8421376,
+          "name": "deformation.rgba32f",
+          "sha256": "c697e913f5335f3715e1e09def0429cf1b5b53162baf21c7cbc5d37822c7411e"
+        },
+        {
+          "byte_length": 13924,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "4d4ce23f59895a782ed4975c968644fe484ccb273722a945e1c4a8d9e18366ec"
+        },
+        {
+          "byte_length": 40058880,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "25cdd78419d23b9793bbc12274a69a640b5396beeeb9cfd11da5d865f38080a9"
+        },
+        {
+          "byte_length": 10835,
+          "name": "runtime-control-manifest.json",
+          "sha256": "eb598c9e0b0119a8411047cddb9d0f51b31f3b2f5d534cc3b3faca9856992f72"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "b169676e5b8d7571e4c144ef6ec0c10dfc00d279c02be9a55b31547f569867a4"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "bd7fd7b1019a09141bc508d367cc99f70d8204846a49ebb32e98209982f55ce9"
+        }
+      ],
+      "game_usage_count": 4,
+      "has_closed_eye_layer": false,
+      "has_sweat_layer": false,
+      "portrait_id": 60213,
+      "source": {
+        "byte_length": 5020240,
+        "filename": "MP060213.pck",
+        "sha256": "6580a7c138a4b83e1ed0ce19f7ae7e4581ef9a59a85f806e3e6ba557a5c4ff1c"
+      },
+      "tags": [
+        "shy"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "175dcf1e5c9ba6adea19e71abec29a3a8484378ab1e6f5b786efb5efa2d6cf5d",
+        "timeline_manifest_sha256": "2d1e1d6c78564d5ed0beb28901d9a21e328a8e655e7094ca8ab3085785ee2247"
+      },
+      "compatibility_label": "uneasy",
+      "directory": "MP060214",
+      "files": [
+        {
+          "byte_length": 43295,
+          "name": "manifest.json",
+          "sha256": "3e3f75c48632300e3cb208fafa009e679e68ad909cf6e457583038fb524c865f"
+        },
+        {
+          "byte_length": 16777216,
+          "name": "texture.rgba8",
+          "sha256": "cc9197bb8ffebd3fa9b52930883eef88a40dc3e688e4b9a990ac069bdcf5e73e"
+        },
+        {
+          "byte_length": 485672,
+          "name": "geometry.bin",
+          "sha256": "8c3f9e2a0fd655c117a563f16ac7c64408f0aee9e426639dfc9dd4f402f744d2"
+        },
+        {
+          "byte_length": 12528,
+          "name": "dynamic-manifest.json",
+          "sha256": "b83ffb55092ecf2243da08de4ba52927307b3bea349231ab499ac4718fa3fbab"
+        },
+        {
+          "byte_length": 9388032,
+          "name": "deformation.rgba32f",
+          "sha256": "d362bbf79584ae4b587eabaca33db6bbaf774bc4e8500c4053dc7ba908293769"
+        },
+        {
+          "byte_length": 13924,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "a7ef7ba2efa4394a401f502f4a481977158fd882f392a7e3b6f8cc9cb7cb9f0f"
+        },
+        {
+          "byte_length": 40058880,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "98e6aed3e1016d40d939b3a85439a0a4dcb0f850365b05738186e846f49ed872"
+        },
+        {
+          "byte_length": 10965,
+          "name": "runtime-control-manifest.json",
+          "sha256": "0657844fcd7abbb850f91a3336b8f3b0073be4d1f8d420b7292fb942ad3c7488"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "2d1e1d6c78564d5ed0beb28901d9a21e328a8e655e7094ca8ab3085785ee2247"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "35eb9bc3837333f738b4972183d45de255739397427dd99780e44b67fe95b914"
+        }
+      ],
+      "game_usage_count": 5,
+      "has_closed_eye_layer": false,
+      "has_sweat_layer": true,
+      "portrait_id": 60214,
+      "source": {
+        "byte_length": 5410496,
+        "filename": "MP060214.pck",
+        "sha256": "2f2491903611c67317be1487e8def9741d9fcfc618b74cb5258088c76f24de62"
+      },
+      "tags": [
+        "uneasy"
+      ]
+    },
+    {
+      "bundle_identity": {
+        "base_topology_sha256": "7f3dfd709fa7fdc6997162201873059fb818627e27d5346914d06da90c8fec54",
+        "timeline_manifest_sha256": "41432b2e2e8c40e04e48d4c8cff6c59c343a11684ebc7d9a4c34ae043cf982ff"
+      },
+      "compatibility_label": "angry",
+      "directory": "MP060215",
+      "files": [
+        {
+          "byte_length": 42470,
+          "name": "manifest.json",
+          "sha256": "401302b8f2cb99dfd5d8bfcd3e47c8f41c98d134d8decd6a4f414417097e7d41"
+        },
+        {
+          "byte_length": 33554432,
+          "name": "texture.rgba8",
+          "sha256": "9ec2c4827628e5e8dca30211dc17655f569500d20a526e906ad6b02f3d798528"
+        },
+        {
+          "byte_length": 503496,
+          "name": "geometry.bin",
+          "sha256": "130d796177adfa3c35ba8ca10f8257941a3b3d12666a93cd9184a0121cbeb1f2"
+        },
+        {
+          "byte_length": 12392,
+          "name": "dynamic-manifest.json",
+          "sha256": "615cc0c508fea0b9c1a18b33ade5433fa856e9ca7f0536a7e747b50f16f91e40"
+        },
+        {
+          "byte_length": 9781248,
+          "name": "deformation.rgba32f",
+          "sha256": "18f9ffb894c3d7e52993d6bc57f18a152fb23f1d83271cb28e17c6d6d9dac7c1"
+        },
+        {
+          "byte_length": 13924,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "137f3fccf1a2251b8981232acbfd08264b9acaa6ae43d36f9f748b1f6f9b657f"
+        },
+        {
+          "byte_length": 40058880,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "5e3722e74cea1738d5f3022b700b12b56079f127a3cd9dd089b8b30dd64a96c3"
+        },
+        {
+          "byte_length": 10834,
+          "name": "runtime-control-manifest.json",
+          "sha256": "f760dea38a545aa78950e0d48c38d51f2d07ff4200f813b890e8be105b3cd892"
+        },
+        {
+          "byte_length": 3626,
+          "name": "timeline-manifest.json",
+          "sha256": "41432b2e2e8c40e04e48d4c8cff6c59c343a11684ebc7d9a4c34ae043cf982ff"
+        },
+        {
+          "byte_length": 41280,
+          "name": "amb-channels.f32",
+          "sha256": "ca3cf82f9f7dcd46a9953ce0facde2cd2f1165c3a868bd40245c96b285c7831c"
+        }
+      ],
+      "game_usage_count": 11,
+      "has_closed_eye_layer": false,
+      "has_sweat_layer": false,
+      "portrait_id": 60215,
+      "source": {
+        "byte_length": 4977344,
+        "filename": "MP060215.pck",
+        "sha256": "46cbfea49c93ee956d5508834f741cb71001ceb76b3c1664d0184d2e38d78b5f"
+      },
+      "tags": [
+        "angry"
+      ]
+    }
+  ],
+  "selection_contract": {
+    "canonical_selector": "portrait_id",
+    "resident_cache_recommendation": 2,
+    "switching_policy": "load_selected_bundle_then_reset_its_timeline",
+    "tags_are_compatibility_labels": true
+  },
+  "source_policy": {
+    "bundle_is_local_only": true,
+    "game_assets_are_not_stored_in_source_repository": true,
+    "original_pcks_remain_read_only": true
+  },
+  "topology": {
+    "distinct_hashes": [
+      "175dcf1e5c9ba6adea19e71abec29a3a8484378ab1e6f5b786efb5efa2d6cf5d",
+      "48b82d418493c2fcaaa4552927478c31ee6c1fa7ae1596254f916f263f8a3ead",
+      "660d2dcf0212506f8610cecaf64bbb03d446c1c4524408e3be9ccc901440c1d7",
+      "66a3bb8ed5e2fdd6c79b1dcb43b82be6ae9c212eca937f4ead4057676febc508",
+      "6f06e2d3e1698ab72a808979f6f2c1a51a6e0b70cbd5f5c4fad07a053bd071f4",
+      "7589c59a36462d244fe79ed44d2c7d7656e650a737259ab87a3d7c6ee9644b3e",
+      "7f3dfd709fa7fdc6997162201873059fb818627e27d5346914d06da90c8fec54",
+      "7fc07e54fda4154a52a949eb292582867650f83f768a0df38804a3d5cab4d815",
+      "87a26edb42b78efd50cbcea8cad39979f021be84b61ffb1a1050ca2907626b53",
+      "9b63ff45b7eea62c4126a1a128eb9e001cb3aba77558a7e476e82766ba8ad794",
+      "9f6090d312247f09a47297ac97173cb4fbae516dd204633c40f1e9fbc9c2f19a",
+      "a8c6aed9623e0844e6abbf118854cd5a08905f5b46baca27698a5ca9eae6f71a",
+      "cd7d964fb54ab8dfa80798618536c8da158db481b4ee00786d16c6030031789e",
+      "e02ac04b214b3926df96268b824d3d8f76ab2ffdc44c4e9d58cec73ccc2b93cc",
+      "f053b0d90d37457fd8a7a12d46bda1273a4913c3a27c934271a0771faad3200b"
+    ],
+    "shared_across_all_portraits": false
+  },
+  "version": 1
+}

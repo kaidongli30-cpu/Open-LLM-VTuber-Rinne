@@ -1,0 +1,499 @@
+{
+  "acceptance_sample": {
+    "neck_rotation": [
+      2.0,
+      -1.5,
+      1.0
+    ],
+    "neck_translation": [
+      0.015,
+      -0.01,
+      0.005
+    ],
+    "record_opacities": [
+      0.800000011920929,
+      0.8500000238418579,
+      0.8999999761581421,
+      0.949999988079071,
+      1.0,
+      0.800000011920929,
+      0.8500000238418579,
+      0.8999999761581421,
+      0.949999988079071,
+      1.0,
+      0.800000011920929,
+      0.8500000238418579,
+      0.8999999761581421,
+      0.949999988079071,
+      1.0,
+      0.800000011920929,
+      0.8500000238418579,
+      0.8999999761581421,
+      0.949999988079071,
+      1.0,
+      0.800000011920929,
+      0.8500000238418579,
+      0.8999999761581421,
+      0.949999988079071,
+      1.0,
+      1.0
+    ]
+  },
+  "capabilities": [
+    "neck_pose",
+    "render_record_opacity"
+  ],
+  "eye_bundle": {
+    "base_topology_sha256": "660d2dcf0212506f8610cecaf64bbb03d446c1c4524408e3be9ccc901440c1d7",
+    "deformation_sha256": "25cdd78419d23b9793bbc12274a69a640b5396beeeb9cfd11da5d865f38080a9",
+    "manifest_sha256": "4d4ce23f59895a782ed4975c968644fe484ccb273722a945e1c4a8d9e18366ec"
+  },
+  "format": "rinne-legacy-gpu-runtime-controls",
+  "neck": {
+    "input_rotation_unit": "degrees",
+    "input_translation_space": "legacy_model_xyz",
+    "matrix_convention": "row_vector_x_then_y_then_z_float32",
+    "pivot_xyz": [
+      -0.01415407657623291,
+      1.2477154731750488,
+      -0.3244316577911377
+    ]
+  },
+  "opacity": {
+    "mesh_bindings": [
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 0,
+        "pass": "eye_buffer",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 1,
+        "pass": "eye_buffer",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 2,
+        "pass": "eye_buffer",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 3,
+        "pass": "eye_buffer",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 0,
+        "pass": "mask_buffer",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 1,
+        "pass": "mask_buffer",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 2,
+        "pass": "mask_buffer",
+        "record_index": 12
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 0,
+        "pass": "before_trigger",
+        "record_index": 0
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 1,
+        "pass": "before_trigger",
+        "record_index": 1
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 2,
+        "pass": "before_trigger",
+        "record_index": 2
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 3,
+        "pass": "before_trigger",
+        "record_index": 3
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 4,
+        "pass": "before_trigger",
+        "record_index": 4
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 5,
+        "pass": "before_trigger",
+        "record_index": 5
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 6,
+        "pass": "before_trigger",
+        "record_index": 6
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 7,
+        "pass": "before_trigger",
+        "record_index": 8
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 8,
+        "pass": "before_trigger",
+        "record_index": 9
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 9,
+        "pass": "before_trigger",
+        "record_index": 10
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 10,
+        "pass": "before_trigger",
+        "record_index": 11
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 11,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 12,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 13,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 14,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 15,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 16,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 17,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 18,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 19,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 20,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 21,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 22,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 23,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 24,
+        "pass": "before_trigger",
+        "record_index": 12
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 25,
+        "pass": "before_trigger",
+        "record_index": 14
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 26,
+        "pass": "before_trigger",
+        "record_index": 15
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 27,
+        "pass": "before_trigger",
+        "record_index": 15
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 28,
+        "pass": "before_trigger",
+        "record_index": 16
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 29,
+        "pass": "before_trigger",
+        "record_index": 17
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 30,
+        "pass": "before_trigger",
+        "record_index": 18
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 31,
+        "pass": "before_trigger",
+        "record_index": 20
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 0,
+        "pass": "final_eye_overlay",
+        "record_index": 12
+      },
+      {
+        "curve": "type0_fourth_power",
+        "mesh_index": 1,
+        "pass": "final_eye_overlay",
+        "record_index": 12
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 0,
+        "pass": "after_trigger",
+        "record_index": 21
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 1,
+        "pass": "after_trigger",
+        "record_index": 22
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 2,
+        "pass": "after_trigger",
+        "record_index": 23
+      },
+      {
+        "curve": "direct",
+        "mesh_index": 3,
+        "pass": "after_trigger",
+        "record_index": 23
+      }
+    ],
+    "record_count": 26,
+    "records": [
+      {
+        "curve": "direct",
+        "index": 0,
+        "initial_opacity": 1.0,
+        "type_id": 12
+      },
+      {
+        "curve": "direct",
+        "index": 1,
+        "initial_opacity": 1.0,
+        "type_id": 16
+      },
+      {
+        "curve": "direct",
+        "index": 2,
+        "initial_opacity": 1.0,
+        "type_id": 5
+      },
+      {
+        "curve": "direct",
+        "index": 3,
+        "initial_opacity": 1.0,
+        "type_id": 17
+      },
+      {
+        "curve": "direct",
+        "index": 4,
+        "initial_opacity": 1.0,
+        "type_id": 14
+      },
+      {
+        "curve": "direct",
+        "index": 5,
+        "initial_opacity": 1.0,
+        "type_id": 6
+      },
+      {
+        "curve": "direct",
+        "index": 6,
+        "initial_opacity": 1.0,
+        "type_id": 3
+      },
+      {
+        "curve": "direct",
+        "index": 7,
+        "initial_opacity": 1.0,
+        "type_id": 22
+      },
+      {
+        "curve": "direct",
+        "index": 8,
+        "initial_opacity": 1.0,
+        "type_id": 8
+      },
+      {
+        "curve": "direct",
+        "index": 9,
+        "initial_opacity": 1.0,
+        "type_id": 4
+      },
+      {
+        "curve": "direct",
+        "index": 10,
+        "initial_opacity": 1.0,
+        "type_id": 11
+      },
+      {
+        "curve": "direct",
+        "index": 11,
+        "initial_opacity": 1.0,
+        "type_id": 15
+      },
+      {
+        "curve": "type0_fourth_power",
+        "index": 12,
+        "initial_opacity": 1.0,
+        "type_id": 0
+      },
+      {
+        "curve": "direct",
+        "index": 13,
+        "initial_opacity": 1.0,
+        "type_id": 20
+      },
+      {
+        "curve": "direct",
+        "index": 14,
+        "initial_opacity": 1.0,
+        "type_id": 7
+      },
+      {
+        "curve": "direct",
+        "index": 15,
+        "initial_opacity": 1.0,
+        "type_id": 2
+      },
+      {
+        "curve": "direct",
+        "index": 16,
+        "initial_opacity": 1.0,
+        "type_id": 9
+      },
+      {
+        "curve": "direct",
+        "index": 17,
+        "initial_opacity": 1.0,
+        "type_id": 19
+      },
+      {
+        "curve": "direct",
+        "index": 18,
+        "initial_opacity": 1.0,
+        "type_id": 21
+      },
+      {
+        "curve": "direct",
+        "index": 19,
+        "initial_opacity": 1.0,
+        "type_id": 10
+      },
+      {
+        "curve": "direct",
+        "index": 20,
+        "initial_opacity": 1.0,
+        "type_id": 18
+      },
+      {
+        "curve": "direct",
+        "index": 21,
+        "initial_opacity": 1.0,
+        "type_id": 23
+      },
+      {
+        "curve": "direct",
+        "index": 22,
+        "initial_opacity": 1.0,
+        "type_id": 13
+      },
+      {
+        "curve": "direct",
+        "index": 23,
+        "initial_opacity": 1.0,
+        "type_id": 1
+      },
+      {
+        "curve": "direct",
+        "index": 24,
+        "initial_opacity": 1.0,
+        "type_id": 24
+      },
+      {
+        "curve": "direct",
+        "index": 25,
+        "initial_opacity": 1.0,
+        "type_id": 25
+      }
+    ]
+  },
+  "unsupported_controls": [
+    "amb_playback"
+  ],
+  "version": 1
+}
