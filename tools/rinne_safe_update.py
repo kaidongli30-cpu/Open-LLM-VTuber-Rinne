@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import tempfile
 from collections.abc import Mapping
@@ -132,6 +133,21 @@ def apply_local_overlay(user_text: str, overlay_text: str) -> str:
     return output.getvalue()
 
 
+def _ensure_backend_stopped(config_text: str) -> None:
+    config = _parse_config(config_text)
+    system = config.get("system_config")
+    if not isinstance(system, Mapping):
+        return
+    port = system.get("port")
+    if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+        return
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.3):
+            raise UpdateError("请先关闭正在运行的凛祢后端，再点击更新；未修改文件")
+    except OSError:
+        return
+
+
 def _atomic_write(path: Path, data: bytes) -> None:
     temporary: Path | None = None
     try:
@@ -167,7 +183,9 @@ def _check_checkout() -> None:
         raise UpdateError("暂存区有本地改动；未修改文件")
 
 
-def _latest_release_tag() -> str | None:
+def _latest_release_tag(requested_tag: str | None = None) -> str | None:
+    if requested_tag is not None and not APP_RELEASE_TAG.fullmatch(requested_tag):
+        raise UpdateError("指定的正式版本格式无效；未修改文件")
     request = Request(
         APP_RELEASES_API,
         headers={
@@ -204,10 +222,16 @@ def _latest_release_tag() -> str | None:
         match = APP_RELEASE_TAG.fullmatch(tag)
         if match:
             candidates.append((tuple(map(int, match.groups())), tag))
+    if requested_tag is not None:
+        if any(tag == requested_tag for _, tag in candidates):
+            return requested_tag
+        raise UpdateError("指定的后端正式版本尚未发布；未修改文件")
     return max(candidates)[1] if candidates else None
 
 
-def run_update(*, apply: bool) -> tuple[str, Path | None]:
+def run_update(
+    *, apply: bool, release_tag: str | None = None
+) -> tuple[str, Path | None]:
     _check_checkout()
     config_path = ROOT / "conf.yaml"
     user_bytes = config_path.read_bytes()
@@ -218,14 +242,22 @@ def run_update(*, apply: bool) -> tuple[str, Path | None]:
         user_text = apply_local_overlay(
             user_text, overlay_path.read_bytes().decode("utf-8-sig")
         )
+    if apply:
+        _ensure_backend_stopped(user_text)
     head = _git("rev-parse", "HEAD")
-    release_tag = _latest_release_tag()
+    release_tag = (
+        _latest_release_tag(release_tag)
+        if release_tag is not None
+        else _latest_release_tag()
+    )
     if release_tag is None:
         return "暂无正式应用版本", None
     _git("fetch", "origin", "tag", release_tag)
     target = _git("rev-parse", f"refs/tags/{release_tag}^{{commit}}")
     needs_git_update = head != target
     if not needs_git_update and not overlay_present:
+        if apply:
+            _git("submodule", "update", "--init", "--recursive")
         return "已经是最新版", None
     if needs_git_update and _git("merge-base", head, target) != head:
         raise UpdateError("本地与 GitHub 的提交已分叉，不能自动更新；未修改文件")
@@ -287,9 +319,12 @@ def run_update(*, apply: bool) -> tuple[str, Path | None]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="安全更新凛祢并保留本机 conf.yaml")
     parser.add_argument("--apply", action="store_true", help="备份配置后执行更新")
+    parser.add_argument(
+        "--release", help="只更新到此正式后端版本，例如 rinne-app-v1.2.2"
+    )
     args = parser.parse_args()
     try:
-        message, backup = run_update(apply=args.apply)
+        message, backup = run_update(apply=args.apply, release_tag=args.release)
     except (UpdateError, OSError, UnicodeError, ValueError) as error:
         print(
             error
