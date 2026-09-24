@@ -17,7 +17,7 @@
 
 ## 1. 准备软件
 
-需要 Git、[uv](https://docs.astral.sh/uv/getting-started/installation/) 和 Python 3.10–3.12（推荐 3.12）。还需要 [Ollama](https://ollama.com/download/windows)、[7-Zip](https://www.7-zip.org/) 与 [GPT-SoVITS 官方 Windows 整合包 `GPT-SoVITS-v2pro-20250604.7z`](https://huggingface.co/lj1995/GPT-SoVITS-windows-package/blob/8b081e1fa1b3ad121e0f310e525dc80fcf15becc/GPT-SoVITS-v2pro-20250604.7z)；下载并解压整合包，记住**直接包含 `api_v2.py` 和 `runtime\python.exe` 的目录**，后文称为“语音目录”。确认基础命令：
+需要 Git、[uv](https://docs.astral.sh/uv/getting-started/installation/) 和 Python 3.10–3.12（推荐 3.12）。还需要 [Ollama](https://ollama.com/download/windows) 和 [7-Zip](https://www.7-zip.org/)。语音程序会在后面的语音安装步骤中下载。确认基础命令：
 
 PowerShell 或 CMD：
 
@@ -68,7 +68,7 @@ uv sync
 
 例如，拿到 APINebula 密钥后，把 `openai_compatible_llm` 下面的 `llm_api_key: ''` 改成 `llm_api_key: '你的实际密钥'`。其余三处做法相同。如果 Gemini 也通过 APINebula 调用，在视频观察那一处填写可用于该模型的密钥。保存后重新启动后端，修改才会生效。项目目录里的虚拟环境和前端构建文件会留在所选磁盘；其他软件自己的下载缓存可能仍按各自默认设置使用 C 盘。
 
-### 安装 V2 语音
+### 下载本地模型
 
 先确保 Ollama 已启动，再在 PowerShell 或 CMD 执行：
 
@@ -78,9 +78,13 @@ ollama pull mistral-small3.2:24b
 ollama list
 ```
 
-最后一行应能看到两个模型。`mistral-small3.2:24b` 用于每日子事件。接下来安装凛祢 V2 语音权重。以下以 `D:\Rinne-Voice\GPT-SoVITS-v2pro-20250604` 为语音目录；请换成你实际解压后、直接包含 `api_v2.py` 和 `runtime\python.exe` 的文件夹。
+最后一行应能看到两个模型。`mistral-small3.2:24b` 用于每日子事件。
 
-打开 [凛祢 V2 语音权重下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases/tag/rinne-gpt-sovits-v2-20260923)，下载页面下方的两个文件，不要改文件名。用文件资源管理器把它们分别放到：
+### 安装 V2 语音
+
+先下载 [GPT-SoVITS 官方 Windows 整合包 `GPT-SoVITS-v2pro-20250604.7z`](https://huggingface.co/lj1995/GPT-SoVITS-windows-package/blob/8b081e1fa1b3ad121e0f310e525dc80fcf15becc/GPT-SoVITS-v2pro-20250604.7z)，用 7-Zip 解压到你想放语音程序的位置。打开解压出来的文件夹，找到**直接包含 `api_v2.py` 文件和 `runtime` 文件夹**的那一层；下文把这一层称为“语音目录”。如果解压后有两层同名文件夹，请进入里面那一层，以实际看到 `api_v2.py` 为准。
+
+然后打开 [凛祢 V2 语音权重下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases/tag/rinne-gpt-sovits-v2-20260923)，下载页面下方的两个文件，不要改文件名。用文件资源管理器把它们分别放到刚才找到的语音目录中：
 
 | 下载的文件 | 放到语音目录中的位置 |
 | --- | --- |
@@ -102,23 +106,21 @@ custom:
 
 保存文件。这里的 `custom:`、两个权重路径和 `version: v2` 决定 GPT-SoVITS 实际加载凛祢声线；仅把文件放进文件夹、但不修改这几行，不会使用凛祢的权重。
 
-另开一个命令窗口，进入**语音目录**并启动 GPT-SoVITS。PowerShell：
+配置保存后，仍在文件资源管理器中打开**语音目录**，也就是能直接看到 `api_v2.py` 的那个文件夹。单击窗口上方的地址栏，输入 `powershell` 并按回车；新打开的 PowerShell 会自动位于这个文件夹。输入：
 
 ```powershell
-Set-Location 'D:\Rinne-Voice\GPT-SoVITS-v2pro-20250604'
 .\runtime\python.exe .\api_v2.py
 ```
 
-CMD：
+如果使用 CMD，就在同一个文件夹的地址栏输入 `cmd` 并按回车，然后输入：
 
 ```bat
-cd /d "D:\Rinne-Voice\GPT-SoVITS-v2pro-20250604"
 runtime\python.exe api_v2.py
 ```
 
-让这个语音窗口保持运行，默认监听本机 `9880`，与 `conf.yaml` 中的语音地址一致。若端口已被占用，可启动语音服务时指定其他端口，并在 `conf.yaml` 中修改 `character_config.tts_config.gpt_sovits_tts.api_url`。参考 WAV 已包含在项目中，无需从游戏提取。
+让这个语音窗口保持运行；语音服务默认使用本机 `9880` 端口，与 `conf.yaml` 中的语音地址一致。参考 WAV 已包含在项目中，无需从游戏提取。
 
-回到项目目录的命令窗口启动后端，并让它保持运行。下面的游戏资源导入和桌面客户端构建命令请**另开命令窗口**执行；新窗口先进入项目根目录（PowerShell：`Set-Location 'D:\AI\Open-LLM-VTuber-Rinne'`；CMD：`cd /d "D:\AI\Open-LLM-VTuber-Rinne"`），再运行后面的命令。
+回到项目目录的命令窗口启动后端，并让它保持运行。下面的游戏资源导入命令请**另开命令窗口**执行；新窗口先进入项目根目录（PowerShell：`Set-Location 'D:\AI\Open-LLM-VTuber-Rinne'`；CMD：`cd /d "D:\AI\Open-LLM-VTuber-Rinne"`），再运行后面的命令。
 
 ```text
 uv run run_server.py
