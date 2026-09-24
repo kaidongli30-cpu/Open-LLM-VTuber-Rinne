@@ -2,7 +2,7 @@
 
 凛祢桌面客户端：对话、日记与第二层背景、游戏原画渲染及换装。项目基于 Open-LLM-VTuber；桌面客户端源码位于 [前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)，本仓库的 `frontend` 是指向它的 Git 子模块。
 
-准备好自己电脑上的《凛祢乌托邦》与《凛绪轮回》游戏文件，安装过程中会从中导入凛祢肖像。GPT-SoVITS V2 参考 WAV 已包含在项目中，两份语音权重由安装脚本下载。项目自制服装按 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md) 授权，商业使用需另行获得许可。
+准备好自己电脑上的《凛祢乌托邦》与《凛绪轮回》游戏文件，安装过程中会从中导入凛祢肖像。GPT-SoVITS V2 参考 WAV 已包含在项目中，两份语音权重从项目 Release 手动下载。项目自制服装按 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md) 授权，商业使用需另行获得许可。
 
 本指南以 Windows PowerShell 和 CMD 为主。完成安装后，可在桌面客户端看到游戏原画凛祢、进行文字或语音对话，并听到 GPT-SoVITS V2 声线。语音翻译使用本地 Ollama 的 `qwen3.5:4b-q4_K_M`；SenseVoice 用于麦克风识别。近期记忆检索、每日子事件和已审核日记的第二层背景也已启用。没有日记时不会凭空生成背景。
 
@@ -33,7 +33,7 @@ uv python install 3.12
 ollama --version
 ```
 
-翻译模型约 3.4 GB、每日子事件模型约 15 GB，另需 GPT-SoVITS 整合包、约 1 GB 的 SenseVoice 模型及首次记忆检索所需的模型缓存，预留足够磁盘空间。前端桌面源码构建还需要 Node.js 和 npm；只运行后端不需要它们。
+翻译模型约 3.4 GB、每日子事件模型约 15 GB，另需 GPT-SoVITS 整合包、约 1 GB 的 SenseVoice 模型及首次记忆检索所需的模型缓存，预留足够磁盘空间。
 
 ## 2. 全新部署
 
@@ -78,34 +78,42 @@ ollama pull mistral-small3.2:24b
 ollama list
 ```
 
-最后一行应能看到两个模型。`mistral-small3.2:24b` 用于每日子事件。接着在**后端项目根目录**安装凛祢 V2 权重。把下面的语音目录示例换成你的实际解压路径。
+最后一行应能看到两个模型。`mistral-small3.2:24b` 用于每日子事件。接下来安装凛祢 V2 语音权重。以下以 `D:\Rinne-Voice\GPT-SoVITS-v2pro-20250604` 为语音目录；请换成你实际解压后、直接包含 `api_v2.py` 和 `runtime\python.exe` 的文件夹。
 
-PowerShell：
+打开 [凛祢 V2 语音权重下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases/tag/rinne-gpt-sovits-v2-20260923)，下载页面下方的两个文件，不要改文件名。用文件资源管理器把它们分别放到：
 
-```powershell
-uv run python .\setup_rinne_voice.py --gpt-root 'D:\Rinne-Voice\GPT-SoVITS-v2pro-20250604'
+| 下载的文件 | 放到语音目录中的位置 |
+| --- | --- |
+| `rinne_e15.ckpt` | `GPT_weights_v2\rinne_e15.ckpt` |
+| `rinne_e8_s456.pth` | `SoVITS_weights_v2\rinne_e8_s456.pth` |
+
+如果 `GPT_weights_v2` 或 `SoVITS_weights_v2` 文件夹不存在，就在语音目录中新建。然后用记事本打开语音目录里的 `GPT_SoVITS\configs\tts_infer.yaml`，把文件最上方的 `custom:` 部分改成下面这样；下面的 `v1:`、`v2:` 等部分保持原样：
+
+```yaml
+custom:
+  bert_base_path: GPT_SoVITS/pretrained_models/chinese-roberta-wwm-ext-large
+  cnhuhbert_base_path: GPT_SoVITS/pretrained_models/chinese-hubert-base
+  device: cpu
+  is_half: false
+  t2s_weights_path: GPT_weights_v2/rinne_e15.ckpt
+  version: v2
+  vits_weights_path: SoVITS_weights_v2/rinne_e8_s456.pth
 ```
 
-CMD：
-
-```bat
-uv run python setup_rinne_voice.py --gpt-root "D:\Rinne-Voice\GPT-SoVITS-v2pro-20250604"
-```
-
-脚本从 [V2 语音权重 Release](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases/tag/rinne-gpt-sovits-v2-20260923) 下载并校验两份模型，在语音目录生成 `rinne_public_v2_tts_infer.yaml`。文件校验失败时会报错并停止，请检查下载和整合包版本。
+保存文件。这里的 `custom:`、两个权重路径和 `version: v2` 决定 GPT-SoVITS 实际加载凛祢声线；仅把文件放进文件夹、但不修改这几行，不会使用凛祢的权重。
 
 另开一个命令窗口，进入**语音目录**并启动 GPT-SoVITS。PowerShell：
 
 ```powershell
 Set-Location 'D:\Rinne-Voice\GPT-SoVITS-v2pro-20250604'
-.\runtime\python.exe .\api_v2.py -c .\rinne_public_v2_tts_infer.yaml
+.\runtime\python.exe .\api_v2.py
 ```
 
 CMD：
 
 ```bat
 cd /d "D:\Rinne-Voice\GPT-SoVITS-v2pro-20250604"
-runtime\python.exe api_v2.py -c rinne_public_v2_tts_infer.yaml
+runtime\python.exe api_v2.py
 ```
 
 让这个语音窗口保持运行，默认监听本机 `9880`，与 `conf.yaml` 中的语音地址一致。若端口已被占用，可启动语音服务时指定其他端口，并在 `conf.yaml` 中修改 `character_config.tts_config.gpt_sovits_tts.api_url`。参考 WAV 已包含在项目中，无需从游戏提取。
@@ -148,17 +156,14 @@ uv run python setup_rinne_game_assets.py status
 
 在 CMD 中把路径两侧的单引号改成双引号。第 5 套是灵装：七个原生肖像从你本机的 PCK 生成，三个自制透明表情补丁已包含在项目中。导入器把转换结果放入本机应用数据目录，并在被忽略的 `local_config` 建立指针；不会修改 PCK。每套转换可能需要较长时间。手动配置、状态检查与安全移除见 [游戏资源导入说明](public_docs/GAME_ASSET_SETUP.md)。全部导入后应完全退出并重新启动桌面前端。
 
-### 从源码启动桌面前端
+### 安装桌面客户端
 
-仓库中的 `frontend` 同时包含服务器使用的页面和与本版后端配套的桌面客户端源码。要运行 Live Mode、Pet Mode 和本地游戏肖像，请从这个已固定版本的子模块构建桌面客户端：
+在后端窗口保持运行的情况下，打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v1.2.1-20260924)。这是与本版后端配套的 64 位客户端，选择一种方式即可：
 
-```powershell
-Set-Location .\frontend\source
-npm ci
-npm run build:unpack
-```
+- **安装程序**：下载 `open-llm-vtuber-1.2.1-setup.exe`，双击运行。安装过程中可以选择 D 盘等位置；完成后双击桌面快捷方式打开凛祢。
+- **便携包**：下载 `open-llm-vtuber-electron-1.2.1-win.zip`，解压到你想放的位置，再双击其中的 `open-llm-vtuber-electron.exe`。想放到桌面，可右键该 exe，选择“发送到 → 桌面快捷方式”。
 
-CMD 中把 `Set-Location` 换成 `cd`，其余命令相同。构建完成后，在 `source\release\1.2.1\win-unpacked` 中启动 `open-llm-vtuber-electron.exe`。请保持后端窗口运行。如果输出目录随版本变化，以实际 `win-unpacked` 目录为准。
+两种方式都使用本机运行的后端；先启动后端，再点击客户端与凛祢对话。便携包不需要运行安装程序。
 
 安装后依次检查：`status` 显示肖像资源完整；桌面客户端显示凛祢；Live Mode 可以选择服装；输入文字后能收到回复并听到语音；切换灵装后仍能正常对话。若有文字但没有声音，检查 Ollama、GPT-SoVITS 两个窗口和后端日志。若没有画面，检查导入器状态并完全重启桌面客户端。
 
@@ -247,5 +252,5 @@ uv run python -m src.open_llm_vtuber.memory.layer2_backfill --approve-interactiv
 - **换装菜单没有某套**：先运行该套 `build --outfit-number N` 并用 `status` 验证；菜单只展示完整可用的资源。作者自制服装的本地游戏头部合成也依赖用户自己的原画运行包。
 - **API 连接失败**：检查自己的 Key、额度与网络；需要代理时，先确认代理服务已启动，再设置本地代理地址。
 - **运行时找不到前端**：执行 `git submodule update --init --recursive`，确认 `frontend\index.html` 存在。
-- **文字正常但没声音**：确认 Ollama 的 `qwen3.5:4b-q4_K_M` 已安装并运行、GPT-SoVITS 使用 `rinne_public_v2_tts_infer.yaml` 启动、语音端口与本地 `conf.yaml` 匹配。
+- **文字正常但没声音**：确认 Ollama 的 `qwen3.5:4b-q4_K_M` 已安装并运行、两个语音权重已放到指定位置、`GPT_SoVITS\configs\tts_infer.yaml` 的 `custom:` 已按上文修改，以及语音端口与本地 `conf.yaml` 匹配。
 - **旧记忆没出现**：确认正在启动的是正确的后端目录、`conf_uid=rinne_01`、`RINNE_DATA_ROOT` 没指错；不要删除旧 `chat_history`。
