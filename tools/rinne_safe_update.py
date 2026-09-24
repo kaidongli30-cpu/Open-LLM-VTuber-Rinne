@@ -84,6 +84,15 @@ def merge_config(old_text: str, user_text: str, new_text: str) -> tuple[str, lis
             return MISSING if new_node is MISSING else copy.deepcopy(new_node)
         if new_node == old_node:
             return user_node
+        if (
+            path
+            and path[-1].lower().endswith("api_key")
+            and new_node == ""
+            and isinstance(user_node, str)
+        ):
+            # New public defaults intentionally leave credentials blank. A
+            # filled-in key from an older checkout belongs to the user.
+            return user_node
         if isinstance(user_node, Mapping) and isinstance(new_node, Mapping):
             if old_node is MISSING:
                 old_node = {}
