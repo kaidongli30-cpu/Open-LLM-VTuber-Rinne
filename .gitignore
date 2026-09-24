@@ -74,6 +74,7 @@ openapi_memgpt.json
 mem.json
 conf.yaml.backup
 conf.yaml.backup-*
+conf.yaml.updating-*.tmp
 
 *.exe
 
