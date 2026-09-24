@@ -100,6 +100,24 @@ def merge_config(old_text: str, user_text: str, new_text: str) -> tuple[str, lis
     return result, []
 
 
+def apply_local_overlay(user_text: str, overlay_text: str) -> str:
+    """Materialize an older conf.local.yaml into the directly editable config."""
+    user = copy.deepcopy(_parse_config(user_text))
+    overlay = _parse_config(overlay_text)
+
+    def apply(target: Any, source: Mapping[str, Any]) -> None:
+        for key, value in source.items():
+            if isinstance(value, Mapping) and isinstance(target.get(key), Mapping):
+                apply(target[key], value)
+            else:
+                target[key] = copy.deepcopy(value)
+
+    apply(user, overlay)
+    output = io.StringIO()
+    _yaml().dump(user, output)
+    return output.getvalue()
+
+
 def _atomic_write(path: Path, data: bytes) -> None:
     temporary: Path | None = None
     try:
@@ -137,12 +155,19 @@ def run_update(*, apply: bool) -> tuple[str, Path | None]:
     config_path = ROOT / "conf.yaml"
     user_bytes = config_path.read_bytes()
     user_text = user_bytes.decode("utf-8-sig")
+    overlay_path = ROOT / "conf.local.yaml"
+    overlay_present = overlay_path.is_file()
+    if overlay_present:
+        user_text = apply_local_overlay(
+            user_text, overlay_path.read_bytes().decode("utf-8-sig")
+        )
     _git("fetch", "origin", "main")
     head = _git("rev-parse", "HEAD")
     target = _git("rev-parse", "origin/main")
-    if head == target:
+    needs_git_update = head != target
+    if not needs_git_update and not overlay_present:
         return "已经是最新版", None
-    if _git("merge-base", head, target) != head:
+    if needs_git_update and _git("merge-base", head, target) != head:
         raise UpdateError("本地与 GitHub 的提交已分叉，不能自动更新；未修改文件")
 
     old_text = _git("show", f"{head}:conf.yaml", strip=False)
@@ -152,33 +177,50 @@ def run_update(*, apply: bool) -> tuple[str, Path | None]:
         fields = "、".join(conflicts)
         raise UpdateError(f"这些配置项在本机和新版中都被修改：{fields}；未修改文件")
     if not apply:
-        return "发现可更新版本；配置可安全合并", None
+        return (
+            "发现可更新版本；配置可安全合并"
+            if needs_git_update
+            else "代码已是最新版；旧版配置可迁入 conf.yaml",
+            None,
+        )
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     backup = config_path.with_name(f"conf.yaml.backup-{stamp}")
     if backup.exists():
         raise UpdateError("配置备份文件名冲突；未修改文件")
+    overlay_backup = overlay_path.with_name(f"conf.local.yaml.backup-{stamp}")
+    if overlay_present and overlay_backup.exists():
+        raise UpdateError("旧配置备份文件名冲突；未修改文件")
     shutil.copy2(config_path, backup)
-    try:
-        # Return only this tracked file to its exact HEAD bytes so a fast-forward
-        # can proceed. The user's copy is already safely backed up above.
-        _atomic_write(config_path, old_text.encode("utf-8"))
-        # Refresh Git's index stat cache after replacing the file on Windows.
-        _git("add", "--", "conf.yaml")
-        _git("diff", "--cached", "--quiet")
-        _git("merge", "--ff-only", target)
-    except Exception:
-        if _git("rev-parse", "HEAD") == head:
-            _atomic_write(config_path, user_bytes)
-        else:
-            _atomic_write(config_path, merged_text.encode("utf-8"))
-        raise
+    if needs_git_update:
+        try:
+            # Return only this tracked file to its exact HEAD bytes so a
+            # fast-forward can proceed. The user's copy is backed up above.
+            _atomic_write(config_path, old_text.encode("utf-8"))
+            # Refresh Git's index stat cache after replacing the file on Windows.
+            _git("add", "--", "conf.yaml")
+            _git("diff", "--cached", "--quiet")
+            _git("merge", "--ff-only", target)
+        except Exception:
+            if _git("rev-parse", "HEAD") == head:
+                _atomic_write(config_path, user_bytes)
+            else:
+                _atomic_write(config_path, merged_text.encode("utf-8"))
+            raise
     try:
         _atomic_write(config_path, merged_text.encode("utf-8"))
     except OSError:
         _atomic_write(config_path, user_bytes)
         raise
-    _git("submodule", "update", "--init", "--recursive")
+    if needs_git_update:
+        _git("submodule", "update", "--init", "--recursive")
+    if overlay_present:
+        os.replace(overlay_path, overlay_backup)
+        return (
+            f"更新完成；旧版配置已转入 conf.yaml，旧覆盖文件备份：{overlay_backup}。"
+            "重启后端和桌面客户端后生效",
+            backup,
+        )
     return "更新完成；重启后端和桌面客户端后生效", backup
 
 
