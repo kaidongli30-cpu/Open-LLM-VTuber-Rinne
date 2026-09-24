@@ -131,7 +131,7 @@ uv run run_server.py
 
 ### 安装桌面客户端
 
-在后端窗口保持运行的情况下，打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v1.2.1-20260924)，下载与本版后端配套的 64 位安装程序 `open-llm-vtuber-1.2.1-setup.exe`。双击运行，安装过程中可以选择 D 盘等位置；完成后双击桌面快捷方式打开凛祢。先启动后端，再点击客户端与凛祢对话。
+在后端窗口保持运行的情况下，打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v1.2.2-20260924)，下载与本版后端配套的 64 位安装程序 `open-llm-vtuber-1.2.2-setup.exe`。双击运行，安装过程中可以选择 D 盘等位置；完成后双击桌面快捷方式打开凛祢。先启动后端，再点击客户端与凛祢对话。
 
 安装后依次检查：桌面客户端显示凛祢；Live Mode 可以选择九套服装；输入文字后能收到回复并听到语音；切换灵装后仍能正常对话。若有文字但没有声音，检查 Ollama、GPT-SoVITS 两个窗口和后端日志。若没有画面，请完全退出客户端并重新启动；仍不正常时，在项目目录运行 `uv run python setup_rinne_game_assets.py status` 检查服装文件。
 
@@ -145,7 +145,11 @@ uv run run_server.py
 
 ## 4. 已有用户升级而不是重装
 
-升级前先关闭桌面客户端和旧后端，并在文件资源管理器中把 `conf.yaml`、整个 `chat_history` 和 `rinne_library` 复制到项目目录之外保存；如果有 `conf.local.yaml`，也一起复制。确认备份可打开后，继续在**原项目目录**升级，不需要删除旧版或把密钥重新填写一遍。
+升级前先在文件资源管理器中把 `conf.yaml`、整个 `chat_history` 和 `rinne_library` 复制到项目目录之外保存；如果有 `conf.local.yaml`，也一起复制。确认备份可打开后，继续在**原项目目录**升级，不需要删除旧版或把密钥重新填写一遍。
+
+如果你已安装 1.2.2 或之后的客户端：等客户端提示有新正式版本时，先关闭正在运行的凛祢后端，再点提示中的“更新”。第一次会让你选择一次后端项目文件夹（就是你平时打开 `conf.yaml`、运行 `uv run run_server.py` 的文件夹），之后客户端会记住它。客户端先更新该文件夹中的后端和依赖，再打开新版安装包下载页。下载 `.exe` 后，完全退出旧客户端，运行安装程序；安装完后按平时的顺序重启语音服务、后端和客户端。若更新遇到配置冲突，程序会停止并说明冲突项，不会替你决定保留哪一份。
+
+如果你现在用的是 1.2.1 或更早的客户端，请先用下面的命令把后端升级到配套正式版本，**然后**再安装新版客户端。旧客户端的版本提示只会打开安装包页面，不会替你更新后端。
 
 - **原目录内升级**：更新代码和子模块，保留本机的 `conf.yaml`、`chat_history`、`rinne_library` 和 `local_config`；检查 `conf_uid` 仍是 `rinne_01`。代码默认继续使用 `chat_history\rinne_01`，不会清空旧记忆。旧版如有 `conf.local.yaml`，更新工具会把其中的设置转入 `conf.yaml`，并留下备份。
 - **换到新目录**：把私人数据复制到新目录的 `chat_history`，或在启动窗口设置 `RINNE_DATA_ROOT` 为一个独立、绝对的数据目录，程序会在其下读写 `chat_history\rinne_01`。不要把两个正在运行的后端同时指向同一份数据；先在副本上验证，再切换。
@@ -153,7 +157,7 @@ uv run run_server.py
 
 如果要在同一台电脑上同时运行两套凛祢，还要为新实例分别设置 `RINNE_CLIENT_USER_DATA_DIR`（客户端数据）、`RINNE_RENDERER_SETTINGS_PATH`（换装设置）与 `RINNE_DATA_ROOT`（日记和记忆），并让客户端连接新实例的后端端口。各变量应指向独立的绝对路径；不要让两个运行中的实例写入同一份数据。
 
-在原项目目录的 PowerShell 或 CMD 中依次运行。第一条下载更新工具；第二条只检查是否能安全更新，不修改配置；检查通过后运行第三、四条：
+先关闭旧后端。在原项目目录的 PowerShell 或 CMD 中依次运行。第一条下载更新工具；第二条只检查是否能安全更新，不修改配置；检查通过后运行第三、四条：
 
 ```text
 curl.exe --fail --location --output rinne-update-now.py https://raw.githubusercontent.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/main/tools/rinne_safe_update.py
