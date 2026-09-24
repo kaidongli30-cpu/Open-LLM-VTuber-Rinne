@@ -160,12 +160,7 @@ uv run python setup_rinne_game_assets.py status
 
 ### 安装桌面客户端
 
-在后端窗口保持运行的情况下，打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v1.2.1-20260924)。这是与本版后端配套的 64 位客户端，选择一种方式即可：
-
-- **安装程序**：下载 `open-llm-vtuber-1.2.1-setup.exe`，双击运行。安装过程中可以选择 D 盘等位置；完成后双击桌面快捷方式打开凛祢。
-- **便携包**：下载 `open-llm-vtuber-electron-1.2.1-win.zip`，解压到你想放的位置，再双击其中的 `open-llm-vtuber-electron.exe`。想放到桌面，可右键该 exe，选择“发送到 → 桌面快捷方式”。
-
-两种方式都使用本机运行的后端；先启动后端，再点击客户端与凛祢对话。便携包不需要运行安装程序。
+在后端窗口保持运行的情况下，打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v1.2.1-20260924)，下载与本版后端配套的 64 位安装程序 `open-llm-vtuber-1.2.1-setup.exe`。双击运行，安装过程中可以选择 D 盘等位置；完成后双击桌面快捷方式打开凛祢。先启动后端，再点击客户端与凛祢对话。
 
 安装后依次检查：`status` 显示肖像资源完整；桌面客户端显示凛祢；Live Mode 可以选择服装；输入文字后能收到回复并听到语音；切换灵装后仍能正常对话。若有文字但没有声音，检查 Ollama、GPT-SoVITS 两个窗口和后端日志。若没有画面，检查导入器状态并完全重启桌面客户端。
 
