@@ -1,0 +1,1935 @@
+{
+  "capabilities": [
+    "resolved_static_draw_plan",
+    "original_rgba8_atlas",
+    "legacy_delayed_eye_pass_graph",
+    "cpu_reference_hash"
+  ],
+  "compositor": {
+    "draw_blend": "legacy_mode0",
+    "draw_depth_compare": "disabled",
+    "eye_clip": "eye_alpha_times_one_minus_mask_alpha",
+    "final_order": [
+      "before_trigger",
+      "clipped_eye_buffer",
+      "final_eye_overlay",
+      "after_trigger"
+    ]
+  },
+  "dynamic_controls": [],
+  "format": "rinne-legacy-gpu-bundle",
+  "geometry": {
+    "byte_length": 766296,
+    "file": "geometry.bin",
+    "passes": [
+      {
+        "meshes": [
+          {
+            "depth_write": true,
+            "index_count": 6,
+            "indices": {
+              "byte_length": 24,
+              "byte_offset": 80,
+              "component_count": 6,
+              "component_type": "uint32"
+            },
+            "mesh_index": 0,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 48,
+              "byte_offset": 0,
+              "component_count": 12,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 2,
+            "uvs": {
+              "byte_length": 32,
+              "byte_offset": 48,
+              "component_count": 8,
+              "component_type": "float32"
+            },
+            "vertex_count": 4
+          },
+          {
+            "depth_write": true,
+            "index_count": 6,
+            "indices": {
+              "byte_length": 24,
+              "byte_offset": 184,
+              "component_count": 6,
+              "component_type": "uint32"
+            },
+            "mesh_index": 1,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 48,
+              "byte_offset": 104,
+              "component_count": 12,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 2,
+            "uvs": {
+              "byte_length": 32,
+              "byte_offset": 152,
+              "component_count": 8,
+              "component_type": "float32"
+            },
+            "vertex_count": 4
+          },
+          {
+            "depth_write": true,
+            "index_count": 6,
+            "indices": {
+              "byte_length": 24,
+              "byte_offset": 288,
+              "component_count": 6,
+              "component_type": "uint32"
+            },
+            "mesh_index": 2,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 48,
+              "byte_offset": 208,
+              "component_count": 12,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 2,
+            "uvs": {
+              "byte_length": 32,
+              "byte_offset": 256,
+              "component_count": 8,
+              "component_type": "float32"
+            },
+            "vertex_count": 4
+          },
+          {
+            "depth_write": true,
+            "index_count": 6,
+            "indices": {
+              "byte_length": 24,
+              "byte_offset": 392,
+              "component_count": 6,
+              "component_type": "uint32"
+            },
+            "mesh_index": 3,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 48,
+              "byte_offset": 312,
+              "component_count": 12,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 2,
+            "uvs": {
+              "byte_length": 32,
+              "byte_offset": 360,
+              "component_count": 8,
+              "component_type": "float32"
+            },
+            "vertex_count": 4
+          }
+        ],
+        "name": "eye_buffer"
+      },
+      {
+        "meshes": [
+          {
+            "depth_write": true,
+            "index_count": 2220,
+            "indices": {
+              "byte_length": 8880,
+              "byte_offset": 40136,
+              "component_count": 2220,
+              "component_type": "uint32"
+            },
+            "mesh_index": 0,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 23832,
+              "byte_offset": 416,
+              "component_count": 5958,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 740,
+            "uvs": {
+              "byte_length": 15888,
+              "byte_offset": 24248,
+              "component_count": 3972,
+              "component_type": "float32"
+            },
+            "vertex_count": 1986
+          },
+          {
+            "depth_write": true,
+            "index_count": 420,
+            "indices": {
+              "byte_length": 1680,
+              "byte_offset": 50776,
+              "component_count": 420,
+              "component_type": "uint32"
+            },
+            "mesh_index": 1,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 1056,
+              "byte_offset": 49016,
+              "component_count": 264,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 140,
+            "uvs": {
+              "byte_length": 704,
+              "byte_offset": 50072,
+              "component_count": 176,
+              "component_type": "float32"
+            },
+            "vertex_count": 88,
+            "vertex_opacities": {
+              "byte_length": 352,
+              "byte_offset": 52456,
+              "component_count": 88,
+              "component_type": "float32"
+            }
+          },
+          {
+            "depth_write": true,
+            "index_count": 420,
+            "indices": {
+              "byte_length": 1680,
+              "byte_offset": 54568,
+              "component_count": 420,
+              "component_type": "uint32"
+            },
+            "mesh_index": 2,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 1056,
+              "byte_offset": 52808,
+              "component_count": 264,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 140,
+            "uvs": {
+              "byte_length": 704,
+              "byte_offset": 53864,
+              "component_count": 176,
+              "component_type": "float32"
+            },
+            "vertex_count": 88,
+            "vertex_opacities": {
+              "byte_length": 352,
+              "byte_offset": 56248,
+              "component_count": 88,
+              "component_type": "float32"
+            }
+          }
+        ],
+        "name": "mask_buffer"
+      },
+      {
+        "meshes": [
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 68120,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 0,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 56600,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 63512,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 87752,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 1,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 76232,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 83144,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 107384,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 2,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 95864,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 102776,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 127016,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 3,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 115496,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 122408,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 72,
+            "indices": {
+              "byte_length": 288,
+              "byte_offset": 136388,
+              "component_count": 72,
+              "component_type": "uint32"
+            },
+            "mesh_index": 4,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 756,
+              "byte_offset": 135128,
+              "component_count": 189,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 24,
+            "uvs": {
+              "byte_length": 504,
+              "byte_offset": 135884,
+              "component_count": 126,
+              "component_type": "float32"
+            },
+            "vertex_count": 63
+          },
+          {
+            "depth_write": true,
+            "index_count": 72,
+            "indices": {
+              "byte_length": 288,
+              "byte_offset": 137936,
+              "component_count": 72,
+              "component_type": "uint32"
+            },
+            "mesh_index": 5,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 756,
+              "byte_offset": 136676,
+              "component_count": 189,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 24,
+            "uvs": {
+              "byte_length": 504,
+              "byte_offset": 137432,
+              "component_count": 126,
+              "component_type": "float32"
+            },
+            "vertex_count": 63
+          },
+          {
+            "depth_write": true,
+            "index_count": 912,
+            "indices": {
+              "byte_length": 3648,
+              "byte_offset": 146964,
+              "component_count": 912,
+              "component_type": "uint32"
+            },
+            "mesh_index": 6,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 5244,
+              "byte_offset": 138224,
+              "component_count": 1311,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 304,
+            "uvs": {
+              "byte_length": 3496,
+              "byte_offset": 143468,
+              "component_count": 874,
+              "component_type": "float32"
+            },
+            "vertex_count": 437
+          },
+          {
+            "depth_write": true,
+            "index_count": 912,
+            "indices": {
+              "byte_length": 3648,
+              "byte_offset": 159352,
+              "component_count": 912,
+              "component_type": "uint32"
+            },
+            "mesh_index": 7,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 5244,
+              "byte_offset": 150612,
+              "component_count": 1311,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 304,
+            "uvs": {
+              "byte_length": 3496,
+              "byte_offset": 155856,
+              "component_count": 874,
+              "component_type": "float32"
+            },
+            "vertex_count": 437
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 174520,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 8,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 163000,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 169912,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 194152,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 9,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 182632,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 189544,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 213784,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 10,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 202264,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 209176,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 233416,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 11,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 221896,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 228808,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 253048,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 12,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 241528,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 248440,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 272680,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 13,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 261160,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 268072,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 292312,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 14,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 280792,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 287704,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 311944,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 15,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 300424,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 307336,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 72,
+            "indices": {
+              "byte_length": 288,
+              "byte_offset": 321316,
+              "component_count": 72,
+              "component_type": "uint32"
+            },
+            "mesh_index": 16,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 756,
+              "byte_offset": 320056,
+              "component_count": 189,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 24,
+            "uvs": {
+              "byte_length": 504,
+              "byte_offset": 320812,
+              "component_count": 126,
+              "component_type": "float32"
+            },
+            "vertex_count": 63
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 333124,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 17,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 321604,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 328516,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 352756,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 18,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 341236,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 348148,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 2028,
+            "indices": {
+              "byte_length": 8112,
+              "byte_offset": 372388,
+              "component_count": 2028,
+              "component_type": "uint32"
+            },
+            "mesh_index": 19,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 6912,
+              "byte_offset": 360868,
+              "component_count": 1728,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 676,
+            "uvs": {
+              "byte_length": 4608,
+              "byte_offset": 367780,
+              "component_count": 1152,
+              "component_type": "float32"
+            },
+            "vertex_count": 576
+          },
+          {
+            "depth_write": true,
+            "index_count": 72,
+            "indices": {
+              "byte_length": 288,
+              "byte_offset": 381760,
+              "component_count": 72,
+              "component_type": "uint32"
+            },
+            "mesh_index": 20,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 756,
+              "byte_offset": 380500,
+              "component_count": 189,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 24,
+            "uvs": {
+              "byte_length": 504,
+              "byte_offset": 381256,
+              "component_count": 126,
+              "component_type": "float32"
+            },
+            "vertex_count": 63
+          },
+          {
+            "depth_write": true,
+            "index_count": 912,
+            "indices": {
+              "byte_length": 3648,
+              "byte_offset": 390788,
+              "component_count": 912,
+              "component_type": "uint32"
+            },
+            "mesh_index": 21,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 5244,
+              "byte_offset": 382048,
+              "component_count": 1311,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 304,
+            "uvs": {
+              "byte_length": 3496,
+              "byte_offset": 387292,
+              "component_count": 874,
+              "component_type": "float32"
+            },
+            "vertex_count": 437
+          },
+          {
+            "depth_write": true,
+            "index_count": 912,
+            "indices": {
+              "byte_length": 3648,
+              "byte_offset": 403176,
+              "component_count": 912,
+              "component_type": "uint32"
+            },
+            "mesh_index": 22,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 5244,
+              "byte_offset": 394436,
+              "component_count": 1311,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 304,
+            "uvs": {
+              "byte_length": 3496,
+              "byte_offset": 399680,
+              "component_count": 874,
+              "component_type": "float32"
+            },
+            "vertex_count": 437
+          },
+          {
+            "depth_write": true,
+            "index_count": 6,
+            "indices": {
+              "byte_length": 24,
+              "byte_offset": 406904,
+              "component_count": 6,
+              "component_type": "uint32"
+            },
+            "mesh_index": 23,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 48,
+              "byte_offset": 406824,
+              "component_count": 12,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 2,
+            "uvs": {
+              "byte_length": 32,
+              "byte_offset": 406872,
+              "component_count": 8,
+              "component_type": "float32"
+            },
+            "vertex_count": 4
+          },
+          {
+            "depth_write": true,
+            "index_count": 6,
+            "indices": {
+              "byte_length": 24,
+              "byte_offset": 407008,
+              "component_count": 6,
+              "component_type": "uint32"
+            },
+            "mesh_index": 24,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 48,
+              "byte_offset": 406928,
+              "component_count": 12,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 2,
+            "uvs": {
+              "byte_length": 32,
+              "byte_offset": 406976,
+              "component_count": 8,
+              "component_type": "float32"
+            },
+            "vertex_count": 4
+          },
+          {
+            "depth_write": true,
+            "index_count": 6,
+            "indices": {
+              "byte_length": 24,
+              "byte_offset": 407112,
+              "component_count": 6,
+              "component_type": "uint32"
+            },
+            "mesh_index": 25,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 48,
+              "byte_offset": 407032,
+              "component_count": 12,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 2,
+            "uvs": {
+              "byte_length": 32,
+              "byte_offset": 407080,
+              "component_count": 8,
+              "component_type": "float32"
+            },
+            "vertex_count": 4
+          },
+          {
+            "depth_write": true,
+            "index_count": 6,
+            "indices": {
+              "byte_length": 24,
+              "byte_offset": 407216,
+              "component_count": 6,
+              "component_type": "uint32"
+            },
+            "mesh_index": 26,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 48,
+              "byte_offset": 407136,
+              "component_count": 12,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 2,
+            "uvs": {
+              "byte_length": 32,
+              "byte_offset": 407184,
+              "component_count": 8,
+              "component_type": "float32"
+            },
+            "vertex_count": 4
+          },
+          {
+            "depth_write": true,
+            "index_count": 2220,
+            "indices": {
+              "byte_length": 8880,
+              "byte_offset": 446960,
+              "component_count": 2220,
+              "component_type": "uint32"
+            },
+            "mesh_index": 27,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 23832,
+              "byte_offset": 407240,
+              "component_count": 5958,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 740,
+            "uvs": {
+              "byte_length": 15888,
+              "byte_offset": 431072,
+              "component_count": 3972,
+              "component_type": "float32"
+            },
+            "vertex_count": 1986
+          },
+          {
+            "depth_write": true,
+            "index_count": 420,
+            "indices": {
+              "byte_length": 1680,
+              "byte_offset": 457600,
+              "component_count": 420,
+              "component_type": "uint32"
+            },
+            "mesh_index": 28,
+            "opacity": 0.8999999761581421,
+            "positions": {
+              "byte_length": 1056,
+              "byte_offset": 455840,
+              "component_count": 264,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 140,
+            "uvs": {
+              "byte_length": 704,
+              "byte_offset": 456896,
+              "component_count": 176,
+              "component_type": "float32"
+            },
+            "vertex_count": 88,
+            "vertex_opacities": {
+              "byte_length": 352,
+              "byte_offset": 459280,
+              "component_count": 88,
+              "component_type": "float32"
+            }
+          },
+          {
+            "depth_write": true,
+            "index_count": 420,
+            "indices": {
+              "byte_length": 1680,
+              "byte_offset": 461392,
+              "component_count": 420,
+              "component_type": "uint32"
+            },
+            "mesh_index": 29,
+            "opacity": 0.8999999761581421,
+            "positions": {
+              "byte_length": 1056,
+              "byte_offset": 459632,
+              "component_count": 264,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 140,
+            "uvs": {
+              "byte_length": 704,
+              "byte_offset": 460688,
+              "component_count": 176,
+              "component_type": "float32"
+            },
+            "vertex_count": 88,
+            "vertex_opacities": {
+              "byte_length": 352,
+              "byte_offset": 463072,
+              "component_count": 88,
+              "component_type": "float32"
+            }
+          },
+          {
+            "depth_write": true,
+            "index_count": 420,
+            "indices": {
+              "byte_length": 1680,
+              "byte_offset": 465184,
+              "component_count": 420,
+              "component_type": "uint32"
+            },
+            "mesh_index": 30,
+            "opacity": 0.6299999952316284,
+            "positions": {
+              "byte_length": 1056,
+              "byte_offset": 463424,
+              "component_count": 264,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 140,
+            "uvs": {
+              "byte_length": 704,
+              "byte_offset": 464480,
+              "component_count": 176,
+              "component_type": "float32"
+            },
+            "vertex_count": 88,
+            "vertex_opacities": {
+              "byte_length": 352,
+              "byte_offset": 466864,
+              "component_count": 88,
+              "component_type": "float32"
+            }
+          },
+          {
+            "depth_write": true,
+            "index_count": 420,
+            "indices": {
+              "byte_length": 1680,
+              "byte_offset": 468976,
+              "component_count": 420,
+              "component_type": "uint32"
+            },
+            "mesh_index": 31,
+            "opacity": 0.6299999952316284,
+            "positions": {
+              "byte_length": 1056,
+              "byte_offset": 467216,
+              "component_count": 264,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 140,
+            "uvs": {
+              "byte_length": 704,
+              "byte_offset": 468272,
+              "component_count": 176,
+              "component_type": "float32"
+            },
+            "vertex_count": 88,
+            "vertex_opacities": {
+              "byte_length": 352,
+              "byte_offset": 470656,
+              "component_count": 88,
+              "component_type": "float32"
+            }
+          },
+          {
+            "depth_write": true,
+            "index_count": 420,
+            "indices": {
+              "byte_length": 1680,
+              "byte_offset": 472768,
+              "component_count": 420,
+              "component_type": "uint32"
+            },
+            "mesh_index": 32,
+            "opacity": 0.44099998474121094,
+            "positions": {
+              "byte_length": 1056,
+              "byte_offset": 471008,
+              "component_count": 264,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 140,
+            "uvs": {
+              "byte_length": 704,
+              "byte_offset": 472064,
+              "component_count": 176,
+              "component_type": "float32"
+            },
+            "vertex_count": 88,
+            "vertex_opacities": {
+              "byte_length": 352,
+              "byte_offset": 474448,
+              "component_count": 88,
+              "component_type": "float32"
+            }
+          },
+          {
+            "depth_write": true,
+            "index_count": 420,
+            "indices": {
+              "byte_length": 1680,
+              "byte_offset": 476560,
+              "component_count": 420,
+              "component_type": "uint32"
+            },
+            "mesh_index": 33,
+            "opacity": 0.44099998474121094,
+            "positions": {
+              "byte_length": 1056,
+              "byte_offset": 474800,
+              "component_count": 264,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 140,
+            "uvs": {
+              "byte_length": 704,
+              "byte_offset": 475856,
+              "component_count": 176,
+              "component_type": "float32"
+            },
+            "vertex_count": 88,
+            "vertex_opacities": {
+              "byte_length": 352,
+              "byte_offset": 478240,
+              "component_count": 88,
+              "component_type": "float32"
+            }
+          },
+          {
+            "depth_write": true,
+            "index_count": 420,
+            "indices": {
+              "byte_length": 1680,
+              "byte_offset": 480352,
+              "component_count": 420,
+              "component_type": "uint32"
+            },
+            "mesh_index": 34,
+            "opacity": 0.30869999527931213,
+            "positions": {
+              "byte_length": 1056,
+              "byte_offset": 478592,
+              "component_count": 264,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 140,
+            "uvs": {
+              "byte_length": 704,
+              "byte_offset": 479648,
+              "component_count": 176,
+              "component_type": "float32"
+            },
+            "vertex_count": 88,
+            "vertex_opacities": {
+              "byte_length": 352,
+              "byte_offset": 482032,
+              "component_count": 88,
+              "component_type": "float32"
+            }
+          },
+          {
+            "depth_write": true,
+            "index_count": 420,
+            "indices": {
+              "byte_length": 1680,
+              "byte_offset": 484144,
+              "component_count": 420,
+              "component_type": "uint32"
+            },
+            "mesh_index": 35,
+            "opacity": 0.30869999527931213,
+            "positions": {
+              "byte_length": 1056,
+              "byte_offset": 482384,
+              "component_count": 264,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 140,
+            "uvs": {
+              "byte_length": 704,
+              "byte_offset": 483440,
+              "component_count": 176,
+              "component_type": "float32"
+            },
+            "vertex_count": 88,
+            "vertex_opacities": {
+              "byte_length": 352,
+              "byte_offset": 485824,
+              "component_count": 88,
+              "component_type": "float32"
+            }
+          },
+          {
+            "depth_write": true,
+            "index_count": 1536,
+            "indices": {
+              "byte_length": 6144,
+              "byte_offset": 492136,
+              "component_count": 1536,
+              "component_type": "uint32"
+            },
+            "mesh_index": 36,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 3576,
+              "byte_offset": 486176,
+              "component_count": 894,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 512,
+            "uvs": {
+              "byte_length": 2384,
+              "byte_offset": 489752,
+              "component_count": 596,
+              "component_type": "float32"
+            },
+            "vertex_count": 298
+          },
+          {
+            "depth_write": true,
+            "index_count": 2220,
+            "indices": {
+              "byte_length": 8880,
+              "byte_offset": 538000,
+              "component_count": 2220,
+              "component_type": "uint32"
+            },
+            "mesh_index": 37,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 23832,
+              "byte_offset": 498280,
+              "component_count": 5958,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 740,
+            "uvs": {
+              "byte_length": 15888,
+              "byte_offset": 522112,
+              "component_count": 3972,
+              "component_type": "float32"
+            },
+            "vertex_count": 1986
+          },
+          {
+            "depth_write": true,
+            "index_count": 60,
+            "indices": {
+              "byte_length": 240,
+              "byte_offset": 547320,
+              "component_count": 60,
+              "component_type": "uint32"
+            },
+            "mesh_index": 38,
+            "opacity": 0.0,
+            "positions": {
+              "byte_length": 264,
+              "byte_offset": 546880,
+              "component_count": 66,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 20,
+            "uvs": {
+              "byte_length": 176,
+              "byte_offset": 547144,
+              "component_count": 44,
+              "component_type": "float32"
+            },
+            "vertex_count": 22
+          },
+          {
+            "depth_write": true,
+            "index_count": 60,
+            "indices": {
+              "byte_length": 240,
+              "byte_offset": 548000,
+              "component_count": 60,
+              "component_type": "uint32"
+            },
+            "mesh_index": 39,
+            "opacity": 0.0,
+            "positions": {
+              "byte_length": 264,
+              "byte_offset": 547560,
+              "component_count": 66,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 20,
+            "uvs": {
+              "byte_length": 176,
+              "byte_offset": 547824,
+              "component_count": 44,
+              "component_type": "float32"
+            },
+            "vertex_count": 22
+          },
+          {
+            "depth_write": true,
+            "index_count": 2220,
+            "indices": {
+              "byte_length": 8880,
+              "byte_offset": 587960,
+              "component_count": 2220,
+              "component_type": "uint32"
+            },
+            "mesh_index": 40,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 23832,
+              "byte_offset": 548240,
+              "component_count": 5958,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 740,
+            "uvs": {
+              "byte_length": 15888,
+              "byte_offset": 572072,
+              "component_count": 3972,
+              "component_type": "float32"
+            },
+            "vertex_count": 1986
+          },
+          {
+            "depth_write": true,
+            "index_count": 912,
+            "indices": {
+              "byte_length": 3648,
+              "byte_offset": 605580,
+              "component_count": 912,
+              "component_type": "uint32"
+            },
+            "mesh_index": 41,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 5244,
+              "byte_offset": 596840,
+              "component_count": 1311,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 304,
+            "uvs": {
+              "byte_length": 3496,
+              "byte_offset": 602084,
+              "component_count": 874,
+              "component_type": "float32"
+            },
+            "vertex_count": 437
+          },
+          {
+            "depth_write": true,
+            "index_count": 912,
+            "indices": {
+              "byte_length": 3648,
+              "byte_offset": 617968,
+              "component_count": 912,
+              "component_type": "uint32"
+            },
+            "mesh_index": 42,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 5244,
+              "byte_offset": 609228,
+              "component_count": 1311,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 304,
+            "uvs": {
+              "byte_length": 3496,
+              "byte_offset": 614472,
+              "component_count": 874,
+              "component_type": "float32"
+            },
+            "vertex_count": 437
+          },
+          {
+            "depth_write": true,
+            "index_count": 912,
+            "indices": {
+              "byte_length": 3648,
+              "byte_offset": 630356,
+              "component_count": 912,
+              "component_type": "uint32"
+            },
+            "mesh_index": 43,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 5244,
+              "byte_offset": 621616,
+              "component_count": 1311,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 304,
+            "uvs": {
+              "byte_length": 3496,
+              "byte_offset": 626860,
+              "component_count": 874,
+              "component_type": "float32"
+            },
+            "vertex_count": 437
+          },
+          {
+            "depth_write": true,
+            "index_count": 912,
+            "indices": {
+              "byte_length": 3648,
+              "byte_offset": 642744,
+              "component_count": 912,
+              "component_type": "uint32"
+            },
+            "mesh_index": 44,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 5244,
+              "byte_offset": 634004,
+              "component_count": 1311,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 304,
+            "uvs": {
+              "byte_length": 3496,
+              "byte_offset": 639248,
+              "component_count": 874,
+              "component_type": "float32"
+            },
+            "vertex_count": 437
+          },
+          {
+            "depth_write": true,
+            "index_count": 516,
+            "indices": {
+              "byte_length": 2064,
+              "byte_offset": 654672,
+              "component_count": 516,
+              "component_type": "uint32"
+            },
+            "mesh_index": 45,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 4968,
+              "byte_offset": 646392,
+              "component_count": 1242,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 172,
+            "uvs": {
+              "byte_length": 3312,
+              "byte_offset": 651360,
+              "component_count": 828,
+              "component_type": "float32"
+            },
+            "vertex_count": 414
+          },
+          {
+            "depth_write": true,
+            "index_count": 516,
+            "indices": {
+              "byte_length": 2064,
+              "byte_offset": 665016,
+              "component_count": 516,
+              "component_type": "uint32"
+            },
+            "mesh_index": 46,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 4968,
+              "byte_offset": 656736,
+              "component_count": 1242,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 172,
+            "uvs": {
+              "byte_length": 3312,
+              "byte_offset": 661704,
+              "component_count": 828,
+              "component_type": "float32"
+            },
+            "vertex_count": 414
+          }
+        ],
+        "name": "before_trigger"
+      },
+      {
+        "meshes": [
+          {
+            "depth_write": true,
+            "index_count": 420,
+            "indices": {
+              "byte_length": 1680,
+              "byte_offset": 668840,
+              "component_count": 420,
+              "component_type": "uint32"
+            },
+            "mesh_index": 0,
+            "opacity": 0.8999999761581421,
+            "positions": {
+              "byte_length": 1056,
+              "byte_offset": 667080,
+              "component_count": 264,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 140,
+            "uvs": {
+              "byte_length": 704,
+              "byte_offset": 668136,
+              "component_count": 176,
+              "component_type": "float32"
+            },
+            "vertex_count": 88,
+            "vertex_opacities": {
+              "byte_length": 352,
+              "byte_offset": 670520,
+              "component_count": 88,
+              "component_type": "float32"
+            }
+          },
+          {
+            "depth_write": true,
+            "index_count": 420,
+            "indices": {
+              "byte_length": 1680,
+              "byte_offset": 672632,
+              "component_count": 420,
+              "component_type": "uint32"
+            },
+            "mesh_index": 1,
+            "opacity": 0.8999999761581421,
+            "positions": {
+              "byte_length": 1056,
+              "byte_offset": 670872,
+              "component_count": 264,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 140,
+            "uvs": {
+              "byte_length": 704,
+              "byte_offset": 671928,
+              "component_count": 176,
+              "component_type": "float32"
+            },
+            "vertex_count": 88,
+            "vertex_opacities": {
+              "byte_length": 352,
+              "byte_offset": 674312,
+              "component_count": 88,
+              "component_type": "float32"
+            }
+          }
+        ],
+        "name": "final_eye_overlay"
+      },
+      {
+        "meshes": [
+          {
+            "depth_write": true,
+            "index_count": 912,
+            "indices": {
+              "byte_length": 3648,
+              "byte_offset": 683404,
+              "component_count": 912,
+              "component_type": "uint32"
+            },
+            "mesh_index": 0,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 5244,
+              "byte_offset": 674664,
+              "component_count": 1311,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 304,
+            "uvs": {
+              "byte_length": 3496,
+              "byte_offset": 679908,
+              "component_count": 874,
+              "component_type": "float32"
+            },
+            "vertex_count": 437
+          },
+          {
+            "depth_write": true,
+            "index_count": 912,
+            "indices": {
+              "byte_length": 3648,
+              "byte_offset": 695792,
+              "component_count": 912,
+              "component_type": "uint32"
+            },
+            "mesh_index": 1,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 5244,
+              "byte_offset": 687052,
+              "component_count": 1311,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 304,
+            "uvs": {
+              "byte_length": 3496,
+              "byte_offset": 692296,
+              "component_count": 874,
+              "component_type": "float32"
+            },
+            "vertex_count": 437
+          },
+          {
+            "depth_write": true,
+            "index_count": 516,
+            "indices": {
+              "byte_length": 2064,
+              "byte_offset": 707720,
+              "component_count": 516,
+              "component_type": "uint32"
+            },
+            "mesh_index": 2,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 4968,
+              "byte_offset": 699440,
+              "component_count": 1242,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 172,
+            "uvs": {
+              "byte_length": 3312,
+              "byte_offset": 704408,
+              "component_count": 828,
+              "component_type": "float32"
+            },
+            "vertex_count": 414
+          },
+          {
+            "depth_write": true,
+            "index_count": 516,
+            "indices": {
+              "byte_length": 2064,
+              "byte_offset": 718064,
+              "component_count": 516,
+              "component_type": "uint32"
+            },
+            "mesh_index": 3,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 4968,
+              "byte_offset": 709784,
+              "component_count": 1242,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 172,
+            "uvs": {
+              "byte_length": 3312,
+              "byte_offset": 714752,
+              "component_count": 828,
+              "component_type": "float32"
+            },
+            "vertex_count": 414
+          },
+          {
+            "depth_write": true,
+            "index_count": 516,
+            "indices": {
+              "byte_length": 2064,
+              "byte_offset": 728408,
+              "component_count": 516,
+              "component_type": "uint32"
+            },
+            "mesh_index": 4,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 4968,
+              "byte_offset": 720128,
+              "component_count": 1242,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 172,
+            "uvs": {
+              "byte_length": 3312,
+              "byte_offset": 725096,
+              "component_count": 828,
+              "component_type": "float32"
+            },
+            "vertex_count": 414
+          },
+          {
+            "depth_write": true,
+            "index_count": 18,
+            "indices": {
+              "byte_length": 72,
+              "byte_offset": 731432,
+              "component_count": 18,
+              "component_type": "uint32"
+            },
+            "mesh_index": 5,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 576,
+              "byte_offset": 730472,
+              "component_count": 144,
+              "component_type": "float32"
+            },
+            "texture_filter": "nearest",
+            "triangle_count": 6,
+            "uvs": {
+              "byte_length": 384,
+              "byte_offset": 731048,
+              "component_count": 96,
+              "component_type": "float32"
+            },
+            "vertex_count": 48
+          },
+          {
+            "depth_write": true,
+            "index_count": 1242,
+            "indices": {
+              "byte_length": 4968,
+              "byte_offset": 740804,
+              "component_count": 1242,
+              "component_type": "uint32"
+            },
+            "mesh_index": 6,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 5580,
+              "byte_offset": 731504,
+              "component_count": 1395,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 414,
+            "uvs": {
+              "byte_length": 3720,
+              "byte_offset": 737084,
+              "component_count": 930,
+              "component_type": "float32"
+            },
+            "vertex_count": 465
+          },
+          {
+            "depth_write": true,
+            "index_count": 2106,
+            "indices": {
+              "byte_length": 8424,
+              "byte_offset": 757872,
+              "component_count": 2106,
+              "component_type": "uint32"
+            },
+            "mesh_index": 7,
+            "opacity": 1.0,
+            "positions": {
+              "byte_length": 7260,
+              "byte_offset": 745772,
+              "component_count": 1815,
+              "component_type": "float32"
+            },
+            "texture_filter": "linear",
+            "triangle_count": 702,
+            "uvs": {
+              "byte_length": 4840,
+              "byte_offset": 753032,
+              "component_count": 1210,
+              "component_type": "float32"
+            },
+            "vertex_count": 605
+          }
+        ],
+        "name": "after_trigger"
+      }
+    ],
+    "sha256": "07faf30c0c83316abff38de6c765b89bdac4e8e9c89fc3b156af660fd3261b33"
+  },
+  "reference": {
+    "blink_base_weights": [
+      1.0,
+      0.699999988079071,
+      0.49000000953674316,
+      0.34299999475479126
+    ],
+    "blink_deformation": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "canvas_height": 32,
+    "canvas_width": 32,
+    "compositor_trigger_type": 21,
+    "expression_weights": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "rgba_sha256": "cf479f053eb4dc91dc32571a0cde7d93176356fb45a8a27bc77e0c8b83fc4182"
+  },
+  "runtime_requirements": {
+    "graphics_api": "WebGL2",
+    "little_endian_buffers": true,
+    "uint32_element_indices": true
+  },
+  "source": {
+    "filename": "MP160102.pck",
+    "parsed_member_sha256": {
+      "001.amb": "509c1f303cceac87d3861d70d8a6d8191b57a5fe5fe0ceb4b5fc715dd7726ba1",
+      "face.mpb": "b909a9364480bd8efe7f0885b6d464cffe262f8ed8ed5f16815cda9b9f5ba10c",
+      "face.uca.bin": "8af65a42ab4d01e0d5537423f6415e08ef103d5833f32146f87ee34f31fe884d",
+      "tex_all.tex": "d4cf83fb00a43a67f4a59ed532efbeb0b9d89a1b19d193d15ed867986eeda5bb"
+    },
+    "pck_sha256": "b4f6228b769482226e26bdf8823fb753c6c30ca786033a0c5696fb37b3918186",
+    "pck_size": 10708624,
+    "portrait_id": 160102
+  },
+  "texture": {
+    "byte_length": 67108864,
+    "file": "texture.rgba8",
+    "format": "rgba8_unorm",
+    "height": 4096,
+    "row_order": "top_to_bottom",
+    "sha256": "29118700c9024dab744653a7cdeffce80d774516d798f3ee3d7a2835ecadc4ac",
+    "width": 4096
+  },
+  "version": 1
+}

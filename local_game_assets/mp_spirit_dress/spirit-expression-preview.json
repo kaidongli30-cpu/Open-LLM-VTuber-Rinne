@@ -1,0 +1,871 @@
+{
+  "canvas": [
+    4096,
+    4096
+  ],
+  "complete_fifteen_label_set": true,
+  "default_expression": "neutral",
+  "display_name": "\u7075\u88c5\u51db\u7962",
+  "expression_count": 15,
+  "expressions": [
+    {
+      "base_portrait_id": 160104,
+      "category": "cognition",
+      "closed_eye_expression": false,
+      "display_name": "thinking",
+      "label": "thinking",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": null,
+      "overlay_id": null,
+      "semantic_evidence": {
+        "discriminator": "user-approved untouched MP160104",
+        "required_cues": [
+          "quiet open eyes",
+          "small pensive mouth"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160101,
+      "category": "calm-positive",
+      "closed_eye_expression": false,
+      "display_name": "neutral",
+      "label": "neutral",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": null,
+      "overlay_id": null,
+      "semantic_evidence": {
+        "discriminator": "user-approved untouched MP160101",
+        "required_cues": [
+          "relaxed open eyes",
+          "small neutral mouth"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160102,
+      "category": "cognition",
+      "closed_eye_expression": false,
+      "display_name": "confused",
+      "label": "confused",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": null,
+      "overlay_id": null,
+      "semantic_evidence": {
+        "discriminator": "intentionally shares MP160102 with worried and uneasy",
+        "required_cues": [
+          "mildly uncertain eyes",
+          "restrained downward mouth"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160106,
+      "category": "calm-positive",
+      "closed_eye_expression": true,
+      "display_name": "gentle",
+      "label": "gentle",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": {
+        "masks": [
+          {
+            "center": [
+              0.533447265625,
+              0.5535888671875
+            ],
+            "feather": 0.27,
+            "radii": [
+              0.028076171875,
+              0.0164794921875
+            ],
+            "role": "mouth",
+            "shape": "soft_ellipse"
+          }
+        ],
+        "portrait_id": 160107,
+        "role": "mouth_override",
+        "transform": {
+          "rotation_degrees": 0.0,
+          "scale": 1.0,
+          "source_center": [
+            0.5,
+            0.5
+          ],
+          "target_center": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "overlay_id": null,
+      "semantic_evidence": {
+        "discriminator": "approved closed-eye smile",
+        "required_cues": [
+          "relaxed closed eyes",
+          "subtle native smile"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160106,
+      "category": "self-conscious",
+      "closed_eye_expression": true,
+      "display_name": "awkward",
+      "label": "awkward",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": {
+        "masks": [
+          {
+            "center": [
+              0.533447265625,
+              0.5535888671875
+            ],
+            "feather": 0.27,
+            "radii": [
+              0.028076171875,
+              0.0164794921875
+            ],
+            "role": "mouth",
+            "shape": "soft_ellipse"
+          }
+        ],
+        "portrait_id": 160107,
+        "role": "mouth_override",
+        "transform": {
+          "rotation_degrees": 0.0,
+          "scale": 1.0,
+          "source_center": [
+            0.5,
+            0.5
+          ],
+          "target_center": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "overlay_id": "awkward-embarrassed-sweat",
+      "semantic_evidence": {
+        "discriminator": "approved to share one visual with embarrassed",
+        "required_cues": [
+          "closed eyes",
+          "subtle native smile",
+          "original sweat cue"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160101,
+      "category": "calm-positive",
+      "closed_eye_expression": false,
+      "display_name": "happy",
+      "label": "happy",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": {
+        "masks": [
+          {
+            "center": [
+              0.533447265625,
+              0.5535888671875
+            ],
+            "feather": 0.27,
+            "radii": [
+              0.028076171875,
+              0.0164794921875
+            ],
+            "role": "mouth",
+            "shape": "soft_ellipse"
+          }
+        ],
+        "portrait_id": 160107,
+        "role": "mouth_override",
+        "transform": {
+          "rotation_degrees": 0.0,
+          "scale": 1.0,
+          "source_center": [
+            0.5,
+            0.5
+          ],
+          "target_center": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "overlay_id": null,
+      "semantic_evidence": {
+        "discriminator": "approved open-eye smile",
+        "required_cues": [
+          "relaxed open eyes",
+          "subtle native smile"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160102,
+      "category": "distress",
+      "closed_eye_expression": false,
+      "display_name": "worried",
+      "label": "worried",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": null,
+      "overlay_id": null,
+      "semantic_evidence": {
+        "discriminator": "user-approved untouched MP160102",
+        "required_cues": [
+          "mildly uncertain eyes",
+          "restrained downward mouth"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160105,
+      "category": "high-arousal",
+      "closed_eye_expression": false,
+      "display_name": "surprised",
+      "label": "surprised",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": null,
+      "overlay_id": null,
+      "semantic_evidence": {
+        "discriminator": "user-approved untouched MP160105",
+        "required_cues": [
+          "alert open eyes",
+          "tense small mouth"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160103,
+      "category": "distress",
+      "closed_eye_expression": false,
+      "display_name": "dissatisfaction",
+      "label": "dissatisfaction",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": null,
+      "overlay_id": null,
+      "semantic_evidence": {
+        "discriminator": "approved to share one visual with angry",
+        "required_cues": [
+          "serious open eyes",
+          "tense downward mouth"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160105,
+      "category": "high-arousal",
+      "closed_eye_expression": false,
+      "display_name": "flustered",
+      "label": "flustered",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": null,
+      "overlay_id": "flustered-blush",
+      "semantic_evidence": {
+        "discriminator": "approved surprised base with MP060110-derived blush",
+        "required_cues": [
+          "alert open eyes",
+          "natural medium blush",
+          "tense small mouth"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160106,
+      "category": "distress",
+      "closed_eye_expression": true,
+      "display_name": "sad",
+      "label": "sad",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": null,
+      "overlay_id": null,
+      "semantic_evidence": {
+        "discriminator": "user-approved untouched MP160106",
+        "required_cues": [
+          "closed downcast eyes",
+          "small downward mouth"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160106,
+      "category": "self-conscious",
+      "closed_eye_expression": true,
+      "display_name": "embarrassed",
+      "label": "embarrassed",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": {
+        "masks": [
+          {
+            "center": [
+              0.533447265625,
+              0.5535888671875
+            ],
+            "feather": 0.27,
+            "radii": [
+              0.028076171875,
+              0.0164794921875
+            ],
+            "role": "mouth",
+            "shape": "soft_ellipse"
+          }
+        ],
+        "portrait_id": 160107,
+        "role": "mouth_override",
+        "transform": {
+          "rotation_degrees": 0.0,
+          "scale": 1.0,
+          "source_center": [
+            0.5,
+            0.5
+          ],
+          "target_center": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "overlay_id": "awkward-embarrassed-sweat",
+      "semantic_evidence": {
+        "discriminator": "approved to share one visual with awkward",
+        "required_cues": [
+          "closed eyes",
+          "subtle native smile",
+          "original sweat cue"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160101,
+      "category": "self-conscious",
+      "closed_eye_expression": false,
+      "display_name": "shy",
+      "label": "shy",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": {
+        "masks": [
+          {
+            "center": [
+              0.533447265625,
+              0.5535888671875
+            ],
+            "feather": 0.27,
+            "radii": [
+              0.028076171875,
+              0.0164794921875
+            ],
+            "role": "mouth",
+            "shape": "soft_ellipse"
+          }
+        ],
+        "portrait_id": 160107,
+        "role": "mouth_override",
+        "transform": {
+          "rotation_degrees": 0.0,
+          "scale": 1.0,
+          "source_center": [
+            0.5,
+            0.5
+          ],
+          "target_center": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "overlay_id": "shy-blush",
+      "semantic_evidence": {
+        "discriminator": "approved red-face smile without the original pout",
+        "required_cues": [
+          "calm open eyes",
+          "subtle native smile",
+          "strong natural blush"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160102,
+      "category": "distress",
+      "closed_eye_expression": false,
+      "display_name": "uneasy",
+      "label": "uneasy",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": null,
+      "overlay_id": null,
+      "semantic_evidence": {
+        "discriminator": "approved to share MP160102 with worried and confused",
+        "required_cues": [
+          "mildly uncertain eyes",
+          "restrained downward mouth"
+        ]
+      }
+    },
+    {
+      "base_portrait_id": 160103,
+      "category": "distress",
+      "closed_eye_expression": false,
+      "display_name": "angry",
+      "label": "angry",
+      "mode": "native-approved",
+      "mouth_gain_percent": 100,
+      "mouth_layer": null,
+      "overlay_id": null,
+      "semantic_evidence": {
+        "discriminator": "user-approved untouched MP160103",
+        "required_cues": [
+          "serious open eyes",
+          "tense downward mouth"
+        ]
+      }
+    }
+  ],
+  "format": "rinne-spirit-dress-expression-preview",
+  "overlay_count": 3,
+  "overlays": [
+    {
+      "byte_length": 68223,
+      "file": "overlays/awkward-embarrassed-sweat.png",
+      "overlay_id": "awkward-embarrassed-sweat",
+      "sha256": "000d1b02e2317f0b1d0e7eb27c1aee874382cbdbd38d9a94c045703ce883d74c"
+    },
+    {
+      "byte_length": 99542,
+      "file": "overlays/flustered-blush.png",
+      "overlay_id": "flustered-blush",
+      "sha256": "13380aed0e15f83306e5c0f0d732997492e6190a708828ce0fa033b6cd211ee8"
+    },
+    {
+      "byte_length": 94538,
+      "file": "overlays/shy-blush.png",
+      "overlay_id": "shy-blush",
+      "sha256": "49d77ffd4af7cfc604ac94080fd0b5ac049812e64a92d79c466ca5275ec6ebc9"
+    }
+  ],
+  "portrait_count": 7,
+  "portraits": [
+    {
+      "directory": "MP160101",
+      "files": [
+        {
+          "byte_length": 58258,
+          "name": "manifest.json",
+          "sha256": "b6dfe35d6cd7ff244bf77bac13b8fcf22ae671bb3e6c09a226d9cbef2cdd1074"
+        },
+        {
+          "byte_length": 67108864,
+          "name": "texture.rgba8",
+          "sha256": "5056c801de2690bd3efd3a4b813fb5fe9f4c74b6a018493b4f7e5afa5324d8a2"
+        },
+        {
+          "byte_length": 766200,
+          "name": "geometry.bin",
+          "sha256": "4a9930c954ceeb4fcc05409a2f414dfb2019bf5d631214f2913e8141ab5a5286"
+        },
+        {
+          "byte_length": 15569,
+          "name": "dynamic-manifest.json",
+          "sha256": "4f4e1c001ab01eb66b262f38f8ecbcecdf68612f1a10fe1eb529f9cc0dc80f43"
+        },
+        {
+          "byte_length": 16121856,
+          "name": "deformation.rgba32f",
+          "sha256": "1c276d8382aa007827b104f44be27231f8c6467286eb27a9d34cb4bca14f7a82"
+        },
+        {
+          "byte_length": 12564,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "fe897a0aca9ca663eadc1578215cccde93838dfdbf951615672c97d558d698eb"
+        },
+        {
+          "byte_length": 36749312,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "60f4ed8cb6fbac8aec40ac13d705e1d9008c6ce7dbe62ff84c5332d1b2f3cab3"
+        },
+        {
+          "byte_length": 15310,
+          "name": "runtime-control-manifest.json",
+          "sha256": "2cd0019853c2ff52171b5ea58a261caed22556607e2d9f46c9bf8230a558a599"
+        },
+        {
+          "byte_length": 3680,
+          "name": "timeline-manifest.json",
+          "sha256": "c1586617b7a6c8ee70e7a69a48c069c7434dd0a9452d48607e2809848d88e59a"
+        },
+        {
+          "byte_length": 49920,
+          "name": "amb-channels.f32",
+          "sha256": "9bc40d97e58b54f85198dc3d391aa3838bae62b4e29ee868095b574a944421c5"
+        }
+      ],
+      "portrait_id": 160101,
+      "source_family": "spirit-native"
+    },
+    {
+      "directory": "MP160102",
+      "files": [
+        {
+          "byte_length": 58258,
+          "name": "manifest.json",
+          "sha256": "5f78a2d26c3e3f420d2cd102c4c08bc3a819e7d9bfce5415e3738e26864855b0"
+        },
+        {
+          "byte_length": 67108864,
+          "name": "texture.rgba8",
+          "sha256": "29118700c9024dab744653a7cdeffce80d774516d798f3ee3d7a2835ecadc4ac"
+        },
+        {
+          "byte_length": 766296,
+          "name": "geometry.bin",
+          "sha256": "07faf30c0c83316abff38de6c765b89bdac4e8e9c89fc3b156af660fd3261b33"
+        },
+        {
+          "byte_length": 15569,
+          "name": "dynamic-manifest.json",
+          "sha256": "9e2c4f4ce05646b199911bba24aa1a50013e586c5957cb5102a9a98c8ab47138"
+        },
+        {
+          "byte_length": 16121856,
+          "name": "deformation.rgba32f",
+          "sha256": "43029301cb690dfdbcd6b1190cf66d82528e18e67b668341b1276e6eb804e338"
+        },
+        {
+          "byte_length": 12564,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "9a2fd6e24b4d708c4456073bf8d636348a798317246061011213872d532e354f"
+        },
+        {
+          "byte_length": 36749312,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "50a506da91a63c300def92e61c25a93419ffc4940d587f132eb30745fd812cdc"
+        },
+        {
+          "byte_length": 15310,
+          "name": "runtime-control-manifest.json",
+          "sha256": "f437764a7913e3601d0b4113f93c5cff53bec936aa103f7cd8eddd052b703ab7"
+        },
+        {
+          "byte_length": 3680,
+          "name": "timeline-manifest.json",
+          "sha256": "a919876e9a655c3b76fd88cf8725a2203dde5ffde9bc959fc7f9adb3d8dc0d16"
+        },
+        {
+          "byte_length": 49920,
+          "name": "amb-channels.f32",
+          "sha256": "6139b4fae7f85034cfc003bd4da362b46d4adcaf0c750803ca381fd713b59566"
+        }
+      ],
+      "portrait_id": 160102,
+      "source_family": "spirit-native"
+    },
+    {
+      "directory": "MP160103",
+      "files": [
+        {
+          "byte_length": 58258,
+          "name": "manifest.json",
+          "sha256": "466ff6ceec2ed8fbe0b889db0e51d73ff64c7c78eb7b927aa41edbf63c1018aa"
+        },
+        {
+          "byte_length": 67108864,
+          "name": "texture.rgba8",
+          "sha256": "bb5ec74f9ee02a05c207a56e07e03691137aac3a8761cd3f1963e70255c671d7"
+        },
+        {
+          "byte_length": 765956,
+          "name": "geometry.bin",
+          "sha256": "ed3d2c7ecf6b28e9173fcb278827327ba548a10488b84c072388bb848582dd52"
+        },
+        {
+          "byte_length": 15569,
+          "name": "dynamic-manifest.json",
+          "sha256": "fa23132acf81a73e3e4355687ddb876ab4244a33b394ba9600b9c2d730a6eae5"
+        },
+        {
+          "byte_length": 16105472,
+          "name": "deformation.rgba32f",
+          "sha256": "185111ebe337541d62e1bb1b83db9162a59b083d6b24e56e92a01d81e415de4c"
+        },
+        {
+          "byte_length": 12564,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "a60ab9520e2d4538db2c6a40f1121c50d0f5352918ce7ac4aa77528c2b52c006"
+        },
+        {
+          "byte_length": 36749312,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "30c3d4904040721a699958938378dc445f965b1689690514b7bfd81cd4e7cf6d"
+        },
+        {
+          "byte_length": 15310,
+          "name": "runtime-control-manifest.json",
+          "sha256": "38790b7906d1960515280a5daec602a3b904cb07bb654d2ae2e974e87a3455ab"
+        },
+        {
+          "byte_length": 3680,
+          "name": "timeline-manifest.json",
+          "sha256": "ee61987e8c3e8c0f0664ad8e2302d969dba35e38afa9f017ade909b6bf229819"
+        },
+        {
+          "byte_length": 49920,
+          "name": "amb-channels.f32",
+          "sha256": "1f12aee7e679c4a7d396a0e79189fe53f0b17a48abd97beadf7ee6d9057b2824"
+        }
+      ],
+      "portrait_id": 160103,
+      "source_family": "spirit-native"
+    },
+    {
+      "directory": "MP160104",
+      "files": [
+        {
+          "byte_length": 58258,
+          "name": "manifest.json",
+          "sha256": "62cdd6920fcef67628422f2273dc0d01f50fb3f3321e2bf603f682901a56824d"
+        },
+        {
+          "byte_length": 67108864,
+          "name": "texture.rgba8",
+          "sha256": "219eadb659285b0f49c9aff3c7377ccafac17023d13c7eaeb79547b0773dd3bf"
+        },
+        {
+          "byte_length": 766820,
+          "name": "geometry.bin",
+          "sha256": "b65bbd996aaf37dc4c01aa4ad2c8aca0c5428a38ffafebe5b1bcde8aedb78c77"
+        },
+        {
+          "byte_length": 15569,
+          "name": "dynamic-manifest.json",
+          "sha256": "b3a03fddf871e36ddf8abe91ddf320a29f9383693f2afbd6ad83b472b72656aa"
+        },
+        {
+          "byte_length": 16105472,
+          "name": "deformation.rgba32f",
+          "sha256": "8f256f80080ca04a7d54fc93dd4b0a03763b68d37d2970cb57ac7addbafaaace"
+        },
+        {
+          "byte_length": 12564,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "35f13b315ad4391ab1f123e3a16d4c424ff1717f6e9463a3800a7ff019e17465"
+        },
+        {
+          "byte_length": 36749312,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "0d557aba3c0eaa3e314af1d7ac7e45e5b403c3101da05411fded1af169390c90"
+        },
+        {
+          "byte_length": 15310,
+          "name": "runtime-control-manifest.json",
+          "sha256": "2325718714192e8d5eada697488e86fe05872e2da4b3347f0f14d2e3eae22cd0"
+        },
+        {
+          "byte_length": 3680,
+          "name": "timeline-manifest.json",
+          "sha256": "8bfa418166eea40ef6c76684552d37d74ed0285a647836beb1804263915aff3b"
+        },
+        {
+          "byte_length": 49920,
+          "name": "amb-channels.f32",
+          "sha256": "1b6a58e0bbf5b2787f3ba9572fe19f609b5bcd4ef8baccdef601d1357769314e"
+        }
+      ],
+      "portrait_id": 160104,
+      "source_family": "spirit-native"
+    },
+    {
+      "directory": "MP160105",
+      "files": [
+        {
+          "byte_length": 58258,
+          "name": "manifest.json",
+          "sha256": "7fdf9bd965e92104769c80e60998360a4c60f4fe42cb9b547ea32a220547dc96"
+        },
+        {
+          "byte_length": 67108864,
+          "name": "texture.rgba8",
+          "sha256": "f7cde0d36c84969894732d494d589ea563b8b3836e16cfe7b333c411a36be760"
+        },
+        {
+          "byte_length": 767672,
+          "name": "geometry.bin",
+          "sha256": "c4a6cc465b5dfd47c11364ce5149ffbaaadc0f902b3d667ddf171138cabaa4e4"
+        },
+        {
+          "byte_length": 15569,
+          "name": "dynamic-manifest.json",
+          "sha256": "a53fd55eaba7e59f39c247de3d95266d8cb355a363f2e3d14e7ae3c7b001e3eb"
+        },
+        {
+          "byte_length": 16121856,
+          "name": "deformation.rgba32f",
+          "sha256": "3315e1de4b6efc5a97d668b5b5b6818e39e39fd281d9afb0e4afce0784b168dc"
+        },
+        {
+          "byte_length": 12714,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "649f5e421aa0f5bcf57a393f79855d909cbeb5eb7d7be5aaac624bb73bfa734d"
+        },
+        {
+          "byte_length": 37601280,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "cf451a20d2bdc83aa9c820bb164f6b5f5d82ec676ac8d36fe95924702e47f2e6"
+        },
+        {
+          "byte_length": 15454,
+          "name": "runtime-control-manifest.json",
+          "sha256": "26293f937eaad55a6ae171ce09cda850486597fd28b7578d5c04a557b323c5cd"
+        },
+        {
+          "byte_length": 3680,
+          "name": "timeline-manifest.json",
+          "sha256": "c3f137973647366f0588dd8b3b125b4305a25a6a558f1877794933970cc058f5"
+        },
+        {
+          "byte_length": 50400,
+          "name": "amb-channels.f32",
+          "sha256": "f76bef2eafdfdb1aa7adf6cdde1bbe7ece24d2c28a3e6479346f762f34ad2fac"
+        }
+      ],
+      "portrait_id": 160105,
+      "source_family": "spirit-native"
+    },
+    {
+      "directory": "MP160106",
+      "files": [
+        {
+          "byte_length": 59088,
+          "name": "manifest.json",
+          "sha256": "742a2c2a5fe5ded1f3a53cd92395a5b70a8d6224cb4079d9493775d97d143840"
+        },
+        {
+          "byte_length": 67108864,
+          "name": "texture.rgba8",
+          "sha256": "428874f344ed856104810c6b2df98cfb25267a222ebd10d0dabe9f99ad8140cf"
+        },
+        {
+          "byte_length": 777620,
+          "name": "geometry.bin",
+          "sha256": "f29836dad6ccbed66206ee5405c49999aa790fbc2a19413d8593a49fd91cb50b"
+        },
+        {
+          "byte_length": 15706,
+          "name": "dynamic-manifest.json",
+          "sha256": "1e1bbc185a6db15ce406f60f1c4b3c4cc58e18eb9e8bad4a8cef298863af8762"
+        },
+        {
+          "byte_length": 16367616,
+          "name": "deformation.rgba32f",
+          "sha256": "56122d29f942e0b8b34d2fde7182a876c7e3bce6df7f7e2283c5dff4b9742c58"
+        },
+        {
+          "byte_length": 12564,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "d6d467ccae91844197684aca916d67a19bb4e0aaca788689d4d7fc9fa3009a75"
+        },
+        {
+          "byte_length": 36749312,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "4322640dd676e0ba8a163d0d6a089e0bd52be2dbf49855f29030d3f5037adba2"
+        },
+        {
+          "byte_length": 15730,
+          "name": "runtime-control-manifest.json",
+          "sha256": "f57970db52e7b03e17e7971607a9c8cb1ea6e607a43dab8b18973cd6e0822268"
+        },
+        {
+          "byte_length": 3677,
+          "name": "timeline-manifest.json",
+          "sha256": "e15c27c835f475ba865e41211b3f2ba42ce99e32adf175497f66882bb4a0a31d"
+        },
+        {
+          "byte_length": 35192,
+          "name": "amb-channels.f32",
+          "sha256": "709e43a1d91ea15efdfeb4b01ff5c2ded0c68a5650f79d3e6520991d5f7d0518"
+        }
+      ],
+      "portrait_id": 160106,
+      "source_family": "spirit-native"
+    },
+    {
+      "directory": "MP160107",
+      "files": [
+        {
+          "byte_length": 58264,
+          "name": "manifest.json",
+          "sha256": "09b02c8dc5c05607c0a0b0977eab44eabac95a66edef24656a042b67ec5cb182"
+        },
+        {
+          "byte_length": 52428800,
+          "name": "texture.rgba8",
+          "sha256": "c1f41eaeebe3db7c0f093aa53e93d6f7a3a9d6878bf00baf385d3b16b7716ae0"
+        },
+        {
+          "byte_length": 781500,
+          "name": "geometry.bin",
+          "sha256": "b4f40033d057f2e70475c40e9fc35af77cdbb439cdc83d1b4cd9d7052fe924d8"
+        },
+        {
+          "byte_length": 15569,
+          "name": "dynamic-manifest.json",
+          "sha256": "7690772a6227daa731e0ca1b9ad8e9005cfcbccdc8cd62feaccb2e876535e527"
+        },
+        {
+          "byte_length": 16285696,
+          "name": "deformation.rgba32f",
+          "sha256": "8cf18bf27e501626acd6dd2ae96e8ef9809ea17f2b6d477e9ab31b0e4380c42d"
+        },
+        {
+          "byte_length": 12564,
+          "name": "eye-dynamic-manifest.json",
+          "sha256": "6e2104d73be0483203552f1a7095e13abe67d7ac401d9d60ba9e9fe4aa1fa721"
+        },
+        {
+          "byte_length": 36749312,
+          "name": "eye-deformation.rgba32f",
+          "sha256": "a64c6bc8790d75fa889d03b69e0e4d797b833cb1fc254e069a784a3ef0edbb9c"
+        },
+        {
+          "byte_length": 15310,
+          "name": "runtime-control-manifest.json",
+          "sha256": "42d31cc3fe734c25b539ebaaeae11d619f20bb3ec5199d69ff19fe58672d883c"
+        },
+        {
+          "byte_length": 3680,
+          "name": "timeline-manifest.json",
+          "sha256": "1e0ad1a923b362f49f165a02c174d14cd271a145d8cde55b72860d9d49cfe165"
+        },
+        {
+          "byte_length": 49920,
+          "name": "amb-channels.f32",
+          "sha256": "73b660359eb7d05dc5f8ab14a856d35f0302198b72e4fcb6765696e2c93645e2"
+        }
+      ],
+      "portrait_id": 160107,
+      "source_family": "spirit-native"
+    }
+  ],
+  "source_policy": {
+    "approved_local_cues_only": true,
+    "desktop_pet_remains_untouched": true,
+    "original_pcks_remain_read_only": true,
+    "preserves_spirit_red_irises": true,
+    "uses_first_outfit_face_transplant": false,
+    "uses_prerendered_frame_sequence": false,
+    "uses_video_playback": false
+  },
+  "stage": "approved-fifteen-native-runtime",
+  "version": 3
+}
