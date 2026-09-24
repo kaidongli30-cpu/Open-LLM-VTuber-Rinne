@@ -17,7 +17,7 @@ from typing import Any
 from ruamel.yaml import YAML
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path.cwd().resolve()
 MISSING = object()
 
 

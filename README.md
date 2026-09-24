@@ -145,39 +145,26 @@ uv run run_server.py
 
 ## 4. 已有用户升级而不是重装
 
-升级前先停掉旧后端，并在文件资源管理器中把旧 `conf.yaml`、整个 `chat_history` 和 `rinne_library` 复制到项目目录之外保存。确认备份可打开后，再按下面命令把旧 `conf.yaml` 改名为 `conf.local.yaml` 并更新代码。若已经有同名的 `conf.local.yaml`，不要覆盖，先检查它的内容。
+升级前先关闭桌面客户端和旧后端，并在文件资源管理器中把 `conf.yaml`、整个 `chat_history` 和 `rinne_library` 复制到项目目录之外保存；如果有 `conf.local.yaml`，也一起复制。确认备份可打开后，继续在**原项目目录**升级，不需要删除旧版或把密钥重新填写一遍。
 
-- **原目录内升级**：更新代码和子模块，保留本机的 `conf.local.yaml`、`chat_history`、`rinne_library` 和 `local_config`；检查 `conf_uid` 仍是 `rinne_01`。代码默认继续使用 `chat_history\rinne_01`，不会清空旧记忆。
+- **原目录内升级**：更新代码和子模块，保留本机的 `conf.yaml`、`chat_history`、`rinne_library` 和 `local_config`；检查 `conf_uid` 仍是 `rinne_01`。代码默认继续使用 `chat_history\rinne_01`，不会清空旧记忆。旧版如有 `conf.local.yaml`，更新工具会把其中的设置转入 `conf.yaml`，并留下备份。
 - **换到新目录**：把私人数据复制到新目录的 `chat_history`，或在启动窗口设置 `RINNE_DATA_ROOT` 为一个独立、绝对的数据目录，程序会在其下读写 `chat_history\rinne_01`。不要把两个正在运行的后端同时指向同一份数据；先在副本上验证，再切换。
 - **保留 Library**：`rinne_library\rinne_01` 是独立的个人文件库，`RINNE_DATA_ROOT` 不会替它改位置。换目录时把旧库复制到新目录的同名位置，或用绝对路径环境变量 `RINNE_LIBRARY_ROOT` 指向要继续使用的旧库；并行测试应使用副本，避免两个进程同时写同一库。
 
 如果要在同一台电脑上同时运行两套凛祢，还要为新实例分别设置 `RINNE_CLIENT_USER_DATA_DIR`（客户端数据）、`RINNE_RENDERER_SETTINGS_PATH`（换装设置）与 `RINNE_DATA_ROOT`（日记和记忆），并让客户端连接新实例的后端端口。各变量应指向独立的绝对路径；不要让两个运行中的实例写入同一份数据。
 
-PowerShell 更新代码：
+在原项目目录的 PowerShell 或 CMD 中依次运行。第一条下载更新工具；第二条只检查是否能安全更新，不修改配置；检查通过后运行第三、四条：
 
-```powershell
-Rename-Item .\conf.yaml conf.local.yaml
-git restore -- conf.yaml
-git pull --ff-only
-git submodule update --init --recursive
+```text
+curl.exe --fail --location --output rinne-update-now.py https://raw.githubusercontent.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/main/tools/rinne_safe_update.py
+uv run python rinne-update-now.py
+uv run python rinne-update-now.py --apply
 uv sync
 ```
 
-CMD 中先执行 `ren conf.yaml conf.local.yaml`，再执行 `git restore -- conf.yaml` 和上面后三条命令。先前已有 `conf.local.yaml` 时，不要覆盖它；如果 `conf.yaml` 没有另外修改，直接从 `git pull --ff-only` 开始。接着在原项目目录预览配置更新：
+工具会先备份原配置。只有新版改了、你没有改过的设置会自动更新；双方改了同一项时，工具会列出冲突的配置项并停止，让你自己决定。你填的 API Key、代理、个人称呼等设置不会被悄悄覆盖。聊天、日记、背景与 `rinne_library` 不会被移动或清空。更新成功后可删除临时下载的 `rinne-update-now.py`；下次可直接运行项目自带的 `uv run python tools/rinne_safe_update.py --apply`。
 
-```text
-uv run python scripts/update_rinne_config.py
-```
-
-确认列出的设置后，再执行：
-
-```text
-uv run python scripts/update_rinne_config.py --apply
-```
-
-脚本会先备份原配置，再应用新版运行设置，同时保留原有 API Key、代理、个人称呼及提示词、角色 ID 和本机服务地址。聊天、日记、背景与 `rinne_library` 不会被移动或清空。
-
-已有用户也按“安装 V2 语音”一节配置语音服务，再使用上述脚本更新本机配置。脚本会切换到项目自带的 V2 参考音；若已有自己的翻译词表，仍会保留其路径。确认 `ollama list` 有指定模型，重启后端和桌面客户端，检查日常与灵装语音。
+已有用户也按“安装 V2 语音”一节检查语音服务及两个权重文件。若已有自己的翻译词表，更新会保留你填写的路径。确认 `ollama list` 有指定模型，重启后端和桌面客户端，检查日常与灵装语音。
 
 ### 用已审核日记建立或续写第二层背景
 
@@ -197,7 +184,7 @@ uv run python -m src.open_llm_vtuber.memory.layer2_backfill --approve-interactiv
 
 ## 5. 常见问题
 
-- **换装菜单没有某套**：先运行该套 `build --outfit-number N` 并用 `status` 验证；菜单只展示完整可用的资源。作者自制服装的本地游戏头部合成也依赖用户自己的原画运行包。
+- **换装菜单没有某套**：在项目目录运行 `uv run python setup_rinne_game_assets.py status` 检查随仓库提供的五套游戏资源；确认启动的是这个项目目录里的后端，并完全重启桌面客户端。九套服装不需要另外导入游戏文件。
 - **API 连接失败**：检查自己的 Key、额度与网络；需要代理时，先确认代理服务已启动，再设置本地代理地址。
 - **运行时找不到前端**：执行 `git submodule update --init --recursive`，确认 `frontend\index.html` 存在。
 - **文字正常但没声音**：确认 Ollama 的 `qwen3.5:4b-q4_K_M` 已安装并运行、两个语音权重已放到指定位置、`GPT_SoVITS\configs\tts_infer.yaml` 的 `custom:` 已按上文修改，以及语音端口与本地 `conf.yaml` 匹配。
