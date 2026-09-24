@@ -82,7 +82,7 @@ ollama list
 
 ### 安装 V2 语音
 
-先下载 [GPT-SoVITS 官方 Windows 整合包 `GPT-SoVITS-v2pro-20250604.7z`](https://huggingface.co/lj1995/GPT-SoVITS-windows-package/blob/8b081e1fa1b3ad121e0f310e525dc80fcf15becc/GPT-SoVITS-v2pro-20250604.7z)，用 7-Zip 解压到你想放语音程序的位置。打开解压出来的文件夹，找到**直接包含 `api_v2.py` 文件和 `runtime` 文件夹**的那一层；下文把这一层称为“语音目录”。如果解压后有两层同名文件夹，请进入里面那一层，以实际看到 `api_v2.py` 为准。
+先下载 [GPT-SoVITS 官方 Windows 整合包 `GPT-SoVITS-v2pro-20250604.7z`](https://huggingface.co/lj1995/GPT-SoVITS-windows-package/blob/8b081e1fa1b3ad121e0f310e525dc80fcf15becc/GPT-SoVITS-v2pro-20250604.7z)，用 7-Zip 解压到你想放语音程序的位置。打开解压出来的文件夹，找到**直接包含 `api_v2.py` 文件和 `runtime` 文件夹**的那一层，这一层也是语音模型的根目录；下文把这一层称为“语音目录”。如果解压后有两层同名文件夹，请进入里面那一层，以实际看到 `api_v2.py` 为准。
 
 然后打开 [凛祢 V2 语音权重下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases/tag/rinne-gpt-sovits-v2-20260923)，下载页面下方的两个文件，不要改文件名。用文件资源管理器把它们分别放到刚才找到的语音目录中：
 
