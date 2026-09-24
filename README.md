@@ -17,7 +17,7 @@
 
 ## 1. 准备软件
 
-需要 Git、[uv](https://docs.astral.sh/uv/getting-started/installation/) 和 Python 3.10–3.12（推荐 3.12）。还需要 [Ollama](https://ollama.com/download/windows) 和 [7-Zip](https://www.7-zip.org/)。语音程序会在后面的语音安装步骤中下载。确认基础命令：
+需要 Git、[uv](https://docs.astral.sh/uv/getting-started/installation/) 和 Python 3.10–3.12（推荐 3.12）。还需要 [Ollama](https://ollama.com/download/windows) 和 [7-Zip](https://www.7-zip.org/)。确认基础命令：
 
 PowerShell 或 CMD：
 
