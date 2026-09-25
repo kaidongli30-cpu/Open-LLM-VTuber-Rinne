@@ -1784,9 +1784,15 @@ def run_daily_layer2_update(
                 ledger_metrics["operation_limit_repair"] = operation_limit_repair
             _write_json(ledger_dir / "metrics.json", ledger_metrics)
             current_context = load_current_layer2_context(history)
-            base_sections = _parse_overview_sections(
-                _extract_model_facing_overview(current_context.context)
+            base_sections = (
+                []
+                if bootstrap
+                else _parse_overview_sections(
+                    _extract_model_facing_overview(current_context.context)
+                )
             )
+            if bootstrap and not legacy._items_by_id(background):
+                raise Layer2RuntimeError("first_diary_has_no_verified_background_facts")
             previous_projection_path = (
                 loaded.background_path.parent / "projection_result.json"
                 if loaded.background_path is not None
