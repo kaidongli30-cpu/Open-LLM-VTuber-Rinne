@@ -420,7 +420,14 @@ def run_update(
     if needs_git_update:
         protected_changes = _git(
             "diff", "--name-only", head, target, "--", "chat_history", "rinne_library"
-        )
+        ).splitlines()
+        # These two tracked files describe an otherwise private Library. They
+        # are newly introduced when upgrading from 1.2.1, which had no Library.
+        protected_changes = [
+            name
+            for name in protected_changes
+            if name not in {"rinne_library/README.md", "rinne_library/.gitignore"}
+        ]
         if protected_changes:
             raise UpdateError("版本差异涉及已跟踪的个人记忆；未修改文件，请先人工迁移")
 
