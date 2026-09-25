@@ -32,6 +32,7 @@ from src.open_llm_vtuber.library_filename_search import (  # noqa: E402
 from src.open_llm_vtuber.video_analysis import (  # noqa: E402
     read_cached_video_analysis,
 )
+
 LIBRARY_ROOT = os.environ.get("RINNE_LIBRARY_ROOT")
 FILENAME_SEARCH = default_filename_search(LIBRARY_ROOT, repo_root=REPO_ROOT)
 mcp = FastMCP("rinne-library")
@@ -126,7 +127,9 @@ def library_find_by_filename(
                     break
             semantic_status = "used"
         except Exception as exc:  # exact filename lookup remains available
-            logger.warning("Filename semantic search unavailable: %s", type(exc).__name__)
+            logger.warning(
+                "Filename semantic search unavailable: %s", type(exc).__name__
+            )
             semantic_status = "unavailable"
     return {
         "query": resolved_name,
@@ -185,12 +188,21 @@ def library_read_video_analysis(
     path: str = "",
     file_path: str = "",
 ) -> dict:
-    """读取已完成并缓存的视频观察；不能根据文件名猜测视频内容。"""
+    """读取同一视频先前完成的观察，不能根据文件名猜测视频内容。
+
+    这不是针对当前提问重新分析的结果；请保留原观察的范围和不确定性。
+    视频文件发生变化时拒绝读取旧观察。
+    """
 
     reference = file_id_or_path or file_id or path or file_path
-    return read_cached_video_analysis(reference, root=LIBRARY_ROOT)
+    return read_cached_video_analysis(
+        reference, root=LIBRARY_ROOT, require_matching_focus=False
+    )
 
 
 if __name__ == "__main__":
-    logger.info("Starting Rinne library MCP server at %s", LIBRARY_ROOT or "rinne_library/rinne_01")
+    logger.info(
+        "Starting Rinne library MCP server at %s",
+        LIBRARY_ROOT or "rinne_library/rinne_01",
+    )
     mcp.run()
