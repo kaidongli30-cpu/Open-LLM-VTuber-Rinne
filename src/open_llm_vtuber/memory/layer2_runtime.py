@@ -33,6 +33,7 @@ from ..config_manager.layer2_memory import Layer2MemoryGenerationConfig
 from ..data_paths import resolve_character_history_root
 from . import daily_child_event_providers as provider_adapter
 from .daily_child_event_providers import DailyChildEventProviderError
+from .diary_review import load_matching_approval
 from .layer2_context import (
     CURRENT_CONTEXT_NAME,
     CURRENT_POINTER_NAME,
@@ -1560,15 +1561,35 @@ def run_daily_layer2_update(
         raise Layer2RuntimeError("same_day_diary_changed_manual_review_required")
     if existing_status == "invalid":
         raise Layer2RuntimeError("current_layer2_publication_invalid")
-    loaded = load_layer2_publication(history)
-    if loaded.diagnostics.get("status") != "loaded" or loaded.background_path is None:
-        raise Layer2RuntimeError("no_valid_layer2_seed_publication")
-    previous = _read_json(loaded.background_path)
     diary_path = history / "diaries" / f"diary_{memory_day}.txt"
     if not diary_path.is_file() or diary_path.stat().st_size == 0:
         raise Layer2RuntimeError(f"diary_missing_or_empty:{diary_path}")
     diary_text = diary_path.read_text(encoding="utf-8")
+    if not diary_text.strip():
+        raise Layer2RuntimeError(f"diary_missing_or_empty:{diary_path}")
+    if load_matching_approval(history, memory_day, diary_path) is None:
+        raise Layer2RuntimeError(f"diary_requires_current_approval:{memory_day}")
     diary_hash = sha256_file(diary_path)
+    loaded = load_layer2_publication(history)
+    bootstrap = loaded.diagnostics.get("status") == "missing"
+    if bootstrap:
+        # This is only an in-memory empty ledger, never a published background.
+        # The first real, approved diary must supply every added fact/evidence.
+        previous = delta_runner._empty_background(current_day - timedelta(days=1))
+        previous["daily_update"]["summary"] = "尚未根据日记建立用户背景。"
+        if (layer2_root / CURRENT_CONTEXT_NAME).exists():
+            raise Layer2RuntimeError(
+                "existing_editable_background_requires_manual_review"
+            )
+    elif (
+        loaded.diagnostics.get("status") == "loaded"
+        and loaded.background_path is not None
+    ):
+        previous = _read_json(loaded.background_path)
+    else:
+        raise Layer2RuntimeError("current_layer2_publication_invalid")
+    pointer_path = layer2_root / CURRENT_POINTER_NAME
+    pointer_before = pointer_path.read_bytes() if pointer_path.is_file() else None
     cloud_settings, provider_safe = _settings_for_cloud(config_path, settings)
     layer2_root.mkdir(parents=True, exist_ok=True)
 
@@ -1585,6 +1606,7 @@ def run_daily_layer2_update(
                 "started_at": _iso_now(),
                 "memory_day": memory_day,
                 "previous_as_of_date": previous.get("as_of_date"),
+                "bootstrap_from_approved_diary": bootstrap,
                 "diary_sha256": diary_hash,
                 "provider": provider_safe,
                 "credential_written": False,
@@ -1767,10 +1789,13 @@ def run_daily_layer2_update(
             )
             previous_projection_path = (
                 loaded.background_path.parent / "projection_result.json"
+                if loaded.background_path is not None
+                else None
             )
             previous_projection = (
                 _read_json(previous_projection_path)
-                if previous_projection_path.is_file()
+                if previous_projection_path is not None
+                and previous_projection_path.is_file()
                 else None
             )
             _attach_previous_sources(base_sections, previous_projection)
@@ -1797,18 +1822,31 @@ def run_daily_layer2_update(
                 cloud_settings=cloud_settings,
                 settings=settings,
             )
-            publication = _publish(
-                layer2_root=layer2_root,
-                run_id=run_id,
-                current_day=current_day,
-                diary_hash=diary_hash,
-                background=background,
-                projection_result=projection_result,
-                overview=overview,
-                provider_safe=provider_safe,
-                ledger_metrics=ledger_metrics,
-                projection_metrics=projection_metrics,
-            )
+            # Recheck the exact source and base immediately before publishing.
+            # Two different-day workers must not overwrite each other's result.
+            with _daily_lock(layer2_root, "publication"):
+                pointer_now = (
+                    pointer_path.read_bytes() if pointer_path.is_file() else None
+                )
+                if pointer_now != pointer_before:
+                    raise Layer2RuntimeError("layer2_base_changed_retry_required")
+                if (
+                    sha256_file(diary_path) != diary_hash
+                    or load_matching_approval(history, memory_day, diary_path) is None
+                ):
+                    raise Layer2RuntimeError("diary_changed_during_generation")
+                publication = _publish(
+                    layer2_root=layer2_root,
+                    run_id=run_id,
+                    current_day=current_day,
+                    diary_hash=diary_hash,
+                    background=background,
+                    projection_result=projection_result,
+                    overview=overview,
+                    provider_safe=provider_safe,
+                    ledger_metrics=ledger_metrics,
+                    projection_metrics=projection_metrics,
+                )
             pruned = _prune_retained_runtime(
                 layer2_root, current_day, settings.audit_retention_days
             )

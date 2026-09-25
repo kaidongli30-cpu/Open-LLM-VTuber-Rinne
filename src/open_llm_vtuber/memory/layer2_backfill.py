@@ -16,7 +16,7 @@ from typing import Any
 from ..data_paths import resolve_character_history_root
 from .diary_review import load_matching_approval, wait_for_diary_approval
 from .layer2_context import load_layer2_publication
-from .layer2_runtime import run_daily_layer2_update
+from .layer2_runtime import Layer2RuntimeError, run_daily_layer2_update
 
 
 DIARY_NAME = re.compile(r"diary_(\d{4}-\d{2}-\d{2})\.txt\Z")
@@ -124,7 +124,7 @@ def main(argv: list[str] | None = None) -> int:
                 config_path=arguments.config_path,
                 approve_interactively=arguments.approve_interactively,
             )
-    except (Layer2BackfillError, OSError, ValueError) as exc:
+    except (Layer2BackfillError, Layer2RuntimeError, OSError, ValueError) as exc:
         print(f"第二层背景补齐失败：{exc}")
         return 2
     print(json.dumps(result, ensure_ascii=False, indent=2))

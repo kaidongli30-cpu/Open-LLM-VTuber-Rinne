@@ -1,8 +1,9 @@
-"""Safely fast-forward a Rinne checkout while preserving its local conf.yaml."""
+"""Update official Rinne releases while retaining local configuration and keys."""
 
 from __future__ import annotations
 
 import argparse
+import ast
 import copy
 import io
 import json
@@ -33,6 +34,15 @@ OFFICIAL_REMOTES = {
     "https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne",
     "git@github.com:kaidongli30-cpu/Open-LLM-VTuber-Rinne",
     "ssh://git@github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne",
+}
+# Only this released, pre-sanitization checkout has an audited rewritten base.
+# Never use this exception for arbitrary user commits or divergent branches.
+LEGACY_RELEASE_BASES = {
+    "0c66f0f350a4955e2094c0d84e663bcef0cc4875": "3f63381720bf97375160cbd37fa11b998ede81d5",
+}
+PYTHON_KEY_FILES = {
+    "diary_generator.py": "LLM_API_KEY",
+    "memory_generation_config.py": "API_KEY",
 }
 
 
@@ -260,11 +270,67 @@ def _check_checkout() -> None:
     origin = _git("remote", "get-url", "origin").removesuffix(".git").rstrip("/")
     if origin not in OFFICIAL_REMOTES:
         raise UpdateError("origin 不是凛祢的官方仓库；未修改文件")
-    changed = _git("status", "--porcelain", "--untracked-files=no", strip=False)
-    if any(line[3:] != "conf.yaml" for line in changed.splitlines()):
-        raise UpdateError("发现 conf.yaml 之外的本地改动，请先自行处理；未修改文件")
+    changed = _git("diff", "--name-only", "-z", strip=False).split("\0")
+    allowed = {"conf.yaml", *PYTHON_KEY_FILES}
+    if any(name and name not in allowed for name in changed):
+        raise UpdateError("发现配置和指定密钥之外的本地改动，请先自行处理；未修改文件")
     if _git("diff", "--cached", "--name-only"):
         raise UpdateError("暂存区有本地改动；未修改文件")
+
+
+def _key_assignment(text: str, variable: str) -> tuple[ast.expr, int, int]:
+    """Locate one top-level value without executing user Python code."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError as error:
+        raise UpdateError("密钥配置文件存在语法错误；未修改文件") from error
+    assignments = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == variable
+    ]
+    if len(assignments) != 1:
+        raise UpdateError(f"无法安全定位 {variable} 配置；未修改文件")
+    value = assignments[0].value
+    lines = text.encode("utf-8").splitlines(keepends=True)
+    start = sum(map(len, lines[: value.lineno - 1])) + value.col_offset
+    end = sum(map(len, lines[: value.end_lineno - 1])) + value.end_col_offset
+    return value, start, end
+
+
+def _replace_key_value(text: str, variable: str, expression: str) -> str:
+    _, start, end = _key_assignment(text, variable)
+    data = text.encode("utf-8")
+    return (data[:start] + expression.encode("utf-8") + data[end:]).decode("utf-8")
+
+
+def _key_file_updates(head: str, target: str) -> dict[str, tuple[bytes, str, str]]:
+    updates = {}
+    for name, variable in PYTHON_KEY_FILES.items():
+        old = _git("show", f"{head}:{name}", strip=False)
+        new = _git("show", f"{target}:{name}", strip=False)
+        path = ROOT / name
+        if path.is_symlink() or not path.is_file():
+            raise UpdateError(f"密钥配置文件路径无效：{name}；未修改文件")
+        user_bytes = path.read_bytes()
+        user = user_bytes.decode("utf-8-sig").replace("\r\n", "\n")
+        old = old.replace("\r\n", "\n")
+        value, _, _ = _key_assignment(user, variable)
+        if user != old:
+            if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
+                raise UpdateError(f"{name} 仅支持直接填写字符串密钥；未修改文件")
+            if _replace_key_value(user, variable, "''") != _replace_key_value(
+                old, variable, "''"
+            ):
+                raise UpdateError(f"{name} 除密钥外还有源码改动；未修改文件")
+        # A literal key also belongs to the user when already in their old HEAD.
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            new = _replace_key_value(new, variable, repr(value.value))
+        updates[name] = (user_bytes, old, new)
+    return updates
 
 
 def _latest_release_tag(requested_tag: str | None = None) -> str | None:
@@ -338,14 +404,25 @@ def run_update(
         return "暂无正式应用版本", None
     _git("fetch", "origin", "tag", release_tag)
     target = _git("rev-parse", f"refs/tags/{release_tag}^{{commit}}")
+    key_updates = _key_file_updates(head, target)
     needs_git_update = head != target
     if not needs_git_update and not overlay_present:
         if apply:
             _git("submodule", "update", "--init", "--recursive")
             _repair_game_asset_manifests()
         return "已经是最新版", None
+    legacy_migration = False
     if needs_git_update and _git("merge-base", head, target) != head:
-        raise UpdateError("本地与 GitHub 的提交已分叉，不能自动更新；未修改文件")
+        rewritten = LEGACY_RELEASE_BASES.get(head)
+        if rewritten is None or _git("merge-base", rewritten, target) != rewritten:
+            raise UpdateError("本地与 GitHub 的提交已分叉，不能自动更新；未修改文件")
+        legacy_migration = True
+    if needs_git_update:
+        protected_changes = _git(
+            "diff", "--name-only", head, target, "--", "chat_history", "rinne_library"
+        )
+        if protected_changes:
+            raise UpdateError("版本差异涉及已跟踪的个人记忆；未修改文件，请先人工迁移")
 
     old_text = _git("show", f"{head}:conf.yaml", strip=False)
     new_text = _git("show", f"{target}:conf.yaml", strip=False)
@@ -369,23 +446,49 @@ def run_update(
     if overlay_present and overlay_backup.exists():
         raise UpdateError("旧配置备份文件名冲突；未修改文件")
     shutil.copy2(config_path, backup)
+    # Secret-bearing Python backups live inside Git's private administrative
+    # directory, so a later `git add .` cannot publish them accidentally.
+    key_backup_dir = Path(
+        _git("rev-parse", "--git-path", f"rinne-update-backups/{stamp}")
+    )
+    if not key_backup_dir.is_absolute():
+        key_backup_dir = ROOT / key_backup_dir
+    key_backup_dir.mkdir(parents=True, exist_ok=False)
+    for name, (original, _old, _new) in key_updates.items():
+        (key_backup_dir / name).write_bytes(original)
     if needs_git_update:
+        if legacy_migration:
+            _git("branch", f"codex/pre-update-{stamp}", head)
         try:
             # Return only this tracked file to its exact HEAD bytes so a
             # fast-forward can proceed. The user's copy is backed up above.
             _atomic_write(config_path, old_text.encode("utf-8"))
+            for name, (_original, old, _new) in key_updates.items():
+                _atomic_write(ROOT / name, old.encode("utf-8"))
             # Refresh Git's index stat cache after replacing the file on Windows.
-            _git("add", "--", "conf.yaml")
+            _git("add", "--", "conf.yaml", *key_updates)
             _git("diff", "--cached", "--quiet")
-            _git("merge", "--ff-only", target)
+            if legacy_migration:
+                # The old commit is retained above. Refuse overwriting even
+                # ignored untracked files that collide with new release files.
+                _git("checkout", "--no-overwrite-ignore", "-B", "main", target)
+            else:
+                _git("merge", "--no-overwrite-ignore", "--ff-only", target)
         except Exception:
-            if _git("rev-parse", "HEAD") == head:
+            stayed_at_old_head = _git("rev-parse", "HEAD") == head
+            if stayed_at_old_head:
                 _atomic_write(config_path, user_bytes)
             else:
                 _atomic_write(config_path, merged_text.encode("utf-8"))
+            for name, (original, _old, new) in key_updates.items():
+                _atomic_write(
+                    ROOT / name, original if stayed_at_old_head else new.encode("utf-8")
+                )
             raise
     try:
         _atomic_write(config_path, merged_text.encode("utf-8"))
+        for name, (_original, _old, new) in key_updates.items():
+            _atomic_write(ROOT / name, new.encode("utf-8"))
     except OSError:
         _atomic_write(config_path, user_bytes)
         raise
