@@ -22,6 +22,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from ruamel.yaml import YAML
+from ruamel.yaml.error import YAMLError
 
 
 ROOT = Path.cwd().resolve()
@@ -73,7 +74,12 @@ def _yaml() -> YAML:
 
 
 def _parse_config(text: str) -> Mapping[str, Any]:
-    config = _yaml().load(text)
+    try:
+        config = _yaml().load(text)
+    except YAMLError as error:
+        raise UpdateError(
+            "conf.yaml 格式错误，请检查缩进、冒号和引号；未修改文件"
+        ) from error
     if not isinstance(config, Mapping):
         raise UpdateError("conf.yaml 格式不是 YAML 配置对象，更新已停止")
     return config
