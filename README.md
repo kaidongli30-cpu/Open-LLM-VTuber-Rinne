@@ -258,7 +258,7 @@ set "TTS_DIR=D:\AI\Open-LLM-VTuber-Rinne\GPT-SoVITS-v2pro-20250604\GPT-SoVITS-v2
 
 ### 6.2 双击启动
 
-1. 确认 Ollama 已运行。
+1. 确认 Ollama 已运行（建议将其作为开机启动，详情先看6.3）。
 2. 双击 `启动凛祢.bat`。
 3. 等待 TTS 窗口启动。脚本会检查语音服务，成功后再打开后端窗口。
 4. 等后端初始化完成，再打开桌面客户端。
