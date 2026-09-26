@@ -5,15 +5,16 @@ from __future__ import annotations
 import argparse
 import ast
 import copy
+import hashlib
 import io
 import json
 import os
 import re
-import shutil
 import socket
 import subprocess
+import sys
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -78,7 +79,12 @@ def _parse_config(text: str) -> Mapping[str, Any]:
     return config
 
 
-def merge_config(old_text: str, user_text: str, new_text: str) -> tuple[str, list[str]]:
+def merge_config(
+    old_text: str,
+    user_text: str,
+    new_text: str,
+    resolve: Callable[[str, Any, Any], Any] | None = None,
+) -> tuple[str, list[str]]:
     """Apply upstream-only field edits to the user's round-trip YAML tree."""
     old = _parse_config(old_text)
     user = copy.deepcopy(_parse_config(user_text))
@@ -89,6 +95,8 @@ def merge_config(old_text: str, user_text: str, new_text: str) -> tuple[str, lis
         old_node: Any, user_node: Any, new_node: Any, path: tuple[str, ...]
     ) -> Any:
         if user_node == new_node:
+            return user_node
+        if path and _personal_field(path[-1]) and user_node is not MISSING:
             return user_node
         if user_node == old_node:
             return MISSING if new_node is MISSING else copy.deepcopy(new_node)
@@ -119,6 +127,8 @@ def merge_config(old_text: str, user_text: str, new_text: str) -> tuple[str, lis
                     else:
                         user_node[key] = child
                 return user_node
+        if resolve is not None:
+            return resolve(".".join(path), user_node, new_node)
         conflicts.append(".".join(path))
         return user_node
 
@@ -187,7 +197,7 @@ def _atomic_write(path: Path, data: bytes) -> None:
             temporary.unlink(missing_ok=True)
 
 
-def _repair_game_asset_manifests() -> int:
+def _repair_game_asset_manifests(skip: set[str] | None = None) -> int:
     """Restore Git's exact JSON bytes after Windows checkout converted LF to CRLF.
 
     Only a pure line-ending conversion of a tracked file may be repaired. Any
@@ -238,6 +248,8 @@ def _repair_game_asset_manifests() -> int:
             raise UpdateError("游戏资源清单长度异常；更新已停止")
         blob = output[start:finish]
         cursor = finish + 1
+        if skip and name in skip:
+            continue
         path = ROOT / name
         actual = path.read_bytes()
         if actual != blob:
@@ -270,12 +282,10 @@ def _check_checkout() -> None:
     origin = _git("remote", "get-url", "origin").removesuffix(".git").rstrip("/")
     if origin not in OFFICIAL_REMOTES:
         raise UpdateError("origin 不是凛祢的官方仓库；未修改文件")
-    changed = _git("diff", "--name-only", "-z", strip=False).split("\0")
-    allowed = {"conf.yaml", *PYTHON_KEY_FILES}
-    if any(name and name not in allowed for name in changed):
-        raise UpdateError("发现配置和指定密钥之外的本地改动，请先自行处理；未修改文件")
     if _git("diff", "--cached", "--name-only"):
-        raise UpdateError("暂存区有本地改动；未修改文件")
+        raise UpdateError(
+            "暂存区有尚未提交的改动，请先取消暂存（保留文件内容）后重试；未修改文件"
+        )
 
 
 def _key_assignment(text: str, variable: str) -> tuple[ast.expr, int, int]:
@@ -379,148 +389,581 @@ def _latest_release_tag(requested_tag: str | None = None) -> str | None:
     return max(candidates)[1] if candidates else None
 
 
-def run_update(
-    *, apply: bool, release_tag: str | None = None
-) -> tuple[str, Path | None]:
-    _check_checkout()
-    config_path = ROOT / "conf.yaml"
-    user_bytes = config_path.read_bytes()
-    user_text = user_bytes.decode("utf-8-sig")
-    overlay_path = ROOT / "conf.local.yaml"
-    overlay_present = overlay_path.is_file()
-    if overlay_present:
-        user_text = apply_local_overlay(
-            user_text, overlay_path.read_bytes().decode("utf-8-sig")
-        )
-    if apply:
-        _ensure_backend_stopped(user_text)
-    head = _git("rev-parse", "HEAD")
-    release_tag = (
-        _latest_release_tag(release_tag)
-        if release_tag is not None
-        else _latest_release_tag()
-    )
-    if release_tag is None:
-        return "暂无正式应用版本", None
-    _git("fetch", "origin", "tag", release_tag)
-    target = _git("rev-parse", f"refs/tags/{release_tag}^{{commit}}")
-    key_updates = _key_file_updates(head, target)
-    needs_git_update = head != target
-    if not needs_git_update and not overlay_present:
-        if apply:
-            _git("submodule", "update", "--init", "--recursive")
-            _repair_game_asset_manifests()
-        return "已经是最新版", None
-    legacy_migration = False
-    if needs_git_update and _git("merge-base", head, target) != head:
-        rewritten = LEGACY_RELEASE_BASES.get(head)
-        if rewritten is None or _git("merge-base", rewritten, target) != rewritten:
-            raise UpdateError("本地与 GitHub 的提交已分叉，不能自动更新；未修改文件")
-        legacy_migration = True
-    if needs_git_update:
-        protected_changes = _git(
-            "diff", "--name-only", head, target, "--", "chat_history", "rinne_library"
-        ).splitlines()
-        # These two tracked files describe an otherwise private Library. They
-        # are newly introduced when upgrading from 1.2.1, which had no Library.
-        protected_changes = [
-            name
-            for name in protected_changes
-            if name not in {"rinne_library/README.md", "rinne_library/.gitignore"}
-        ]
-        if protected_changes:
-            raise UpdateError("版本差异涉及已跟踪的个人记忆；未修改文件，请先人工迁移")
+def _personal_field(name: str) -> bool:
+    return bool(re.search(r"(?i)(api_?key|token|password|secret|authorization)$", name))
 
-    old_text = _git("show", f"{head}:conf.yaml", strip=False)
-    new_text = _git("show", f"{target}:conf.yaml", strip=False)
-    merged_text, conflicts = merge_config(old_text, user_text, new_text)
-    if conflicts:
-        fields = "、".join(conflicts)
-        raise UpdateError(f"这些配置项在本机和新版中都被修改：{fields}；未修改文件")
-    if not apply:
-        return (
-            "发现可更新版本；配置可安全合并"
-            if needs_git_update
-            else "代码已是最新版；旧版配置可迁入 conf.yaml",
-            None,
-        )
 
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    backup = config_path.with_name(f"conf.yaml.backup-{stamp}")
-    if backup.exists():
-        raise UpdateError("配置备份文件名冲突；未修改文件")
-    overlay_backup = overlay_path.with_name(f"conf.local.yaml.backup-{stamp}")
-    if overlay_present and overlay_backup.exists():
-        raise UpdateError("旧配置备份文件名冲突；未修改文件")
-    shutil.copy2(config_path, backup)
-    # Secret-bearing Python backups live inside Git's private administrative
-    # directory, so a later `git add .` cannot publish them accidentally.
-    key_backup_dir = Path(
-        _git("rev-parse", "--git-path", f"rinne-update-backups/{stamp}")
+def _digest(data: bytes | None) -> str:
+    return "missing" if data is None else hashlib.sha256(data).hexdigest()
+
+
+def _protected(name: str) -> bool:
+    parts = Path(name).parts
+    return bool(
+        parts and parts[0].lower() in {"chat_history", "rinne_library"}
+    ) and name not in {"rinne_library/README.md", "rinne_library/.gitignore"}
+
+
+def _safe_path(name: str) -> Path:
+    relative = Path(name)
+    if (
+        relative.is_absolute()
+        or ".." in relative.parts
+        or ".git" in {part.lower() for part in relative.parts}
+    ):
+        raise UpdateError("更新文件路径无效；未修改文件")
+    path = ROOT / relative
+    for item in (path, *path.parents):
+        if item == ROOT:
+            break
+        if item.is_symlink() or (hasattr(item, "is_junction") and item.is_junction()):
+            raise UpdateError(f"文件路径包含链接，请先人工确认：{name}")
+    if path.exists() and not path.is_file():
+        raise UpdateError(f"更新路径不是普通文件：{name}")
+    return path
+
+
+def _tree(ref: str) -> dict[str, tuple[str, str]]:
+    entries = {}
+    for record in _git("ls-tree", "-r", "-z", ref, strip=False).split("\0"):
+        if record:
+            metadata, name = record.split("\t", 1)
+            mode, _kind, oid = metadata.split()
+            entries[name] = (mode, oid)
+    return entries
+
+
+def _blob(ref: str, name: str, tree: Mapping) -> bytes | None:
+    if name not in tree:
+        return None
+    result = subprocess.run(
+        ["git", "cat-file", "blob", f"{ref}:{name}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
     )
-    if not key_backup_dir.is_absolute():
-        key_backup_dir = ROOT / key_backup_dir
-    key_backup_dir.mkdir(parents=True, exist_ok=False)
-    for name, (original, _old, _new) in key_updates.items():
-        (key_backup_dir / name).write_bytes(original)
-    if needs_git_update:
-        if legacy_migration:
-            _git("branch", f"codex/pre-update-{stamp}", head)
-        try:
-            # Return only this tracked file to its exact HEAD bytes so a
-            # fast-forward can proceed. The user's copy is backed up above.
-            _atomic_write(config_path, old_text.encode("utf-8"))
-            for name, (_original, old, _new) in key_updates.items():
-                _atomic_write(ROOT / name, old.encode("utf-8"))
-            # Refresh Git's index stat cache after replacing the file on Windows.
-            _git("add", "--", "conf.yaml", *key_updates)
-            _git("diff", "--cached", "--quiet")
-            if legacy_migration:
-                # The old commit is retained above. Refuse overwriting even
-                # ignored untracked files that collide with new release files.
-                _git("checkout", "--no-overwrite-ignore", "-B", "main", target)
-            else:
-                _git("merge", "--no-overwrite-ignore", "--ff-only", target)
-        except Exception:
-            stayed_at_old_head = _git("rev-parse", "HEAD") == head
-            if stayed_at_old_head:
-                _atomic_write(config_path, user_bytes)
-            else:
-                _atomic_write(config_path, merged_text.encode("utf-8"))
-            for name, (original, _old, new) in key_updates.items():
-                _atomic_write(
-                    ROOT / name, original if stayed_at_old_head else new.encode("utf-8")
-                )
-            raise
+    if result.returncode:
+        raise UpdateError(f"无法读取正式版本文件：{name}")
+    return result.stdout
+
+
+def _read_local(name: str) -> bytes | None:
+    path = _safe_path(name)
+    return path.read_bytes() if path.is_file() else None
+
+
+def _text(data: bytes | None) -> str | None:
+    if data is None or b"\0" in data:
+        return None
     try:
-        _atomic_write(config_path, merged_text.encode("utf-8"))
-        for name, (_original, _old, new) in key_updates.items():
-            _atomic_write(ROOT / name, new.encode("utf-8"))
-    except OSError:
-        _atomic_write(config_path, user_bytes)
-        raise
-    if needs_git_update:
-        _git("submodule", "update", "--init", "--recursive")
-    _repair_game_asset_manifests()
-    if overlay_present:
-        os.replace(overlay_path, overlay_backup)
-        return (
-            f"更新完成；旧版配置已转入 conf.yaml，旧覆盖文件备份：{overlay_backup}。"
-            "重启后端和桌面客户端后生效",
-            backup,
+        return data.decode("utf-8-sig").replace("\r\n", "\n")
+    except UnicodeError:
+        return None
+
+
+class Resolutions:
+    def __init__(self, choices: Mapping[str, str] | None = None):
+        if choices is not None and not isinstance(choices, Mapping):
+            raise UpdateError("更新选择格式无效；未修改文件")
+        self.choices = dict(choices or {})
+        if any(value not in {"mine", "new"} for value in self.choices.values()):
+            raise UpdateError("更新选择无效；未修改文件")
+        self.items: list[dict[str, str]] = []
+        self.secrets: set[str] = set()
+
+    def preview(self, value: Any, label: str = "") -> str:
+        if _personal_field(label.rsplit(".", 1)[-1]):
+            return "[敏感设置已隐藏]"
+        if value is MISSING or value is None:
+            return "[此版本没有这一项]"
+        if isinstance(value, bytes):
+            decoded = _text(value)
+            if decoded is None:
+                return f"[二进制文件，{len(value)} 字节，SHA256 {_digest(value)[:12]}]"
+            value = decoded
+        if not isinstance(value, str):
+            value = json.dumps(value, ensure_ascii=False, default=str)
+        for secret in sorted(self.secrets, key=len, reverse=True):
+            if secret:
+                value = value.replace(secret, "[已隐藏]")
+        lines = []
+        sensitive_block = False
+        for line in value.splitlines():
+            # Hide whole credential-bearing lines, including multiline literals.
+            if re.search(r"(?i)(api.?key|token|password|secret|authorization)", line):
+                sensitive_block = '"""' in line or "'''" in line
+                lines.append("[敏感设置已隐藏]")
+            elif sensitive_block:
+                if '"""' in line or "'''" in line:
+                    sensitive_block = False
+            else:
+                lines.append(line)
+        preview = "\n".join(lines)
+        if len(preview) > 6000:
+            preview = (
+                preview[:6000]
+                + "\n[内容较长，以上为节选；不确定时请取消后查看本地文件]"
+            )
+        return preview
+
+    def choose(self, name: str, section: str, mine: Any, new: Any) -> Any:
+        identity = hashlib.sha256((name + "\0" + section).encode("utf-8")).hexdigest()
+        item = {
+            "id": identity,
+            "file": name,
+            "section": section,
+            "mine": self.preview(mine, section),
+            "new": self.preview(new, section),
+        }
+        self.items.append(item)
+        return new if self.choices.get(identity) == "new" else mine
+
+    def collect_secrets(self, node: Any) -> None:
+        if isinstance(node, Mapping):
+            for key, value in node.items():
+                if _personal_field(str(key)) and isinstance(value, str) and value:
+                    self.secrets.add(value)
+                else:
+                    self.collect_secrets(value)
+
+
+def _merge_text(name: str, old: str, mine: str, new: str, book: Resolutions) -> str:
+    if mine == old:
+        return new
+    if new == old or mine == new:
+        return mine
+    # Keep Git's non-overlapping edits; only expose complete conflict blocks.
+    marker = "RINNE_UPDATE_"
+    for text in (old, mine, new):
+        if any(
+            line.startswith(("<<<<<<<", "|||||||", "=======", ">>>>>>>"))
+            for line in text.splitlines()
+        ):
+            return book.choose(name, "整份文件（含合并标记）", mine, new)
+    with tempfile.TemporaryDirectory(prefix="rinne-merge-") as directory:
+        paths = [Path(directory) / key for key in ("mine", "base", "new")]
+        for path, text in zip(paths, (mine, old, new), strict=True):
+            path.write_text(text, encoding="utf-8", newline="")
+        result = subprocess.run(
+            [
+                "git",
+                "merge-file",
+                "--diff3",
+                "-p",
+                "-L",
+                marker + "MINE",
+                "-L",
+                marker + "BASE",
+                "-L",
+                marker + "NEW",
+                *map(str, paths),
+            ],
+            capture_output=True,
+            check=False,
         )
-    return "更新完成；重启后端和桌面客户端后生效", backup
+    if result.returncode > 127 or result.returncode < 0:
+        return book.choose(name, "整份文件（无法自动合并）", mine, new)
+    merged = result.stdout.decode("utf-8")
+    pattern = re.compile(
+        r"^<<<<<<< RINNE_UPDATE_MINE\n(.*?)"
+        r"^\|\|\|\|\|\|\| RINNE_UPDATE_BASE\n(.*?)"
+        r"^=======\n(.*?)^>>>>>>> RINNE_UPDATE_NEW(?:\n|$)",
+        re.M | re.S,
+    )
+    count = 0
+
+    def select(match: re.Match) -> str:
+        nonlocal count
+        count += 1
+        return book.choose(name, f"冲突代码段 {count}", match[1], match[3])
+
+    output = pattern.sub(select, merged)
+    if result.returncode and not count:
+        return book.choose(name, "整份文件（无法分解冲突）", mine, new)
+    return output
+
+
+def _merge_file(
+    name: str,
+    old: bytes | None,
+    mine: bytes | None,
+    new: bytes | None,
+    book: Resolutions,
+) -> bytes | None:
+    if mine == old:
+        return new
+    if mine == new or new == old:
+        return mine
+    texts = [_text(data) for data in (old, mine, new)]
+    if any(text is None for text in texts):
+        return book.choose(name, "整份文件（新增、删除或二进制内容）", mine, new)
+    base_text, user_text, next_text = texts
+    return _merge_text(name, base_text, user_text, next_text, book).encode("utf-8")
+
+
+def _personal_file(
+    name: str,
+    old: bytes | None,
+    mine: bytes | None,
+    new: bytes | None,
+    book: Resolutions,
+) -> bytes | None:
+    variable = PYTHON_KEY_FILES.get(name)
+    texts = [_text(data) for data in (old, mine, new)]
+    if any(text is None for text in texts):
+        return _merge_file(name, old, mine, new, book)
+    base, user, target = texts
+    if variable:
+        value, _, _ = _key_assignment(user, variable)
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            book.secrets.add(value.value)
+            placeholder = "'__RINNE_PERSONAL_KEY__'"
+            merged = _merge_text(
+                name,
+                _replace_key_value(base, variable, placeholder),
+                _replace_key_value(user, variable, placeholder),
+                _replace_key_value(target, variable, placeholder),
+                book,
+            )
+            return _replace_key_value(merged, variable, repr(value.value)).encode(
+                "utf-8"
+            )
+    if name == "启动凛祢.bat":
+        pattern = re.compile(r'(?im)^set "TTS_DIR=([^"\r\n]*)"\s*$')
+        matches = [list(pattern.finditer(text)) for text in texts]
+        if all(len(items) == 1 for items in matches):
+            value = matches[1][0].group(1)
+            neutral = [pattern.sub('set "TTS_DIR="', text) for text in texts]
+            merged = _merge_text(name, *neutral, book)
+            merged = pattern.sub(lambda _: f'set "TTS_DIR={value}"', merged)
+            return merged.replace("\n", "\r\n").encode("utf-8")
+        raise UpdateError("启动脚本的 TTS_DIR 行无法唯一定位，请保留原来的 set 写法")
+    return _merge_file(name, old, mine, new, book)
+
+
+def _prepare_update(release_tag: str | None, choices: Mapping | None = None) -> dict:
+    _check_checkout()
+    head = _git("rev-parse", "HEAD")
+    release = _latest_release_tag(release_tag) if release_tag else _latest_release_tag()
+    if release is None:
+        return {
+            "message": "暂无正式应用版本",
+            "conflicts": [],
+            "snapshot": "",
+            "target": head,
+        }
+    _git("fetch", "origin", "tag", release)
+    target = _git("rev-parse", f"refs/tags/{release}^{{commit}}")
+    legacy = False
+    if head != target and _git("merge-base", head, target) != head:
+        rewritten = LEGACY_RELEASE_BASES.get(head)
+        if not rewritten or _git("merge-base", rewritten, target) != rewritten:
+            raise UpdateError(
+                "本地提交与正式版本分叉，不能自动改写提交历史；未修改文件"
+            )
+        legacy = True
+    old_tree, new_tree = _tree(head), _tree(target)
+    incoming = {
+        name
+        for name in old_tree.keys() | new_tree.keys()
+        if old_tree.get(name) != new_tree.get(name)
+    }
+    if any(_protected(name) for name in incoming):
+        raise UpdateError("新版涉及已跟踪的个人记忆，请人工确认；未修改文件")
+    local = set(
+        filter(None, _git("diff", "--name-only", "-z", "HEAD", strip=False).split("\0"))
+    )
+    if "frontend" in local:
+        raise UpdateError("前端子模块有本地改动，请先保留并处理；未修改文件")
+    candidates = (incoming | local | {"conf.yaml"} | set(PYTHON_KEY_FILES)) - {
+        "frontend"
+    }
+    if "启动凛祢.bat" in old_tree or "启动凛祢.bat" in new_tree:
+        candidates.add("启动凛祢.bat")
+    candidates = {name for name in candidates if not _protected(name)}
+    originals, outputs = {}, {}
+    book = Resolutions(choices)
+    config_bytes = _read_local("conf.yaml")
+    if config_bytes is None:
+        raise UpdateError("缺少 conf.yaml；未修改文件")
+    user_config = config_bytes.decode("utf-8-sig")
+    overlay = _read_local("conf.local.yaml")
+    if overlay is not None:
+        user_config = apply_local_overlay(user_config, overlay.decode("utf-8-sig"))
+    book.collect_secrets(_parse_config(user_config))
+    # Collect private Python keys before previewing any other file.
+    for name, variable in PYTHON_KEY_FILES.items():
+        source = _text(_read_local(name))
+        if source:
+            value, _, _ = _key_assignment(source, variable)
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                book.secrets.add(value.value)
+    for name in sorted(candidates):
+        for tree in (old_tree, new_tree):
+            if name in tree and tree[name][0] not in {"100644", "100755"}:
+                raise UpdateError(f"不支持自动更新链接或子模块文件：{name}")
+        mine = _read_local(name)
+        originals[name] = mine
+        old = _blob(head, name, old_tree)
+        new = _blob(target, name, new_tree)
+        if name == "conf.yaml":
+            if old is None or new is None:
+                raise UpdateError("正式版本缺少 conf.yaml；未修改文件")
+            merged, _ = merge_config(
+                old.decode("utf-8-sig"),
+                user_config,
+                new.decode("utf-8-sig"),
+                lambda section, user, nxt: book.choose(name, section, user, nxt),
+            )
+            output = merged.encode("utf-8")
+        elif name in PYTHON_KEY_FILES or name == "启动凛祢.bat":
+            output = _personal_file(name, old, mine, new, book)
+        else:
+            output = _merge_file(name, old, mine, new, book)
+        outputs[name] = output
+    known = {item["id"] for item in book.items}
+    if set(book.choices) - known:
+        raise UpdateError("文件内容或冲突已变化，请重新检查并选择；未修改文件")
+    signature = {
+        "head": head,
+        "target": target,
+        "overlay": _digest(overlay),
+        "files": {name: _digest(data) for name, data in originals.items()},
+        "status": _git(
+            "status", "--porcelain=v1", "-z", "--untracked-files=all", strip=False
+        ),
+    }
+    snapshot = _digest(json.dumps(signature, sort_keys=True).encode("utf-8"))
+    return {
+        "message": "请确认冲突后更新"
+        if book.items
+        else ("已经是最新版" if head == target and overlay is None else "可以安全更新"),
+        "head": head,
+        "target": target,
+        "release": release,
+        "legacy": legacy,
+        "conflicts": book.items,
+        "snapshot": snapshot,
+        "originals": originals,
+        "outputs": outputs,
+        "overlay": overlay,
+        "config": user_config,
+        "local": local,
+        "incoming": incoming,
+        "unresolved": known - set(book.choices),
+        "status": signature["status"],
+    }
+
+
+def _public_plan(plan: dict) -> dict:
+    return {key: plan[key] for key in ("message", "conflicts", "snapshot", "target")}
+
+
+def _store_file(name: str, data: bytes | None) -> None:
+    path = _safe_path(name)
+    if data is None:
+        path.unlink(missing_ok=True)
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _atomic_write(path, data)
+
+
+def _execute_plan(plan: dict) -> tuple[str, Path | None]:
+    if "head" not in plan:
+        return plan["message"], None
+    _ensure_backend_stopped(plan["config"])
+    for name, content in plan["outputs"].items():
+        if name.endswith(".py") and content is not None:
+            try:
+                ast.parse(content.decode("utf-8-sig"), filename=name)
+            except (SyntaxError, UnicodeError) as error:
+                raise UpdateError(
+                    f"选择后的 Python 文件无法通过语法检查：{name}；未修改文件"
+                ) from error
+    if plan["head"] == plan["target"] and plan["overlay"] is None:
+        return "已经是最新版", None
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    backup = Path(_git("rev-parse", "--git-path", f"rinne-update-backups/{stamp}"))
+    if not backup.is_absolute():
+        backup = ROOT / backup
+    backup.mkdir(parents=True, exist_ok=False)
+    index_path = Path(_git("rev-parse", "--git-path", "index"))
+    if not index_path.is_absolute():
+        index_path = ROOT / index_path
+    original_index = index_path.read_bytes()
+    (backup / "index").write_bytes(original_index)
+    manifest = {}
+    for i, (name, content) in enumerate(plan["originals"].items()):
+        filename = f"{i}.bin" if content is not None else None
+        if filename:
+            (backup / filename).write_bytes(content)
+        manifest[name] = filename
+    if plan["overlay"] is not None:
+        (backup / "conf.local.yaml").write_bytes(plan["overlay"])
+    (backup / "manifest.json").write_text(
+        json.dumps(
+            {"head": plan["head"], "target": plan["target"], "files": manifest},
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    old_tree = _tree(plan["head"])
+    try:
+        # Only return reviewed, backed-up local edits to the base for fast-forward.
+        for name in plan["originals"]:
+            if name in plan["local"]:
+                _store_file(name, _blob(plan["head"], name, old_tree))
+            elif name not in old_tree and plan["originals"][name] is not None:
+                # The reviewed untracked collision is already backed up.
+                _store_file(name, None)
+        if plan["local"]:
+            names = [name for name in plan["originals"] if name in plan["local"]]
+            for offset in range(0, len(names), 32):
+                _git("add", "--", *names[offset : offset + 32])
+        _git("diff", "--cached", "--quiet")
+        if plan["head"] != plan["target"]:
+            if plan["legacy"]:
+                _git("branch", f"codex/pre-update-{stamp}", plan["head"])
+                _git("checkout", "--no-overwrite-ignore", "-B", "main", plan["target"])
+            else:
+                _git("merge", "--no-overwrite-ignore", "--ff-only", plan["target"])
+        for name, content in plan["outputs"].items():
+            _store_file(name, content)
+        if plan["head"] != plan["target"]:
+            _git("submodule", "update", "--init", "--recursive")
+        _repair_game_asset_manifests(set(plan["local"]))
+        if plan["overlay"] is not None:
+            _safe_path("conf.local.yaml").unlink()
+    except Exception as error:
+        # Restore precisely the reviewed files, never reset/clean the workspace.
+        try:
+            current = _git("rev-parse", "HEAD")
+            if current not in {plan["head"], plan["target"]}:
+                raise UpdateError("更新期间 HEAD 被外部改变")
+            if current != plan["head"]:
+                _git("update-ref", "HEAD", plan["head"], current)
+            for name, content in plan["originals"].items():
+                _store_file(name, content)
+            _atomic_write(index_path, original_index)
+            if plan["overlay"] is not None:
+                _store_file("conf.local.yaml", plan["overlay"])
+            _git("submodule", "update", "--init", "--recursive")
+        except Exception as rollback_error:
+            raise UpdateError(
+                f"更新未完成，自动恢复也未完成；请勿继续更新。备份：{backup}"
+            ) from rollback_error
+        raise UpdateError(f"更新未完成，原文件已恢复。备份：{backup}") from error
+    return f"更新完成；文件备份：{backup}。请重新启动后端和客户端", backup
+
+
+def _apply_plan(plan: dict) -> tuple[str, Path | None]:
+    if "head" not in plan:
+        return plan["message"], None
+    lock = Path(_git("rev-parse", "--git-path", "rinne-update.lock"))
+    if not lock.is_absolute():
+        lock = ROOT / lock
+    try:
+        handle = lock.open("x", encoding="utf-8")
+    except FileExistsError as error:
+        raise UpdateError(
+            "另一个更新正在进行，或上次更新被中断；请先确认再重试"
+        ) from error
+    try:
+        with handle:
+            handle.write(str(os.getpid()))
+        if (
+            _git("rev-parse", "HEAD") != plan["head"]
+            or _read_local("conf.local.yaml") != plan["overlay"]
+            or any(
+                _read_local(name) != data for name, data in plan["originals"].items()
+            )
+            or _git(
+                "status", "--porcelain=v1", "-z", "--untracked-files=all", strip=False
+            )
+            != plan["status"]
+        ):
+            raise UpdateError("检查之后文件发生变化，请重新检查；未修改文件")
+        return _execute_plan(plan)
+    finally:
+        lock.unlink(missing_ok=True)
+
+
+def run_update(
+    *,
+    apply: bool,
+    release_tag: str | None = None,
+    choices: Mapping[str, str] | None = None,
+    expected_snapshot: str | None = None,
+    interactive: bool = False,
+) -> tuple[str, Path | None]:
+    plan = _prepare_update(release_tag, choices)
+    if expected_snapshot is not None and expected_snapshot != plan["snapshot"]:
+        raise UpdateError("检查之后文件发生了变化，请重新检查并选择；未修改文件")
+    if plan.get("unresolved"):
+        if not interactive or not sys.stdin.isatty():
+            raise UpdateError(
+                "发现需要选择的改动；未修改文件。请先手动安装 2.1.0 或之后的客户端，"
+                "再用新客户端更新后端；也可在终端运行本脚本 --apply --interactive。"
+            )
+        decisions = dict(choices or {})
+        for item in plan["conflicts"]:
+            if item["id"] in decisions:
+                continue
+            print(f"\n文件：{item['file']}\n位置：{item['section']}")
+            print(f"你的内容：\n{item['mine']}\n新版内容：\n{item['new']}")
+            while True:
+                answer = input("1 保留我的 / 2 采用新版 / 0 取消：").strip()
+                if answer in {"0", "1", "2"}:
+                    break
+            if answer == "0":
+                return "已取消，未修改文件", None
+            decisions[item["id"]] = "mine" if answer == "1" else "new"
+        return run_update(
+            apply=apply,
+            release_tag=release_tag,
+            choices=decisions,
+            expected_snapshot=plan["snapshot"],
+        )
+    if not apply:
+        return plan["message"], None
+    return _apply_plan(plan)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="安全更新凛祢并保留本机 conf.yaml")
     parser.add_argument("--apply", action="store_true", help="备份配置后执行更新")
     parser.add_argument(
+        "--plan-json", action="store_true", help="只检查并输出脱敏的选择清单"
+    )
+    parser.add_argument("--choices-json", help="JSON 格式的选择及检查指纹")
+    parser.add_argument("--choices-file", help="客户端生成的选择文件，不包含原始配置")
+    parser.add_argument("--interactive", action="store_true", help="在终端逐项选择冲突")
+    parser.add_argument(
         "--release", help="只更新到此正式后端版本，例如 rinne-app-v1.2.2"
     )
     args = parser.parse_args()
     try:
-        message, backup = run_update(apply=args.apply, release_tag=args.release)
+        if args.plan_json:
+            print(
+                json.dumps(
+                    _public_plan(_prepare_update(args.release)), ensure_ascii=False
+                )
+            )
+            return 0
+        raw_choices = args.choices_json
+        if args.choices_file:
+            raw_choices = Path(args.choices_file).read_text(encoding="utf-8")
+        decisions = json.loads(raw_choices) if raw_choices else {}
+        if not isinstance(decisions, dict):
+            raise UpdateError("更新选择格式无效")
+        message, backup = run_update(
+            apply=args.apply,
+            release_tag=args.release,
+            choices=decisions.get("choices"),
+            expected_snapshot=decisions.get("snapshot"),
+            interactive=args.interactive,
+        )
     except (UpdateError, OSError, UnicodeError, ValueError) as error:
         print(
             error

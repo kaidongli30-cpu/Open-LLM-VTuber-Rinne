@@ -1,2 +1,3 @@
 static/libs/* linguist-vendored
 local_game_assets/** -text
+*.bat text eol=crlf
