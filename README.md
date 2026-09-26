@@ -288,8 +288,8 @@ uv run run_server.py
 <a id="client"></a>
 ## 7. 安装桌面客户端，开始对话
 
-1. 打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.0.0-20260925)。
-2. 下载 `open-llm-vtuber-2.0.0-setup.exe`。
+1. 打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.1.0-20260926)。
+2. 下载 `open-llm-vtuber-2.1.0-setup.exe`。
 3. 双击安装，可以选择 D 盘等位置。
 4. 保持语音和后端运行，双击桌面上的客户端快捷方式。
 
@@ -331,7 +331,7 @@ TTS 和后端窗口都要保持打开。第一次使用先按[一键启动说明
 
 1.2.1 不会自动弹出更新提示，需要先手动安装新版客户端。
 
-1. 从[客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.0.0-20260925)下载新版 `.exe`。
+1. 从[客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.1.0-20260926)下载新版 `.exe`。
 2. 完全退出旧客户端，再运行安装程序。可以选择原来的安装位置。
 3. 打开新版客户端，按更新提示选择**原来的后端项目目录**，里面应有 `conf.yaml` 和 `run_server.py`。
 4. 按提示关闭旧后端窗口，再点击“开始更新”。

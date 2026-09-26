@@ -1,6 +1,8 @@
 @echo off
 chcp 65001 >nul
 setlocal DisableDelayedExpansion
+cd /d "%~dp0"
+if errorlevel 1 exit /b 1
 
 rem 只修改下面这一行：填写同时包含 api_v2.py 和 runtime 的语音目录。
 set "TTS_DIR="
