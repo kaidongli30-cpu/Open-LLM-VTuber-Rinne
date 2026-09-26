@@ -180,7 +180,7 @@ ollama list
 
 ### 5.1 下载并解压语音程序
 
-下载 [GPT-SoVITS 官方 Windows 整合包](https://huggingface.co/lj1995/GPT-SoVITS-windows-package/blob/8b081e1fa1b3ad121e0f310e525dc80fcf15becc/GPT-SoVITS-v2pro-20250604.7z)，用 7-Zip 解压到你想放的位置。
+下载 [GPT-SoVITS 官方 Windows 整合包](https://huggingface.co/lj1995/GPT-SoVITS-windows-package/blob/8b081e1fa1b3ad121e0f310e525dc80fcf15becc/GPT-SoVITS-v2pro-20250604.7z)，用 7-Zip 解压到项目的根目录，就是 open-llm-vtuber-rinne 这个文件夹下，不要再点进任何一个子文件夹了。
 
 打开解压后的文件夹，找到**同时能看到 `api_v2.py` 和 `runtime` 文件夹**的那一层。下文把它叫作“语音目录”。
 
