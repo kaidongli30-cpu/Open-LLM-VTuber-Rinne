@@ -208,7 +208,7 @@ SoVITS_weights_v2\rinne_e8_s456.pth
 
 ### 5.3 修改语音配置
 
-在语音目录里，用记事本打开：
+在语音目录里，用Notepad++或记事本打开：
 
 ```text
 GPT_SoVITS\configs\tts_infer.yaml
