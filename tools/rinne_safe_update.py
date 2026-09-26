@@ -979,7 +979,7 @@ def main() -> int:
         return 1
     print(message)
     if backup is not None:
-        print(f"原配置备份：{backup}")
+        print(f"更新前文件备份：{backup}")
     return 0
 
 
