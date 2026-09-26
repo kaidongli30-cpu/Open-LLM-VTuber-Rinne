@@ -294,7 +294,7 @@ uv run run_server.py
 
 安装步骤只做一次。以后每次使用，按这个顺序：
 
-1. 确认 Ollama 已运行。
+1. 确认 Ollama 已运行，可以把 Ollama 作为开机自启项，方便一些。
 2. 在语音目录启动 `api_v2.py`。
 3. 在项目目录执行 `uv run run_server.py`，等后端启动完成。
 4. 双击桌面客户端，与凛祢对话。
