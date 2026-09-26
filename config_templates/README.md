@@ -1,7 +1,10 @@
+# 配置模板
 
-# Config Template
+这里保存默认配置模板：
 
-This directory contains the default configuration files. One of the configuration file, `conf.default.yaml` by default, will be copied to the root directory of this project as `conf.yaml`.
+- `conf.default.yaml`：英文模板。
+- `conf.ZH.default.yaml`：中文模板。
 
-Do not modify the content of these template unless you are contributing to this project.
+正常安装和使用时，请编辑**项目根目录的 `conf.yaml`**，不用修改这里的模板。
 
+密钥填写方法见[主安装指南](../README.md#keys)。

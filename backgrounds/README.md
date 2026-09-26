@@ -1,2 +1,5 @@
-This directory contains the background images for Open-LLM-VTuber.
-You can put more images into this directory. You can switch between them in the frontend UI.
+# 背景图片
+
+把想使用的背景图片放进这个文件夹，再到客户端界面选择背景。
+
+这里的图片是界面背景，不是由日记生成的“第二层背景”。

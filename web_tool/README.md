@@ -1,13 +1,13 @@
-# Web Tool
+# 语音工具页
 
+这个页面用来单独测试语音识别和语音合成，不必先进行一轮聊天。
 
-## Why?
-The Open-LLM-VTuber project leverages TTS and ASR (speech recognition) models to deliver an immersive, voice-to-voice AI companion experience.
+## 怎样打开
 
-While ASR and TTS technologies are powerful on their own, setting them up can be challenging. Previously, although our users installed the TTS and ASR models into our project, they were exclusively accessible as a part of the Open-LLM-VTuber's AI companion feature, preventing their use for other purposes like transcription or speech generation.
+1. 启动凛祢后端。
+2. 在浏览器打开 [http://localhost:12393/web-tool](http://localhost:12393/web-tool)。
+3. 使用页面中的语音功能。
 
-## What is Web Tool?
+页面使用 `conf.yaml` 中配置的语音识别和语音合成服务，不能在页面里临时切换模型。使用 GPT-SoVITS 时，也要先启动对应语音服务。
 
-This is a dedicated web page within the Open-LLM-VTuber backend that provides direct access to the ASR and TTS models initialized by the Open-LLM-VTuber server.
-
-Access the web page at: http://localhost:12393/web-tool. Note that the ASR and TTS models are the same ones you've set in the `conf.yaml` file, and switching models at runtime is not possible at this point.
+日常与凛祢对话，仍按[主指南](../README.md)使用桌面客户端即可。

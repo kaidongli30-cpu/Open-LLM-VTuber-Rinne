@@ -1,17 +1,18 @@
-# Author-created Rinne outfits
+# 凛祢自制服装
 
-This directory contains four author-created outfit body layers. Three outfits
-also include the transparent head masks used by the author's desktop build.
-The desktop renderer uses the bundled first game outfit as the animated face
-and hair, unless the user has configured a locally rebuilt replacement. This
-directory contains only the four author-created outfit layers; game runtime
-bundles are in the project's `local_game_assets` directory.
+这里包含四套自制服装的图层。正常安装后，直接在客户端换装，不需要手动拼接图片。
 
-The outfit assets are licensed separately from the application code. Their
-intended license is Creative Commons Attribution-NonCommercial 4.0
-International (CC BY-NC 4.0). Commercial use is not permitted without separate
-permission from the asset author.
+## 怎样显示
 
-The sailor outfit uses semantic native-head rendering; the other three use
-their included head masks. Both paths require the first game outfit and a
-current desktop client.
+服装图层使用项目附带的第一套游戏服装提供动态脸部和头发。
+
+- 水手服使用原生头部渲染。
+- 另外三套使用各自附带的透明头部遮罩。
+
+游戏运行资源位于项目的 `local_game_assets` 目录。请搭配当前版本的桌面客户端使用；如果配置了自己重建的游戏资源，客户端会使用对应资源。
+
+## 使用许可
+
+自制服装与程序代码分别授权，采用 [CC BY-NC 4.0](LICENSE.md)。
+
+未经作者另行许可，不得用于商业用途。

@@ -1,20 +1,40 @@
-# Rinne 游戏资源重建工具（可选）
+# 游戏资源重建工具（可选）
 
-仓库已经附带五套游戏服装的运行资源，正常安装不需要运行本工具。如果想用自己的游戏源文件重新生成或替换某套服装，可以使用这里的程序；它不会下载、上传或改写游戏源文件。
+**正常安装不需要运行这个工具。** 项目已经包含五套游戏服装，以及四套自制服装。
 
-项目已附带自制转换 SDK，不需要普通用户另行下载。支持两种输入：
+只有想用自己电脑上的游戏文件重新生成资源时，才需要这里的程序。它不会下载、上传或改写游戏源文件。
 
-- `build`：调用项目内附带的 `rinne_legacy_runtime` SDK，从用户选择的游戏 PCK 生成运行包并安装；默认第 1 套，也可选择第 2–4 套。
-- `install`：导入 SDK 已经生成完成的 `first-outfit-manifest.json` 运行包；也可以只建立就地引用，不复制大文件。
+## 两种用法
 
-默认安装到 `%LOCALAPPDATA%\Open-LLM-VTuber-Rinne\game-assets\mp_summer_uniform`，不进入 Git 仓库。项目内只生成一个被 `.gitignore` 排除的 `local_config\rinne_game_assets.json` 指针；桌面客户端设置写入 `%APPDATA%\open-llm-vtuber\rinne-legacy-renderer.json`。
+- `build`：从游戏 PCK 文件生成运行资源，再安装。默认处理第 1 套，也可以选择第 2–4 套。
+- `install`：安装已经生成的运行包，入口文件是 `first-outfit-manifest.json`。也可以只引用原位置，不复制大文件。
 
-完整 PowerShell、CMD、手动配置、状态检查和移除方法见 [`public_docs/GAME_ASSET_SETUP.md`](../../public_docs/GAME_ASSET_SETUP.md)。
+转换所需的 SDK 已随项目提供，不需要另外下载。
 
-快速查看帮助：
+## 资源保存位置
 
-```powershell
+默认安装到：
+
+```text
+%LOCALAPPDATA%\Open-LLM-VTuber-Rinne\game-assets\mp_summer_uniform
+```
+
+把上面的路径粘贴到文件资源管理器地址栏，即可打开对应位置。
+
+项目的 `local_config\rinne_game_assets.json` 记录资源位置。客户端设置保存在：
+
+```text
+%APPDATA%\open-llm-vtuber\rinne-legacy-renderer.json
+```
+
+## 查看操作方法
+
+完整步骤见[游戏资源重建说明](../../public_docs/GAME_ASSET_SETUP.md)，包括 PowerShell、CMD、手动配置、检查和移除。
+
+只想查看命令帮助，可以在项目目录执行：
+
+```text
 uv run python setup_rinne_game_assets.py --help
-uv run python setup_rinne_game_assets.py install --help
 uv run python setup_rinne_game_assets.py build --help
+uv run python setup_rinne_game_assets.py install --help
 ```

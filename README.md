@@ -1,24 +1,33 @@
 # Open-LLM-VTuber-Rinne
 
-凛祢桌面客户端：对话、日记与第二层背景、游戏原画渲染及换装。项目基于 Open-LLM-VTuber；桌面客户端源码位于 [前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)，本仓库的 `frontend` 是指向它的 Git 子模块。
+凛祢桌宠支持文字和语音对话、换装、日记与长期记忆。本指南介绍 Windows 桌面客户端的安装和使用。
 
-仓库已包含凛祢的五套游戏服装和四套作者自制服装，克隆后不必再导入游戏文件。GPT-SoVITS V2 参考 WAV 已包含在项目中，两份语音权重从项目 Release 手动下载。项目自制服装按 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md) 授权，商业使用需另行获得许可。
+项目已包含五套游戏服装、四套自制服装和语音参考 WAV。服装不需要另外导入；语音程序和两份 V2 权重需要按下文下载。
 
-本指南以 Windows PowerShell 和 CMD 为主。完成安装后，可在桌面客户端看到游戏原画凛祢、进行文字或语音对话，并听到 GPT-SoVITS V2 声线。语音翻译使用本地 Ollama 的 `qwen3.5:4b-q4_K_M`；SenseVoice 用于麦克风识别。近期记忆检索、每日子事件和已审核日记的第二层背景也已启用。没有日记时不会凭空生成背景。
+## 从哪里开始
 
-## 必要术语
+- 第一次安装：从[准备软件](#prepare)开始，按顺序操作。
+- 已经装过：直接看[旧版升级](#upgrade)，不用重新安装后端。
+- 已经装好，只想启动：看[每天怎样启动](#daily-start)。
+- 遇到问题：看[常见问题](#faq)。
 
-- **API Key**：你自己的模型服务凭据，像密码一样保管。
-- **CMD / PowerShell**：Windows 的两种命令窗口。下面分别给出写法，请按自己打开的窗口选择。
-- **Git 子模块**：后端仓库记录前端仓库的一个确定版本。因此克隆和更新都要带 `--recurse-submodules`。
-- **GPT-SoVITS / Ollama**：前者使用凛祢 V2 权重把日语文字合成语音；后者用指定的本地模型把中文回复翻成日语，并用另一个 24B 本地模型生成每日子事件。它们都要作为独立服务运行，`uv sync` 不会代替安装或启动它们。
-- **第二层背景**：从你审核过的日记提炼出的长期背景，用于让凛祢了解你大致是怎样的人、目前处于什么状态。它不同于原始日记；没有日记或尚未审核时不会凭空生成。
-
+<a id="prepare"></a>
 ## 1. 准备软件
 
-需要 Git、[uv](https://docs.astral.sh/uv/getting-started/installation/) 和 Python 3.10–3.12（推荐 3.12）。还需要 [Ollama](https://ollama.com/download/windows) 和 [7-Zip](https://www.7-zip.org/)。确认基础命令：
+先安装下面的软件：
 
-PowerShell 或 CMD：
+| 软件 | 用途 |
+| --- | --- |
+| [Git for Windows](https://git-scm.com/download/win) | 下载和更新项目 |
+| [uv](https://docs.astral.sh/uv/getting-started/installation/) | 安装和运行后端所需的 Python 环境 |
+| [Ollama](https://ollama.com/download/windows) | 运行翻译和记忆整理用的本地模型 |
+| [7-Zip](https://www.7-zip.org/) | 解压语音程序 |
+
+安装完成后，重新打开一个 PowerShell 或 CMD 窗口。它们都是 Windows 的命令窗口，用其中一种即可。
+
+不知道怎样打开？在开始菜单搜索 `PowerShell`，点击打开。
+
+下面的命令请**每次复制一行，按回车，等执行完再输入下一行**。遇到报错，先解决报错，不要继续往下执行。
 
 ```text
 git --version
@@ -26,19 +35,28 @@ uv --version
 uv python install 3.12
 ```
 
-若命令不存在，请先从 [Git for Windows](https://git-scm.com/download/win) 安装 Git、从 uv 官方文档安装 uv，然后重新打开命令窗口。启动 Ollama 后执行 
+前两行会显示软件版本；第三行安装 Python 3.12。本项目支持 Python 3.10–3.12，推荐使用 3.12。
+
+再启动 Ollama，检查命令是否可用：
 
 ```text
 ollama --version
 ```
 
-翻译模型约 3.4 GB、每日子事件模型约 15 GB，另需 GPT-SoVITS 整合包、约 1 GB 的 SenseVoice 模型及首次记忆检索所需的模型缓存，预留足够磁盘空间。
+### 提前留出磁盘空间
 
-## 2. 全新部署
+翻译模型约 3.4 GB，记忆整理模型约 15 GB。此外还要存放语音程序、约 1 GB 的语音识别模型和记忆检索模型。
 
-先决定把凛祢放在哪个盘。以下以 `D:\AI\Open-LLM-VTuber-Rinne` 为例；把 `D:\AI` 换成你想使用的文件夹。即使当前命令窗口显示 `C:\Users\...`，下面的命令也会把项目放在指定的 D 盘目录，而不是 C 盘。
+**Ollama 可以在设置中选择模型保存位置。** 不想占用 C 盘时，请先改好位置，再下载模型。
 
-PowerShell：
+<a id="download"></a>
+## 2. 下载项目，选择安装位置
+
+下面以 `D:\AI\Open-LLM-VTuber-Rinne` 为例。
+
+想放在其他位置，就把命令中的 `D:\AI` 换成你选的文件夹。即使命令窗口当前显示 C 盘，项目也会下载到你指定的位置。
+
+### 如果用 PowerShell
 
 ```powershell
 New-Item -ItemType Directory -Force 'D:\AI' | Out-Null
@@ -47,7 +65,7 @@ Set-Location 'D:\AI\Open-LLM-VTuber-Rinne'
 uv sync
 ```
 
-CMD：
+### 如果用 CMD
 
 ```bat
 if not exist "D:\AI" mkdir "D:\AI"
@@ -56,57 +74,137 @@ cd /d "D:\AI\Open-LLM-VTuber-Rinne"
 uv sync
 ```
 
-安装完成后，在项目根目录里找到'conf.yaml'。这是凛祢的运行设置文件，非常重要，可以理解为把桌宠凛祢的一切组合起来的一份文件。找到下列四处，把各自的密钥填在单引号中间，保存文件即可；只改引号里的内容，不要删除缩进或冒号：
+两组命令选一组执行，**不需要都执行**。
 
-| 用途 | 在 `conf.yaml` 中找到 | 填写位置 |
+`--recurse-submodules` 会一起下载项目需要的前端文件，请保留。最后的 `uv sync` 用来安装后端依赖，等待它完成。
+
+下文说的“项目目录”，就是刚下载的 `Open-LLM-VTuber-Rinne` 文件夹，里面能看到 `conf.yaml` 和 `run_server.py`。
+
+项目的 Python 环境会留在这个目录里。其他软件的缓存位置由各自设置决定，仍可能使用 C 盘。
+
+<a id="keys"></a>
+## 3. 填写 API 密钥
+
+API Key 就是模型服务提供给你的密钥。把自己的密钥填进对应位置，程序才能调用服务。
+
+### 3.1 对话、背景、视频和搜索
+
+在项目目录找到 `conf.yaml`，右键选择“打开方式 → 记事本”。
+
+按 `Ctrl+F` 搜索下表中的配置名称，再修改它下面对应的密钥：
+
+| 用途 | 搜索这个名称 | 修改其下的这一项 |
 | --- | --- | --- |
-| 对话 | `openai_compatible_llm:` | 其下的 `llm_api_key: ''`，填写 APINebula API Key |
-| 第二层背景等 DeepSeek 调用 | `deepseek_llm:` | 其下的 `llm_api_key: ''`，填写 DeepSeek API Key |
-| 视频与屏幕观察 | `media_analysis:` | 其下的 `api_key: ''`，填写可调用 Gemini 的 API Key |
-| 联网搜索 | `basic_memory_agent:` | 其下的 `bocha_api_key: ''`，填写博查 API Key |
+| 对话 | `openai_compatible_llm:` | `llm_api_key: ''`，填 APINebula 密钥 |
+| 第二层背景等 DeepSeek 调用 | `deepseek_llm:` | `llm_api_key: ''`，填 DeepSeek 密钥 |
+| 视频与屏幕观察 | `media_analysis:` | `api_key: ''`，填可调用 Gemini 的密钥 |
+| 联网搜索 | `basic_memory_agent:` | `bocha_api_key: ''`，填博查密钥 |
 
-例如，拿到 APINebula 密钥后，把 `openai_compatible_llm` 下面的 `llm_api_key: ''` 改成 `llm_api_key: '你的实际密钥'`。其余三处做法相同。如果 Gemini 也通过 APINebula 调用，在视频观察那一处填写可用于该模型的密钥。保存后重新启动后端，修改才会生效。项目目录里的虚拟环境和前端构建文件会留在所选磁盘；其他软件自己的下载缓存可能仍按各自默认设置使用 C 盘。
+例如，把对话设置中的：
 
-### 填写日记、周记和月记的密钥
+```yaml
+llm_api_key: ''
+```
 
-这三项的密钥不在 `conf.yaml` 中，启动后端前还需要完成下面的填写。
+改成：
 
-1. 在项目根目录找到 `diary_generator.py`，右键选择“打开方式 → 记事本”。按 `Ctrl+F` 搜索 `LLM_API_KEY =`，把这一整行替换成下面的形式，再将引号中的文字换成你的 APINebula 密钥：
+```yaml
+llm_api_key: '你的实际密钥'
+```
 
-   ```python
-   LLM_API_KEY = '你的实际密钥'
-   ```
+只替换引号中间的内容，保留原来的缩进、冒号和引号。
 
-2. 保存文件。日记默认使用 `claude-sonnet-4-6`；周记和月记默认使用 `claude-opus-4-6`，两者会自动沿用刚填好的这把密钥，不需要填写三次。
-3. 如果周记和月记需要另一把密钥，打开同一目录的 `memory_generation_config.py`，搜索 `API_KEY =`，只把该行替换为 `API_KEY = '另一把实际密钥'` 并保存。不需要另一把密钥时不要改它。
+如果 Gemini 也通过 APINebula 调用，视频那一项就填可用于该模型的 APINebula 密钥。
 
-不要删除引号，也不要改动文件其他部分。修改后重新启动后端即可生效；项目的更新工具会保留上述两处填写的密钥。
+全部填好后，按 `Ctrl+S` 保存。以后修改设置，也要保存并重启后端才会生效。
 
-### 下载本地模型
+### 3.2 日记、周记和月记
 
-先确保 Ollama 已启动，再在 PowerShell 或 CMD 执行
-（温馨提示：Ollama可以在设置中选择模型下载的位置，不然的话它会下载到C盘）：
+这三项还需要填写一处 Python 文件。请在启动后端前完成。
+
+1. 在项目目录找到 `diary_generator.py`，用记事本打开。
+2. 按 `Ctrl+F` 搜索 `LLM_API_KEY =`。
+3. 把这一行改成下面的形式，填入自己的 APINebula 密钥。
+4. 按 `Ctrl+S` 保存。
+
+```python
+LLM_API_KEY = '你的实际密钥'
+```
+
+日记默认使用 `claude-sonnet-4-6`；周记和月记默认使用 `claude-opus-4-6`。三者默认共用刚填的密钥，不必重复填写。
+
+只有想给周记、月记使用另一把密钥时，才需要打开 `memory_generation_config.py`，搜索 `API_KEY =`，把那一行改为：
+
+```python
+API_KEY = '另一把实际密钥'
+```
+
+只改指定的密钥行，文件其他部分保持不变。项目的更新工具会保留这两处密钥。
+
+## 4. 下载本地模型
+
+确认 Ollama 已启动，并已选好模型保存位置。
+
+先下载翻译模型：
 
 ```text
 ollama pull qwen3.5:4b-q4_K_M
+```
+
+下载完成后，再下载每日记忆整理用的模型：
+
+```text
 ollama pull mistral-small3.2:24b
+```
+
+最后检查：
+
+```text
 ollama list
 ```
 
-最后一行应能看到两个模型。`mistral-small3.2:24b` 用于每日子事件。
+列表里应能看到这两个模型。第二个模型用于把每天的记忆整理成“子事件”，供之后检索。
 
-### 安装 V2 语音
+<a id="voice"></a>
+## 5. 安装凛祢 V2 语音
 
-先下载 [GPT-SoVITS 官方 Windows 整合包 `GPT-SoVITS-v2pro-20250604.7z`](https://huggingface.co/lj1995/GPT-SoVITS-windows-package/blob/8b081e1fa1b3ad121e0f310e525dc80fcf15becc/GPT-SoVITS-v2pro-20250604.7z)，用 7-Zip 解压到你想放语音程序的位置。打开解压出来的文件夹，找到**直接包含 `api_v2.py` 文件和 `runtime` 文件夹**的那一层，这一层也是语音模型的根目录；下文把这一层称为“语音目录”。如果解压后有两层同名文件夹，请进入里面那一层，以实际看到 `api_v2.py` 为准。
+### 5.1 下载并解压语音程序
 
-然后打开 [凛祢 V2 语音权重下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases/tag/rinne-gpt-sovits-v2-20260923)，下载页面下方的两个文件，不要改文件名。用文件资源管理器把它们分别放到刚才找到的语音目录中：
+下载 [GPT-SoVITS 官方 Windows 整合包](https://huggingface.co/lj1995/GPT-SoVITS-windows-package/blob/8b081e1fa1b3ad121e0f310e525dc80fcf15becc/GPT-SoVITS-v2pro-20250604.7z)，用 7-Zip 解压到你想放的位置。
 
-| 下载的文件 | 放到语音目录中的位置 |
+打开解压后的文件夹，找到**同时能看到 `api_v2.py` 和 `runtime` 文件夹**的那一层。下文把它叫作“语音目录”。
+
+如果有两层同名文件夹，就继续打开里面那层，以看到这两个项目为准。语音目录和前面的项目目录不是同一个目录。
+
+### 5.2 下载两份语音权重
+
+打开[凛祢 V2 语音下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/releases/tag/rinne-gpt-sovits-v2-20260923)，在页面下方的 Assets 中下载这两个文件。
+
+不要改名，分别放到语音目录里的指定位置：
+
+| 下载文件 | 放进这个文件夹 |
 | --- | --- |
-| `rinne_e15.ckpt` | `GPT_weights_v2\rinne_e15.ckpt` |
-| `rinne_e8_s456.pth` | `SoVITS_weights_v2\rinne_e8_s456.pth` |
+| `rinne_e15.ckpt` | `GPT_weights_v2` |
+| `rinne_e8_s456.pth` | `SoVITS_weights_v2` |
 
-如果 `GPT_weights_v2` 或 `SoVITS_weights_v2` 文件夹不存在，就在语音目录中新建。然后用记事本打开语音目录里的 `GPT_SoVITS\configs\tts_infer.yaml`，把文件最上方的 `custom:` 部分改成下面这样；下面的 `v1:`、`v2:` 等部分保持原样：
+这两个文件夹应直接位于语音目录下；不存在就新建。
+
+放好后，文件的相对路径应是：
+
+```text
+GPT_weights_v2\rinne_e15.ckpt
+SoVITS_weights_v2\rinne_e8_s456.pth
+```
+
+### 5.3 修改语音配置
+
+在语音目录里，用记事本打开：
+
+```text
+GPT_SoVITS\configs\tts_infer.yaml
+```
+
+把最上方的 `custom:` 部分改成下面这样。后面的 `v1:`、`v2:` 等部分不要改。
 
 ```yaml
 custom:
@@ -119,89 +217,252 @@ custom:
   vits_weights_path: SoVITS_weights_v2/rinne_e8_s456.pth
 ```
 
-保存文件。这里的 `custom:`、两个权重路径和 `version: v2` 决定 GPT-SoVITS 实际加载凛祢声线；仅把文件放进文件夹、但不修改这几行，不会使用凛祢的权重。
+按 `Ctrl+S` 保存。**只放入权重文件还不够，必须完成这一步，程序才会加载凛祢的声线。**
 
-配置保存后，仍在文件资源管理器中打开**语音目录**，也就是能直接看到 `api_v2.py` 的那个文件夹。单击窗口上方的地址栏，输入 `powershell` 并按回车；新打开的 PowerShell 会自动位于这个文件夹。输入：
+参考 WAV 已包含在项目里，不需要另外提取。
+
+<a id="start"></a>
+## 6. 启动语音和后端
+
+### 6.1 启动语音服务
+
+在文件资源管理器中打开**语音目录**。
+
+点击上方地址栏，输入 `powershell`，按回车。新窗口会直接打开在这个文件夹里。
+
+执行：
 
 ```powershell
 .\runtime\python.exe .\api_v2.py
 ```
 
-如果使用 CMD，就在同一个文件夹的地址栏输入 `cmd` 并按回车，然后输入：
+如果习惯用 CMD，就在地址栏输入 `cmd`，然后执行：
 
 ```bat
 runtime\python.exe api_v2.py
 ```
 
-让这个语音窗口保持运行；语音服务默认使用本机 `9880` 端口，与 `conf.yaml` 中的语音地址一致。参考 WAV 已包含在项目中，无需从游戏提取。
+启动后让这个窗口保持打开。语音服务默认使用本机 `9880` 端口，已经与项目配置对应。
 
-回到项目目录的命令窗口启动后端，并让它保持运行。五套游戏服装和四套自制服装已随项目下载，不需要另找游戏文件或运行导入命令。
+### 6.2 启动后端
+
+另外打开**项目目录**，也就是能看到 `conf.yaml` 和 `run_server.py` 的文件夹。
+
+同样在地址栏输入 `powershell` 或 `cmd`，按回车，然后执行：
 
 ```text
 uv run run_server.py
 ```
 
-后端默认在本机 `127.0.0.1:12393` 提供接口。请使用后文的桌面客户端完成对话和换装。
+这个窗口也要保持打开。后端默认使用本机 `127.0.0.1:12393`。
 
-首次启动时会下载 SenseVoice 识别模型以及记忆检索所需的 `BAAI/bge-base-zh-v1.5`、`BAAI/bge-reranker-base`。保持网络连接并等待下载完成。搜索、音乐与 Library 工具也会随程序启动；新安装的 Library 为空。
+首次启动会下载 SenseVoice 语音识别模型，以及 `BAAI/bge-base-zh-v1.5`、`BAAI/bge-reranker-base` 记忆检索模型。请保持网络连接，等下载和初始化完成。
 
-### 安装桌面客户端
+如果窗口要求审核日记，按提示完成后再继续。搜索、音乐和 Library 工具也会随程序启动；新安装的 Library 还没有文件。
 
-在后端窗口保持运行的情况下，打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.0.0-20260925)，下载与本版后端配套的 64 位安装程序 `open-llm-vtuber-2.0.0-setup.exe`。双击运行，安装过程中可以选择 D 盘等位置；完成后双击桌面快捷方式打开凛祢。先启动后端，再点击客户端与凛祢对话。
+<a id="client"></a>
+## 7. 安装桌面客户端，开始对话
 
-安装后依次检查：桌面客户端显示凛祢；Live Mode 可以选择九套服装；输入文字后能收到回复并听到语音；切换灵装后仍能正常对话。若有文字但没有声音，检查 Ollama、GPT-SoVITS 两个窗口和后端日志。若没有画面，请完全退出客户端并重新启动；仍不正常时，在项目目录运行 `uv run python setup_rinne_game_assets.py status` 检查服装文件。
+1. 打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.0.0-20260925)。
+2. 下载 `open-llm-vtuber-2.0.0-setup.exe`。
+3. 双击安装，可以选择 D 盘等位置。
+4. 保持语音和后端运行，双击桌面上的客户端快捷方式。
 
-## 3. 代理仅按需设置
+不需要自己编译客户端，也不需要另外导入服装。
 
-### 用 QQ 与凛祢对话（可选）
+打开后，依次检查：
 
-要接入 QQ，请先完成上述桌面端部署，再按 [QQ 通道安装说明](public_docs/QQ_SETUP.md) 设置自己的 QQ 账号。支持 QQ 官方机器人私聊，也支持通过 NapCat／AstrBot 接入个人 QQ 小号；两种方式都需要自行完成对应平台的安装和登录。桌面端用户不需要安装 QQ 组件。
+- 能看到凛祢。
+- 在 Live Mode 的换装菜单中能选择九套服装。
+- 输入一句话后，能收到文字回复并听到语音。
+- 切换灵装后，也能继续对话。
 
-这个本作者还处在实验阶段，感觉还不能放心地把 QQ 上的凛祢开源出来，总感觉时不时会出点小问题。所以对自己没信心的朋友可以先不让凛祢住进 QQ ，就先让她住在自己的电脑上，感觉想试一试的朋友可以尝试一下，然后把遇到的问题反馈给我。
+有问题时，先看文末的[常见问题](#faq)。
 
-## 4. 已有用户升级而不是重装
+<a id="daily-start"></a>
+## 8. 每天怎样启动
 
-升级前先在文件资源管理器中把 `conf.yaml`、整个 `chat_history` 复制到项目目录之外保存。确认备份可打开后，继续在**原项目目录**升级，不需要删除旧版或把密钥重新填写一遍。
+安装步骤只做一次。以后每次使用，按这个顺序：
 
-如果你用的是 **1.2.1 客户端**：它不会自己弹出新版提示。得知更新后，打开上方的 Windows 客户端下载页，下载新版 `.exe`，完全退出旧客户端，再运行安装程序；可以选择原来的安装位置。安装完成后，先打开新版客户端。首次检查时选择**原来安装的后端项目文件夹**，也就是你平时打开 `conf.yaml`、运行 `uv run run_server.py` 的文件夹。若客户端要求关闭旧后端，先关闭运行 `run_server.py` 的命令窗口，再点击“开始更新”。客户端会在原目录备份配置、更新后端代码和依赖；完成后按原顺序启动语音服务、后端和客户端。旧 `chat_history`、日记和记忆留在原处，不需要重新填写 API Key。
+1. 确认 Ollama 已运行。
+2. 在语音目录启动 `api_v2.py`。
+3. 在项目目录执行 `uv run run_server.py`，等后端启动完成。
+4. 双击桌面客户端，与凛祢对话。
 
-如果你用的是 **1.2.2 或之后的客户端**：以后有配套的正式版本时，客户端会显示更新提示。点击“更新”后按提示关闭后端、确认项目文件夹；客户端先更新后端，再打开新客户端的安装包页面。下载 `.exe`，完全退出旧客户端后安装。客户端会记住选过的后端文件夹，搬家后也可以重新选择。
+前两个命令窗口都要保持打开。具体命令见[启动语音和后端](#start)。
 
-更新工具会保留 `conf.yaml` 的个人配置，以及 `diary_generator.py`、`memory_generation_config.py` 中上述指定位置填写的密钥。其余配置只自动合并没有冲突的项目；如果你和新版改了同一项，它会停下来报告冲突，不会覆盖你的选择。如果你自己改动过其他代码，自动更新也会停下来。已有的聊天、日记和私人文件不会被清空。
+<a id="upgrade"></a>
+## 9. 旧版升级
 
-如果客户端无法完成更新，可先关闭旧后端，在原项目目录的 PowerShell 或 CMD 中依次运行下面的命令。第一条下载更新工具，第二条只检查，确认通过后再运行第三、四条：
+**在原来的项目目录升级，不需要删除旧版后端，也不需要搬走原有记忆。**
+
+### 9.1 先备份
+
+把项目目录中的 `conf.yaml` 和整个 `chat_history` 文件夹，复制到项目目录之外保存。
+
+确认备份能打开后，再开始更新。要复制，不要剪切。
+
+### 9.2 如果你使用 1.2.1 客户端
+
+1.2.1 不会自动弹出更新提示，需要先手动安装新版客户端。
+
+1. 从[客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.0.0-20260925)下载新版 `.exe`。
+2. 完全退出旧客户端，再运行安装程序。可以选择原来的安装位置。
+3. 打开新版客户端，按更新提示选择**原来的后端项目目录**，里面应有 `conf.yaml` 和 `run_server.py`。
+4. 按提示关闭旧后端窗口，再点击“开始更新”。
+5. 等待后端代码和依赖更新完成，再按[日常启动顺序](#daily-start)启动。
+
+这次升级要先打开新版客户端来更新后端，和日常启动顺序不同。
+
+### 9.3 如果你使用 1.2.2 或之后的客户端
+
+有配套的正式新版时，客户端会显示更新提示。
+
+1. 点击“更新”，按提示关闭后端。
+2. 确认后端项目目录。第一次选择后，客户端会记住位置；搬家后可以重新选择。
+3. 等后端更新完成，再从打开的下载页下载新版 `.exe`。
+4. 完全退出旧客户端，运行安装程序。
+5. 按[日常启动顺序](#daily-start)重新启动。
+
+### 9.4 更新会保留什么
+
+更新工具会保留：
+
+- `conf.yaml` 中的个人设置和密钥。
+- `diary_generator.py`、`memory_generation_config.py` 中前文指定位置填写的密钥。
+- 原有聊天、日记、记忆和私人文件。
+
+如果你和新版修改了同一个配置项，工具会停止并提示冲突，不会直接覆盖。
+
+如果你修改过其他程序代码，也会停止，请先处理提示的问题。
+
+更新后，检查 `ollama list` 中有前文指定的两个模型，并按[语音安装说明](#voice)检查 V2 权重和配置。已有翻译词表的路径会保留。
+
+### 9.5 客户端更新失败时，手动更新
+
+先关闭后端，在**原项目目录**打开 PowerShell 或 CMD。
+
+第一步：下载更新工具。
 
 ```text
 curl.exe --fail --location --output rinne-update-now.py https://raw.githubusercontent.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/main/tools/rinne_safe_update.py
+```
+
+第二步：只检查，暂不更新。
+
+```text
 uv run python rinne-update-now.py
+```
+
+**检查通过后**，再执行更新。有冲突或报错时，先停在这里处理，不要继续。
+
+```text
 uv run python rinne-update-now.py --apply
+```
+
+更新成功后，安装依赖：
+
+```text
 uv sync
 ```
 
-更新成功后可删除临时下载的 `rinne-update-now.py`；下次可直接运行项目自带的 `uv run python tools/rinne_safe_update.py --apply`。
+完成后按[日常启动顺序](#daily-start)启动，并检查文字回复、日常服装和灵装语音。
 
-已有用户也按“安装 V2 语音”一节检查语音服务及两个权重文件。若已有自己的翻译词表，更新会保留你填写的路径。确认 `ollama list` 有指定模型，重启后端和桌面客户端，检查日常与灵装语音。
+临时下载的 `rinne-update-now.py` 可以删除。下次手动更新可使用项目自带的工具：
 
-### 用已审核日记建立或续写第二层背景
+```text
+uv run python tools/rinne_safe_update.py --apply
+```
 
-配置更新后，`character_config.layer2_memory_generation.enabled` 为 `True`。只有处理已审核日记时才会调用配置的 DeepSeek API 并产生请求费用。先查看哪些历史日记有资格处理：
+<a id="optional"></a>
+## 10. 可选功能
 
-```powershell
+### 从已有日记建立第二层背景
+
+“第二层背景”是从你审核过的日记中整理出的长期背景，帮助凛祢了解你的经历和近况。它不会替换原始日记。
+
+至少需要一篇非空、已审核的日记。没有日记时，不会凭空生成背景。
+
+确认 `conf.yaml` 中 `character_config.layer2_memory_generation.enabled` 为 `True`，并已填写 DeepSeek 密钥。生成会调用 API，产生请求费用。
+
+先在项目目录检查哪些日记可以处理：
+
+```text
 uv run python -m src.open_llm_vtuber.memory.layer2_backfill --dry-run
 ```
 
-只有你明确批准的日记才会用于背景更新。若需要逐篇在终端确认：
+需要逐篇确认并生成时，再执行：
 
-```powershell
+```text
 uv run python -m src.open_llm_vtuber.memory.layer2_backfill --approve-interactively
 ```
 
-命令会按日期顺序处理。至少需要一篇非空、已确认的日记：还没有第二层背景时，先根据第一篇建立背景，再逐篇更新；没有日记或尚未确认时不生成。缺失日期和日记未提及的内容不会被猜测或补写。成功后新对话会读取生成的第二层背景，原始日记仍留在本地。未审核的日记不会被自动批准。
+程序按日期处理：先用第一篇建立背景，再用后续日记更新。
 
-## 5. 常见问题
+未审核的日记不会被自动批准，缺失的日期不会补写。完成后，新对话会读取生成的背景。
 
-- **换装菜单没有某套**：在项目目录运行 `uv run python setup_rinne_game_assets.py status` 检查随仓库提供的五套游戏资源；确认启动的是这个项目目录里的后端，并完全重启桌面客户端。九套服装不需要另外导入游戏文件。
-- **API 连接失败**：检查自己的 Key、额度与网络；需要代理时，先确认代理服务已启动，再设置本地代理地址。
-- **运行时找不到前端**：执行 `git submodule update --init --recursive`，确认 `frontend\index.html` 存在。
-- **文字正常但没声音**：确认 Ollama 的 `qwen3.5:4b-q4_K_M` 已安装并运行、两个语音权重已放到指定位置、`GPT_SoVITS\configs\tts_infer.yaml` 的 `custom:` 已按上文修改，以及语音端口与本地 `conf.yaml` 匹配。
-- **旧记忆没出现**：确认正在启动的是正确的后端目录、`conf_uid=rinne_01`、`RINNE_DATA_ROOT` 没指错；不要删除旧 `chat_history`。
+### 用 QQ 与凛祢对话
+
+先完成桌面端安装，再按 [QQ 通道说明](public_docs/QQ_SETUP.md)操作。
+
+可以使用 QQ 官方机器人私聊，或通过 NapCat／AstrBot 接入个人 QQ 小号。需要完成对应平台的安装和登录。
+
+QQ 通道仍在试用阶段，可能遇到问题。只用桌面端时，可以跳过，不必安装 QQ 组件。
+
+### 让凛祢读取你的资料
+
+文件放在哪里、视频密钥怎样填写，见 [Library 使用说明](rinne_library/README.md)。
+
+<a id="faq"></a>
+## 11. 常见问题
+
+### 没有凛祢画面，或缺少服装
+
+先确认启动的是这个项目目录的后端，再完全退出并重开客户端。
+
+仍有问题时，在项目目录检查服装文件：
+
+```text
+uv run python setup_rinne_game_assets.py status
+```
+
+九套服装已包含在项目中，不需要另外导入游戏文件。
+
+### 有文字，但没有声音
+
+依次检查：
+
+1. Ollama 已启动，`ollama list` 中有 `qwen3.5:4b-q4_K_M`。
+2. 两份 V2 权重已放在指定位置。
+3. `tts_infer.yaml` 的 `custom:` 已按[语音安装说明](#voice)修改。
+4. 语音服务窗口没有关闭，端口与 `conf.yaml` 的设置一致，默认是 `9880`。
+
+仍无声音时，查看语音窗口和后端窗口的报错。
+
+### API 连接失败
+
+检查密钥是否填对、账户是否有额度、网络是否能访问对应服务。
+
+默认不需要代理。只有自己的网络确实需要代理时，才配置本地代理地址，并保持代理软件运行。
+
+### 提示找不到前端
+
+在项目目录执行：
+
+```text
+git submodule update --init --recursive
+```
+
+完成后检查 `frontend\index.html` 是否存在，再启动后端。
+
+### 旧记忆没出现
+
+先确认启动的是原来的后端目录，旧 `chat_history` 仍在里面，不要删除它。
+
+再检查 `conf.yaml` 中的 `conf_uid` 是否仍为 `rinne_01`。如果设置过 `RINNE_DATA_ROOT`（另行指定的数据目录），也要确认它指向原有数据。
+
+## 项目与资源
+
+项目基于 [Open-LLM-VTuber](https://github.com/Open-LLM-VTuber/Open-LLM-VTuber)。桌面客户端源码在[前端仓库](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend)。
+
+自制服装按 [CC BY-NC 4.0](assets/rinne-original-outfits/LICENSE.md) 授权，商业使用需另行获得作者许可。

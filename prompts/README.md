@@ -1,17 +1,12 @@
-# Prompts
+# 功能提示词
 
-This directory contains utility prompts used in the Open-LLM-VTuber project. These are general-purpose prompts that are not specific to any character's persona.
+这里的提示词用来告诉模型怎样使用表情、工具等功能。正常安装时不需要修改。
 
-## Examples of Utility Prompts
+## 角色设定在哪里
 
-*   **Live2D Expressions:** Prompts that inform the LLM about available Live2D expressions.
-*   **Tool Usage:** Prompts that guide the LLM on how to use available tools.
-*   ... and many more.
+角色的性格、背景和说话方式写在：
 
-## Character Persona Prompts
+- 项目根目录的 `conf.yaml`。
+- `characters` 中的角色配置文件（使用其他角色时）。
 
-**Important:** Character persona prompts (the prompts that define the personality of your AI characters) are **NOT** stored in this directory.
-
-They are located in:
-*   Your main `conf.yaml` file.
-*   The YAML files within the `characters/` directory if you are defining multiple characters.
+需要调整角色设定时，请修改对应配置，而不是这里的功能提示词。
