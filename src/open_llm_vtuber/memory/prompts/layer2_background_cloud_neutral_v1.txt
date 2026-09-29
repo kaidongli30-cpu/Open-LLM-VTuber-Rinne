@@ -40,7 +40,7 @@
 
 ## 差量维护规则
 
-- 输入包含上一日紧凑背景和今日唯一材料；紧凑背景保留每条 current 事实的当前内容与生命周期字段，但省略已在程序中留档的完整证据历史事实和证据历史。只输出今天必要的差量。
+- 输入包含上一日紧凑背景、今日唯一材料，以及 currently_injected_fact_ids；紧凑背景保留每条 current 事实的当前内容与生命周期字段，但省略已在程序中留档的完整证据历史事实和证据历史。currently_injected_fact_ids 只说明哪些账本事实仍占用下一轮对话的直接个人背景，它不是删除授权。做时效清理时，必须先完整复核这份清单：只要清单内还有符合上述明确过时条件、会误导当前状态的事实，就不得先把清理名额用于清单外那些本来就没有直接注入的旧事件；清单内明显过时项处理完且仍有操作余量时，才处理清单外事实。只输出今天必要的差量。
 - 不得重新输出没有变化的旧事实。
 - added_facts 只用于上一日背景中不存在的新事实，并使用新的 fact_id。
 - updated_facts 只用于上一日已经存在、且今日证据使内容、状态或时效真正发生变化的 fact_id。
@@ -48,13 +48,17 @@
 - active 表示陈述现在仍成立或仍在进行。已经结束的一次性安排不得仅改写成“已完成”后继续以 active 留在未来计划分类；应选择更符合其当日状态和当前交流价值的分类、状态或移除操作。
 - 如果新增或更新的事实确实替代上一日某一事实，在 supersedes_fact_ids 中列出被替代的旧 fact_id。程序会确定性地把旧事实退出 current 并保留其历史审计；不要同时把这个旧 fact_id 放入 removed_facts。
 - 每天都要复核旧事实，而不只是寻找新增内容。旧事实仍然正确且对当前交流有用时保持不动；内容或状态发生变化时更新；已经不再适合作为“当前用户状态”送入后续交流时，从当前快照移除。
+- 每次维护都要先做一次专门的“时效复核”，再处理今日新增内容。stable_identity、长期偏好、重要关系、交流边界等 persistent 事实不得仅因沉默而删除；current_life_state、ongoing_projects_and_study、future_plans_and_commitments、recent_changes 中的 ongoing、scheduled、transient 事实则必须逐条对照处理日期、statement 内的时间锚点、expected_end_on、review_after 与较新的背景事实。
+- 下列情况通常已经明显过时，应优先更新、移入历史或用 stale_for_current_context 移出当前快照：原定日期已经过去的一次性安排；后续事实已经证明完成、取消或被新阶段取代的“正在、等待、准备、计划”；依赖某个已结束阶段的临时清单或出发前安排；已经不再影响当前交流的一次性 recent_changes。不得为了保留旧信息，把已经完成的事项机械改写成“最近完成”后长期留在当前背景。
+- 如果同一事务已有较新的事实能够表达当前阶段，只保留最新状态与仍未完成的下一步，旧阶段应通过 supersedes_fact_ids 或 removed_facts 退出 current。清理明显过时项时不要求今日日记再次逐字宣布“旧计划已过期”；可依据背景中明确日期先后和更新阶段使用 background_timeline，但 reason 必须具体指出旧状态为何已经失去当前价值。
+- 本轮时效清理暂不删除 unknowns_and_do_not_assume 中的事实；该栏用于保留尚不能确认的边界，而且目前体量较小。只有今日材料提供明确新证据时，才可更新其中的判断，不得仅按日期或沉默清空。
 - removed_facts 的 removal_basis 有四种：explicitly_changed（今日材料明确表明旧事实已改变）、superseded_by_current_fact（今日新增或更新的事实已经取代旧事实）、duplicate_or_invalid（旧事实重复或原本就无效）、stale_for_current_context（事实可能曾经正确，但作为短期状态、一次性安排或边角细节已经失去当前交流价值）。
 - explicitly_changed 与 superseded_by_current_fact 必须提供今日材料的逐字证据；evidence_type 使用相应日记证据等级。duplicate_or_invalid 与 stale_for_current_context 可以基于上一日背景自身的时间线判断，此时 evidence_type 使用 background_timeline，evidence_excerpts 输出空数组，并在 reason 中具体解释。
 - 不得仅仅因为某条稳定事实几天没有再次出现就删除它。自然过期应综合事实类型、首次出现和最后更新时间、原陈述的时效含义及其当前交流价值判断。
 - 从当前快照移除不等于抹除历史；程序会保存每日补丁、旧快照和删除理由供审计。
 - 同一含义只保留一条事实。不得仅通过改写句子或更换 fact_id 制造重复项。
 - 新 fact_id 使用小写ASCII，格式建议为“类别缩写-首次日期-三位序号”。
-- 每天只选择少量最有持续价值的变化；全部操作合计不得超过Schema允许的数量。
+- 每天只选择少量最有持续价值的变化；全部操作合计不得超过Schema允许的数量。在数量有限时，除了记录真正重要的新变化，也要给已经明显过时、正在误导当前状态的清理操作保留位置，不能让新增内容长期挤占全部操作名额。
 - 每条 statement 应先尝试用一至三句话表达当前结论。Schema 的 maxLength 是防止异常输出的硬上限，不是鼓励把上限写满；如果需要靠罗列完整名称、逐日过程或动作顺序才能成立，这通常说明它应被进一步概括、拆分，或留在日记与按需检索层。
 - 不要输出完整背景、current_overview 或 daily_update；这些由程序确定性合并。
 - 不要在JSON之外输出解释。

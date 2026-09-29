@@ -61,6 +61,12 @@ MEMORY_FIELDS = (
     *CHECK_FIELDS,
 )
 DISCARDED_FIELDS = ("detail", "decision", "target_title", "reason")
+_EDITABLE_EVENT_TYPE = re.compile(r"^记忆类型：(事件|瞬间)\s*$", re.MULTILINE)
+_EDITABLE_EVENT_NAME = re.compile(r"^事件名称：(.+?)\s*$", re.MULTILINE)
+_EDITABLE_EVENT_TIME = re.compile(
+    r"^时间：(20\d{2}年\d{1,2}月\d{1,2}日)\s*$", re.MULTILINE
+)
+_EDITABLE_EVENT_SOURCE = re.compile(r"^日记：(.+?)\s*$", re.MULTILINE)
 
 
 class ChildEventError(RuntimeError):
@@ -375,6 +381,78 @@ def _render_review(
     return "\n".join(lines)
 
 
+def _read_publication_manifest(target: Path) -> dict[str, Any] | None:
+    manifest_path = target / MANIFEST_FILENAME
+    if not manifest_path.is_file():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    return manifest if isinstance(manifest, dict) else None
+
+
+def _validate_manual_event_files(
+    target: Path,
+    memory_day: str,
+    diary_path: Path,
+) -> list[Path]:
+    """Validate the user-editable event TXT surface, including an empty day."""
+
+    event_dir = target / EVENT_DIRECTORY_NAME
+    if not event_dir.is_dir():
+        raise ValidationError("manual_event_directory_missing")
+    if {item.name for item in target.iterdir() if item.is_dir()} != {
+        EVENT_DIRECTORY_NAME
+    }:
+        raise ValidationError("manual_event_extra_directory")
+    unexpected = [item.name for item in event_dir.iterdir() if not item.is_file()]
+    unexpected.extend(
+        item.name
+        for item in event_dir.iterdir()
+        if item.is_file() and item.suffix != ".txt"
+    )
+    if unexpected:
+        raise ValidationError(f"manual_event_unexpected_entries:{unexpected}")
+    event_files = sorted(event_dir.glob("*.txt"), key=lambda item: item.name)
+    label_date = date.fromisoformat(memory_day)
+    expected_time = f"{label_date.year}年{label_date.month}月{label_date.day}日"
+    expected_diary = diary_path.resolve()
+    seen_titles: set[str] = set()
+    for path in event_files:
+        if not path.name.startswith(f"{memory_day}_"):
+            raise ValidationError(f"manual_event_filename_date_invalid:{path.name}")
+        try:
+            content = path.read_text(encoding="utf-8").strip()
+        except (OSError, UnicodeError) as exc:
+            raise ValidationError(f"manual_event_unreadable:{path.name}") from exc
+        type_match = _EDITABLE_EVENT_TYPE.search(content)
+        name_match = _EDITABLE_EVENT_NAME.search(content)
+        time_match = _EDITABLE_EVENT_TIME.search(content)
+        source_match = _EDITABLE_EVENT_SOURCE.search(content)
+        if any(
+            match is None
+            for match in (type_match, name_match, time_match, source_match)
+        ):
+            raise ValidationError(f"manual_event_fields_invalid:{path.name}")
+        title = name_match.group(1).strip()
+        if not title or title in seen_titles:
+            raise ValidationError(f"manual_event_title_invalid:{path.name}")
+        seen_titles.add(title)
+        if time_match.group(1) != expected_time:
+            raise ValidationError(f"manual_event_time_invalid:{path.name}")
+        try:
+            source_diary = Path(source_match.group(1).strip()).resolve()
+        except (OSError, ValueError) as exc:
+            raise ValidationError(f"manual_event_source_invalid:{path.name}") from exc
+        if source_diary != expected_diary:
+            raise ValidationError(f"manual_event_source_mismatch:{path.name}")
+        paragraphs = [part.strip() for part in re.split(r"\n\s*\n", content)]
+        if len(paragraphs) < 3 or not paragraphs[1] or paragraphs[1].startswith("来源："):
+            raise ValidationError(f"manual_event_summary_missing:{path.name}")
+    return event_files
+
+
 def _manifest_is_complete(target: Path, diary_hash: str | None = None) -> bool:
     manifest_path = target / MANIFEST_FILENAME
     if not manifest_path.is_file():
@@ -393,7 +471,9 @@ def _manifest_is_complete(target: Path, diary_hash: str | None = None) -> bool:
         }:
             return False
         expected = manifest.get("event_files")
-        if not isinstance(expected, list) or not expected:
+        if not isinstance(expected, list):
+            return False
+        if not expected and manifest.get("content_origin") != "human_edited":
             return False
         actual_files = sorted(event_dir.glob("*.txt"), key=lambda item: item.name)
         if len(actual_files) != len(expected):
@@ -548,17 +628,63 @@ def daily_child_event_publication_status(
     target = history / "events" / "child_events" / memory_day
     if not target.exists():
         return "missing"
-    if not target.is_dir() or not _manifest_is_complete(target):
+    if not target.is_dir():
+        return "invalid"
+    manifest = _read_publication_manifest(target)
+    if manifest is None or manifest.get("status") != "published":
         return "invalid"
     diary_path = history / "diaries" / f"diary_{memory_day}.txt"
     if not diary_path.is_file() or diary_path.stat().st_size == 0:
         return "stale"
-    manifest = json.loads(
-        (target / MANIFEST_FILENAME).read_text(encoding="utf-8")
-    )
     if manifest.get("diary_sha256") != sha256_file(diary_path):
         return "stale"
-    return "current"
+    if _manifest_is_complete(target):
+        return "current"
+    try:
+        _validate_manual_event_files(target, memory_day, diary_path)
+    except (OSError, ValidationError):
+        return "invalid"
+    return "modified"
+
+
+def accept_manual_child_event_edits(
+    memory_day: str,
+    history_root: str | Path | None = None,
+) -> dict[str, Any]:
+    """Rebind valid human edits without invoking or replaying the model."""
+
+    date.fromisoformat(memory_day)
+    history = resolve_character_history_root(history_root).resolve()
+    target = history / "events" / "child_events" / memory_day
+    manifest = _read_publication_manifest(target)
+    if manifest is None or manifest.get("status") != "published":
+        raise ValidationError("manual_event_manifest_invalid")
+    diary_path = history / "diaries" / f"diary_{memory_day}.txt"
+    if not diary_path.is_file() or not diary_path.stat().st_size:
+        raise ValidationError("manual_event_source_diary_missing")
+    diary_hash = sha256_file(diary_path)
+    if manifest.get("diary_sha256") != diary_hash:
+        raise ValidationError("manual_event_source_diary_changed")
+    event_files = _validate_manual_event_files(target, memory_day, diary_path)
+    previous_files = manifest.get("event_files")
+    if "generated_event_files" not in manifest and isinstance(previous_files, list):
+        manifest["generated_event_files"] = previous_files
+    manifest["event_count"] = len(event_files)
+    manifest["child_ids"] = [
+        f"{memory_day}_{index}" for index in range(1, len(event_files) + 1)
+    ]
+    manifest["event_files"] = [
+        {"name": path.name, "sha256": sha256_file(path)} for path in event_files
+    ]
+    manifest["content_origin"] = "human_edited"
+    manifest["human_edited_at"] = datetime.now().astimezone().isoformat(
+        timespec="seconds"
+    )
+    manifest["manual_revision"] = int(manifest.get("manual_revision") or 0) + 1
+    _write_json(target / MANIFEST_FILENAME, manifest)
+    if not _manifest_is_complete(target, diary_hash):
+        raise ValidationError("manual_event_manifest_rebind_failed")
+    return manifest
 
 
 def is_daily_child_event_published(

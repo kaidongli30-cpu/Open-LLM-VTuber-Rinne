@@ -3,6 +3,7 @@ import html
 import json
 import re
 from datetime import date, datetime, timedelta
+from difflib import SequenceMatcher
 from typing import (
     AsyncIterator,
     List,
@@ -169,6 +170,7 @@ ORDINARY_EXTERNAL_TOOL_BUDGET_EXHAUSTED_INSTRUCTION = (
     "控制或其他非只读工具。长期记忆工具仍按它自己的规则调用。"
 )
 LLM_STREAM_CLOSE_TIMEOUT_SECONDS = 5.0
+REPETITION_REWRITE_TIMEOUT_SECONDS = 60.0
 FINAL_REPLY_ONLY_INSTRUCTION = (
     "内部核对已经结束。下一步只输出直接说给用户听的自然最终回答；"
     "不得复述用户问题、题号、日记、上下文、检索结果、工具调用、证据判断或思考过程。"
@@ -256,6 +258,10 @@ _MESSAGE_TIME_CONTEXT_ECHO = re.compile(
     r"【消息时间：[^\r\n】]{1,160}｜记忆日：\d{4}-\d{2}-\d{2}（03:00分界）】[ \t]*"
 )
 _MESSAGE_TIME_CONTEXT_PREFIX = "【消息时间："
+_RESPONSE_CLAUSE_SPLIT = re.compile(r"[，,。！？!?；;：:\r\n]+")
+_EXPLICIT_REPEAT_REQUEST = re.compile(
+    r"原样(?:再)?说|原话|再说一遍|再讲一遍|重复一遍|复述一遍|照着说"
+)
 
 
 def _strip_leading_internal_analysis(text: str) -> str:
@@ -335,6 +341,68 @@ def _strip_message_time_context_echo(text: str) -> str:
     """Remove only the exact internal timestamp label used by this project."""
 
     return _MESSAGE_TIME_CONTEXT_ECHO.sub("", text)
+
+
+def _response_repetition_clauses(text: str) -> list[tuple[str, str]]:
+    """Return substantial visible clauses and their comparison forms."""
+
+    cleaned = _strip_message_time_context_echo(text)
+    cleaned = _VISIBLE_ACTION_TAG.sub("", cleaned)
+    clauses: list[tuple[str, str]] = []
+    for raw_clause in _RESPONSE_CLAUSE_SPLIT.split(cleaned):
+        visible = raw_clause.strip(" \t\"'“”‘’（）()…—-_")
+        normalized = _normalized_memory_text(visible)
+        for vocative in ("darling", "sonogamirinne"):
+            normalized = normalized.replace(vocative, "")
+        if len(normalized) >= 7:
+            clauses.append((visible, normalized))
+    return clauses
+
+
+def _find_repeated_response_passage(
+    draft: str,
+    previous_responses: list[str],
+) -> tuple[str, str] | None:
+    """Find one clearly repeated clause without trying to judge factual truth."""
+
+    draft_clauses = _response_repetition_clauses(draft)
+    if not draft_clauses:
+        return None
+    for response_offset, previous in enumerate(reversed(previous_responses)):
+        previous_clauses = _response_repetition_clauses(previous)
+        for draft_visible, draft_normalized in draft_clauses:
+            for previous_visible, previous_normalized in previous_clauses:
+                shorter = min(len(draft_normalized), len(previous_normalized))
+                if shorter < 7:
+                    continue
+                contained = (
+                    draft_normalized in previous_normalized
+                    or previous_normalized in draft_normalized
+                )
+                similarity = SequenceMatcher(
+                    None,
+                    draft_normalized,
+                    previous_normalized,
+                    autojunk=False,
+                )
+                longest_match = similarity.find_longest_match(
+                    0,
+                    len(draft_normalized),
+                    0,
+                    len(previous_normalized),
+                ).size
+                ratio = similarity.ratio()
+                if response_offset < 5:
+                    repeated = (
+                        (contained and shorter >= 10)
+                        or ratio >= 0.82
+                        or longest_match >= 9
+                    )
+                else:
+                    repeated = (contained and shorter >= 14) or ratio >= 0.92
+                if repeated:
+                    return previous_visible, draft_visible
+    return None
 
 
 async def _strip_message_time_context_stream(
@@ -681,9 +749,7 @@ class BasicMemoryAgent(AgentInterface):
         if metadata.get("proactive_speak"):
             if has_screen_image:
                 parts.append(SCREEN_TEXT_READING_INSTRUCTIONS)
-            return "\n\n".join(
-                part for part in parts if part and part.strip()
-            )
+            return "\n\n".join(part for part in parts if part and part.strip())
 
         scene_context = metadata.get("current_scene_context")
 
@@ -754,9 +820,7 @@ class BasicMemoryAgent(AgentInterface):
                 and proactive_screen_instruction.strip()
             ):
                 parts.append(proactive_screen_instruction.strip())
-            return "\n\n".join(
-                part.strip() for part in parts if part and part.strip()
-            )
+            return "\n\n".join(part.strip() for part in parts if part and part.strip())
         parts = [system_prompt]
         if isinstance(rules, str) and rules.strip():
             parts.append(rules.strip())
@@ -853,6 +917,110 @@ class BasicMemoryAgent(AgentInterface):
     def _build_missing_final_reply_message() -> str:
         """Return a safe user-facing fallback when the cloud response stays empty."""
         return "抱歉，刚才云端没有返回有效内容，请再说一次。"
+
+    @staticmethod
+    def _latest_user_text(messages: List[Dict[str, Any]]) -> str:
+        for message in reversed(messages):
+            if message.get("role") != "user":
+                continue
+            content = message.get("content")
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                return " ".join(
+                    str(block.get("text", ""))
+                    for block in content
+                    if isinstance(block, dict) and block.get("type") == "text"
+                )
+        return ""
+
+    async def _rewrite_repetitive_final_response(
+        self,
+        draft: str,
+        messages: List[Dict[str, Any]],
+        system_prompt: str,
+    ) -> str:
+        """Ask for one complete rewrite after identifying the repeated clause."""
+
+        if not draft.strip() or getattr(self, "_request_is_proactive", False):
+            return draft
+        current_user_text = self._latest_user_text(messages)
+        if _EXPLICIT_REPEAT_REQUEST.search(current_user_text):
+            return draft
+        previous_responses = [
+            str(message.get("content", ""))
+            for message in self._memory
+            if message.get("role") == "assistant"
+            and isinstance(message.get("content"), str)
+            and str(message.get("content", "")).strip()
+        ]
+        match = _find_repeated_response_passage(draft, previous_responses)
+        if match is None:
+            return draft
+
+        previous_passage, repeated_passage = match
+        retry_instruction = (
+            "【本轮静默去重：重写完整回复】\n"
+            "下面草稿中有一句话重复了较早已经表达过的内容。请重新写出一份完整、"
+            "自然、可以直接发送给用户的最终回复：保持草稿回应本轮输入的原意、"
+            "事实和必要动作，但删去或真正改写指定的重复句，不要再复述它或换句话"
+            "重复。没有新的内容可替代时，直接省略该句。只输出重写后的完整回复，"
+            "保留正常的情绪标签和对话动作；不得解释规则、检查、草稿或重写过程。\n"
+            f"较早已经说过：{previous_passage[:180]}\n"
+            f"整段草稿：{draft[:500]}\n"
+            f"草稿中必须处理的重复句：{repeated_passage[:180]}"
+        )
+        response_parts: list[str] = []
+        stream = self._llm.chat_completion(
+            messages,
+            f"{system_prompt}\n\n{retry_instruction}",
+        )
+
+        async def collect_rewrite() -> None:
+            async for event in stream:
+                if isinstance(event, str):
+                    response_parts.append(event)
+                elif (
+                    isinstance(event, dict)
+                    and event.get("type") == "text_delta"
+                    and isinstance(event.get("text"), str)
+                ):
+                    response_parts.append(event["text"])
+
+        try:
+            await asyncio.wait_for(
+                collect_rewrite(),
+                timeout=REPETITION_REWRITE_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "重复回复整段重写等待超过{:.0f}秒，静默采用原草稿",
+                REPETITION_REWRITE_TIMEOUT_SECONDS,
+            )
+            return draft
+        except Exception as exc:
+            logger.warning(
+                "重复回复整段重写失败，保留原草稿: {}",
+                type(exc).__name__,
+            )
+            return draft
+        finally:
+            await _close_llm_stream(stream)
+
+        rewritten = "".join(response_parts)
+        rewritten = _strip_leading_internal_analysis(rewritten)
+        rewritten = _strip_answer_number_prefix(rewritten)
+        rewritten = _strip_provider_control_tokens(rewritten)
+        rewritten = _strip_message_time_context_echo(rewritten).strip()
+        if not rewritten:
+            return draft
+
+        logger.info(
+            "检测到明显重复句，已让模型整段重写一次（草稿{}字，重写{}字）",
+            len(draft),
+            len(rewritten),
+        )
+        return rewritten
 
     async def _build_forced_search_query(self, current_user_text: str) -> str:
         """Rewrite a spoken request into a concise query, with a local fallback."""
@@ -1469,8 +1637,7 @@ class BasicMemoryAgent(AgentInterface):
             1
             for call in tool_calls
             if (
-                (tool_name := cls._parse_turn_tool_call(call)[0])
-                not in internal_names
+                (tool_name := cls._parse_turn_tool_call(call)[0]) not in internal_names
                 and tool_name != CAPABILITY_REQUEST_TOOL_NAME
                 and not cls._is_read_only_local_tool_name(tool_name)
             )
@@ -2042,6 +2209,11 @@ class BasicMemoryAgent(AgentInterface):
                 current_turn_text = _strip_answer_number_prefix(current_turn_text)
                 current_turn_text = _strip_provider_control_tokens(current_turn_text)
                 current_turn_text = _strip_message_time_context_echo(current_turn_text)
+                current_turn_text = await self._rewrite_repetitive_final_response(
+                    current_turn_text,
+                    messages,
+                    current_system_prompt,
+                )
                 if current_turn_text.strip():
                     yield current_turn_text
                     self._add_message(current_turn_text, "assistant")
@@ -2507,6 +2679,11 @@ class BasicMemoryAgent(AgentInterface):
                 current_turn_text = _strip_answer_number_prefix(current_turn_text)
                 current_turn_text = _strip_provider_control_tokens(current_turn_text)
                 current_turn_text = _strip_message_time_context_echo(current_turn_text)
+                current_turn_text = await self._rewrite_repetitive_final_response(
+                    current_turn_text,
+                    messages,
+                    current_system_prompt,
+                )
                 if current_turn_text.strip():
                     yield current_turn_text
                     self._add_message(current_turn_text, "assistant")
@@ -2617,9 +2794,10 @@ class BasicMemoryAgent(AgentInterface):
                     else current_user_text
                 )
             if is_proactive_speak:
-                active_capabilities, capability_reasons = set(), [
-                    "主动观察只使用当前屏幕证据"
-                ]
+                active_capabilities, capability_reasons = (
+                    set(),
+                    ["主动观察只使用当前屏幕证据"],
+                )
             else:
                 active_capabilities, capability_reasons = (
                     self._select_turn_capabilities(current_user_text)

@@ -65,6 +65,7 @@ def prepare_rinne_memories_on_startup(
         select_long_term_memories,
     )
     from src.open_llm_vtuber.memory.daily_child_events import (
+        accept_manual_child_event_edits,
         daily_child_event_publication_status,
         launch_daily_child_event_worker,
     )
@@ -146,6 +147,21 @@ def prepare_rinne_memories_on_startup(
                     f"[每日子事件] {memory_day} 事件已存在，"
                     "跳过整理；未调用事件生成模型。"
                 )
+            elif publication_status == "modified":
+                try:
+                    manifest = accept_manual_child_event_edits(
+                        memory_day, history_root
+                    )
+                    logger.info(
+                        f"[每日子事件] {memory_day} 已接纳人工修改，"
+                        f"事件数={manifest['event_count']}；"
+                        "已更新发布清单，未调用事件生成模型。"
+                    )
+                except Exception as exc:
+                    logger.error(
+                        f"[每日子事件] {memory_day} 的人工修改无法接纳：{exc}；"
+                        "已保留现有文件，未调用事件生成模型。"
+                    )
             elif publication_status == "stale":
                 logger.warning(
                     f"[每日子事件] {memory_day} 事件已存在，但日记已在事件"
@@ -299,6 +315,7 @@ def prepare_recent_diary_context_on_startup(
     import diary_generator
     from src.open_llm_vtuber.memory.diary_review import diary_approval_status
     from src.open_llm_vtuber.memory.recent_diary_compaction import (
+        ManualCompactionEditError,
         RecentDiaryCompactionError,
         load_matching_compaction,
         publish_compaction,
@@ -318,7 +335,14 @@ def prepare_recent_diary_context_on_startup(
             "不自动生成；本轮回退读取完整日记。"
         )
         return None
-    existing = load_matching_compaction(root, diary_path, memory_day)
+    try:
+        existing = load_matching_compaction(root, diary_path, memory_day)
+    except ManualCompactionEditError as exc:
+        logger.warning(
+            f"[近期日记压缩] {memory_day} 的人工修改格式无效：{exc}；"
+            "已保留文件，不调用模型覆盖。"
+        )
+        return None
     if existing is not None:
         logger.info(
             f"[近期日记压缩] {memory_day} 已存在且与日记匹配，"

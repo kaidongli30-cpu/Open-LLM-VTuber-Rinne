@@ -114,7 +114,7 @@ class OpenAICompatibleConfig(StatelessLLMBaseConfig):
         30.0, ge=1.0, le=300.0, alias="upstream_warning_seconds"
     )
     upstream_first_data_timeout_seconds: float = Field(
-        90.0, ge=5.0, le=300.0, alias="upstream_first_data_timeout_seconds"
+        90.0, ge=0.0, le=300.0, alias="upstream_first_data_timeout_seconds"
     )
     upstream_max_attempts: int = Field(2, ge=1, le=2, alias="upstream_max_attempts")
 
@@ -148,8 +148,11 @@ class OpenAICompatibleConfig(StatelessLLMBaseConfig):
             zh="上游模型尚未开始回复时，经过多少秒记录慢响应警告。",
         ),
         "upstream_first_data_timeout_seconds": Description(
-            en="Maximum seconds to wait for response headers and first response data.",
-            zh="等待上游响应头和首个回复数据的最长秒数。",
+            en=(
+                "Maximum seconds to wait for response headers and first response "
+                "data; 0 waits until the provider responds or the user cancels."
+            ),
+            zh="等待上游响应头和首个回复数据的最长秒数；设为 0 时持续等待，直到上游回复或用户主动取消。",
         ),
         "upstream_max_attempts": Description(
             en="Maximum request attempts before any response data arrives (1 or 2).",

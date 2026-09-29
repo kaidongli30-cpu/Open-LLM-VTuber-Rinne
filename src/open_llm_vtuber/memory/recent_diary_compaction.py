@@ -33,6 +33,10 @@ class RecentDiaryCompactionError(RuntimeError):
     """A compact diary could not be generated or safely validated."""
 
 
+class ManualCompactionEditError(RecentDiaryCompactionError):
+    """A human-edited compact diary exists but does not pass basic checks."""
+
+
 @dataclass(frozen=True)
 class RecentDiaryCompaction:
     memory_day: str
@@ -584,6 +588,75 @@ def publication_paths(history_root: str | Path, memory_day: str) -> tuple[Path, 
     return root / f"diary_{memory_day}.md", root / f"diary_{memory_day}.json"
 
 
+def _validate_manual_summary(
+    summary: str,
+    *,
+    memory_day: str,
+    diary_text: str,
+) -> tuple[dict[str, Any], ...]:
+    """Validate the editable Markdown surface without second-guessing its facts."""
+
+    expected_header = f"【近期记忆｜{memory_day}】"
+    lines = summary.splitlines()
+    if not lines or lines[0].strip() != expected_header:
+        raise ManualCompactionEditError("manual_summary_header_invalid")
+    body_lines = [line.strip() for line in lines[1:] if line.strip()]
+    if not 1 <= len(body_lines) <= MAX_ITEM_COUNT:
+        raise ManualCompactionEditError(
+            f"manual_summary_item_count_invalid:{len(body_lines)}"
+        )
+    items: list[dict[str, Any]] = []
+    for index, line in enumerate(body_lines, start=1):
+        if not line.startswith("- "):
+            raise ManualCompactionEditError(
+                f"manual_summary_item_{index}_missing_bullet"
+            )
+        memory_text = line[2:].strip()
+        if not 4 <= len(memory_text) <= 520:
+            raise ManualCompactionEditError(
+                f"manual_summary_item_{index}_length_invalid"
+            )
+        items.append({"memory_text": memory_text, "evidence_quotes": []})
+    if len(summary) > MAX_SUMMARY_CHARS:
+        raise ManualCompactionEditError(
+            f"manual_summary_too_long:{len(summary)}>{MAX_SUMMARY_CHARS}"
+        )
+    if len(diary_text) >= 900 and len(summary) >= len(diary_text):
+        raise ManualCompactionEditError("manual_summary_did_not_compress")
+    return tuple(items)
+
+
+def _accept_manual_summary_manifest(
+    manifest_path: Path,
+    manifest: dict[str, Any],
+    *,
+    summary: str,
+    diary_text: str,
+) -> None:
+    """Rebind a valid human edit so later starts never regenerate over it."""
+
+    previous_hash = str(manifest.get("summary_sha256") or "")
+    manifest.setdefault("generated_summary_sha256", previous_hash)
+    manifest["summary_sha256"] = _sha256_text(summary)
+    manifest["summary_character_count"] = len(summary)
+    manifest["compression_ratio"] = round(
+        len(summary) / max(1, len(diary_text)), 6
+    )
+    manifest["content_origin"] = "human_edited"
+    manifest["human_edited_at"] = datetime.now().astimezone().isoformat(
+        timespec="seconds"
+    )
+    manifest["manual_revision"] = int(manifest.get("manual_revision") or 0) + 1
+    nonce = uuid.uuid4().hex[:12]
+    temporary = manifest_path.with_name(f".{manifest_path.name}.{nonce}.tmp")
+    temporary.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    os.replace(temporary, manifest_path)
+
+
 def publish_compaction(
     history_root: str | Path,
     diary_path: str | Path,
@@ -636,7 +709,7 @@ def load_matching_compaction(
     diary_path: str | Path,
     memory_day: str,
 ) -> RecentDiaryCompaction | None:
-    """Load only a complete summary whose hashes still match its source diary."""
+    """Load a generated summary or accept a valid human edit in place."""
 
     diary = Path(diary_path)
     summary_path, manifest_path = publication_paths(history_root, memory_day)
@@ -655,10 +728,36 @@ def load_matching_compaction(
             "diary_file": diary.name,
             "diary_sha256": _sha256_text(diary_text),
             "summary_file": summary_path.name,
-            "summary_sha256": _sha256_text(summary),
         }
         if any(manifest.get(key) != value for key, value in expected.items()):
             return None
+        current_summary_hash = _sha256_text(summary)
+        recorded_summary_hash = manifest.get("summary_sha256")
+        if (
+            manifest.get("content_origin") == "human_edited"
+            or recorded_summary_hash != current_summary_hash
+        ):
+            items = _validate_manual_summary(
+                summary,
+                memory_day=memory_day,
+                diary_text=diary_text,
+            )
+            if recorded_summary_hash != current_summary_hash:
+                _accept_manual_summary_manifest(
+                    manifest_path,
+                    manifest,
+                    summary=summary,
+                    diary_text=diary_text,
+                )
+            return RecentDiaryCompaction(
+                memory_day=memory_day,
+                summary=summary,
+                items=items,
+                source_character_count=len(diary_text),
+                summary_character_count=len(summary),
+                model="human-edited",
+                elapsed_seconds=0.0,
+            )
         items = manifest.get("items")
         value = {"memory_day": memory_day, "items": items}
         validated = validate_compaction(
@@ -671,6 +770,8 @@ def load_matching_compaction(
         if validated.summary != summary:
             return None
         return validated
+    except ManualCompactionEditError:
+        raise
     except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError):
         return None
 
@@ -678,6 +779,7 @@ def load_matching_compaction(
 __all__ = [
     "RecentDiaryCompaction",
     "RecentDiaryCompactionError",
+    "ManualCompactionEditError",
     "load_matching_compaction",
     "publication_paths",
     "publish_compaction",

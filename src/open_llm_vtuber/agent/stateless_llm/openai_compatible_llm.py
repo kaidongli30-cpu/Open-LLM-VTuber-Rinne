@@ -169,19 +169,29 @@ class AsyncLLM(StatelessLLMInterface):
         self.min_request_interval_seconds = max(
             0.0, float(min_request_interval_seconds)
         )
-        self.upstream_first_data_timeout_seconds = max(
-            5.0, float(upstream_first_data_timeout_seconds)
+        configured_first_data_timeout = float(upstream_first_data_timeout_seconds)
+        self.upstream_first_data_timeout_seconds = (
+            None
+            if configured_first_data_timeout <= 0
+            else max(5.0, configured_first_data_timeout)
         )
-        self.upstream_warning_seconds = min(
-            self.upstream_first_data_timeout_seconds,
-            max(1.0, float(upstream_warning_seconds)),
-        )
+        self.upstream_warning_seconds = max(1.0, float(upstream_warning_seconds))
+        if self.upstream_first_data_timeout_seconds is not None:
+            self.upstream_warning_seconds = min(
+                self.upstream_first_data_timeout_seconds,
+                self.upstream_warning_seconds,
+            )
         self.upstream_max_attempts = max(1, min(2, int(upstream_max_attempts)))
         http_client = None
-        if proxy_url:
+        if proxy_url or self.upstream_first_data_timeout_seconds is None:
+            client_timeout = (
+                httpx.Timeout(None, connect=10.0)
+                if self.upstream_first_data_timeout_seconds is None
+                else httpx.Timeout(600.0, connect=10.0)
+            )
             http_client = httpx.AsyncClient(
                 proxy=proxy_url,
-                timeout=httpx.Timeout(600.0, connect=10.0),
+                timeout=client_timeout,
             )
         self.client = AsyncOpenAI(
             base_url=base_url,
@@ -297,7 +307,7 @@ class AsyncLLM(StatelessLLMInterface):
         *,
         attempt_started: float,
         warning_seconds: float,
-        timeout_seconds: float,
+        timeout_seconds: float | None,
         trace_request_id: str,
         attempt: int,
         max_attempts: int,
@@ -325,6 +335,9 @@ class AsyncLLM(StatelessLLMInterface):
                 attempt,
                 max_attempts,
             )
+
+        if timeout_seconds is None:
+            return await task
 
         timeout_remaining = max(
             0.0,
@@ -360,8 +373,13 @@ class AsyncLLM(StatelessLLMInterface):
         """Open a stream and retry once only before any provider data arrives."""
 
         warning_seconds = float(getattr(self, "upstream_warning_seconds", 30.0))
-        timeout_seconds = float(
-            getattr(self, "upstream_first_data_timeout_seconds", 90.0)
+        configured_timeout = getattr(
+            self,
+            "upstream_first_data_timeout_seconds",
+            90.0,
+        )
+        timeout_seconds = (
+            None if configured_timeout is None else float(configured_timeout)
         )
         max_attempts = int(getattr(self, "upstream_max_attempts", 2))
         retryable_statuses = {408, 429, 500, 502, 503, 504}
@@ -522,14 +540,27 @@ class AsyncLLM(StatelessLLMInterface):
 
         if first_chunk is not _NO_STREAM_CHUNK:
             yield first_chunk
-        idle_timeout = float(
-            getattr(self, "upstream_stream_idle_timeout_seconds", 90.0)
+        default_idle_timeout = (
+            None
+            if getattr(self, "upstream_first_data_timeout_seconds", 90.0) is None
+            else 90.0
+        )
+        configured_idle_timeout = getattr(
+            self,
+            "upstream_stream_idle_timeout_seconds",
+            default_idle_timeout,
+        )
+        idle_timeout = (
+            None if configured_idle_timeout is None else float(configured_idle_timeout)
         )
         while True:
             try:
-                chunk = await asyncio.wait_for(
-                    anext(stream_iterator), timeout=idle_timeout
-                )
+                if idle_timeout is None or idle_timeout <= 0:
+                    chunk = await anext(stream_iterator)
+                else:
+                    chunk = await asyncio.wait_for(
+                        anext(stream_iterator), timeout=idle_timeout
+                    )
             except StopAsyncIteration:
                 return
             except asyncio.TimeoutError as exc:
@@ -1084,8 +1115,13 @@ class AsyncLLM(StatelessLLMInterface):
                 attempt_count = len(trace_upstream_attempts) or int(
                     getattr(self, "upstream_max_attempts", 2)
                 )
-                timeout_seconds = float(
-                    getattr(self, "upstream_first_data_timeout_seconds", 90.0)
+                configured_timeout = getattr(
+                    self,
+                    "upstream_first_data_timeout_seconds",
+                    90.0,
+                )
+                timeout_seconds = (
+                    0.0 if configured_timeout is None else float(configured_timeout)
                 )
                 attempt_text = "仅请求1次" if attempt_count == 1 else "连续两次请求"
                 yield (

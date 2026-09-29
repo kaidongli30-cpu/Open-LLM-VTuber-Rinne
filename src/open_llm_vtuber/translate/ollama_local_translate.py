@@ -40,7 +40,7 @@ GLOSSARY_TOKEN_PATTERN = re.compile(r"RINNEGLS\d{4}TOKEN")
 
 # This is the user's name, not the Japanese adjective 静か. Keep its hiragana
 # spelling unchanged so the Japanese TTS receives the intended pronunciation.
-BUILT_IN_PRESERVED_TERMS = {"しずか": "しずか"}
+BUILT_IN_PRESERVED_TERMS: dict[str, str] = {}
 
 
 class OllamaLocalTranslate(TranslateInterface):

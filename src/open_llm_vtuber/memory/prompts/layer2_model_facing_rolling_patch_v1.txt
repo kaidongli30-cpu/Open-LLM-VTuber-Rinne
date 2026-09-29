@@ -12,5 +12,7 @@
 6. 每个 operation 的 source_fact_ids 必须至少包含一个 authorized_changes 中的 fact_id，并且不得引用清单外的 fact_id。
 7. 如果第一次调用确认了变化，但它不适合直接出现在模型阅读版中，可以不输出对应操作。不得为了凑齐变化数量而修改无关条目。
 8. 不得根据背景自行判断某项内容过时；删除或改写权只来自 authorized_changes。
+9. change_type=removed 且 removal_basis=stale_for_current_context 时，只能删除 source_fact_ids 明确包含该 fact_id 的旧条目；不得顺便清理措辞相似但没有来源绑定的条目。
+10. 暂时保留 unknowns_and_do_not_assume 整栏，不得对该分类输出 remove。人工新增且只有 manual- 来源的条目，不得仅凭 background_timeline 或 stale_for_current_context 删除；只有今日明确证据支持的变化才可修改。
 
 输出必须严格符合输入中的 JSON Schema，不要在 JSON 对象之外输出解释。

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .diary_review import diary_approval_status
 from .recent_diary_compaction import (
+    ManualCompactionEditError,
     load_matching_compaction,
     publication_paths,
 )
@@ -127,11 +128,18 @@ def _scan_diaries(
         content = _read_note(path, directory, warnings)
         if content:
             source_character_count += len(content)
-            compaction = load_matching_compaction(
-                history_root,
-                path,
-                memory_date.isoformat(),
-            )
+            try:
+                compaction = load_matching_compaction(
+                    history_root,
+                    path,
+                    memory_date.isoformat(),
+                )
+            except ManualCompactionEditError as exc:
+                warnings.append(
+                    f"人工修改的近期日记压缩版格式无效，保留文件但跳过注入："
+                    f"{path.name}（{exc}）"
+                )
+                continue
             source_kind = "diary"
             if compaction is not None:
                 _title, separator, compact_body = compaction.summary.partition("\n")

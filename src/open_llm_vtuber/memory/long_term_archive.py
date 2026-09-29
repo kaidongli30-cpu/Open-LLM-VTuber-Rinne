@@ -14,6 +14,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from ..data_paths import resolve_character_history_root
+from .periodic_theme_pipeline import is_no_continuous_theme_summary
 
 
 _DIARY_PATTERN = re.compile(r"^diary_(\d{4}-\d{2}-\d{2})\.txt$")
@@ -45,6 +46,7 @@ class LongTermArchiveDiagnostics:
     invalid_filenames: int = 0
     unreadable_files: int = 0
     empty_files: int = 0
+    skipped_no_continuous_theme: int = 0
     skipped_overlapping_weeklies: int = 0
     skipped_covered_diaries: int = 0
     warnings: list[str] = field(default_factory=list)
@@ -125,6 +127,9 @@ def _read_entry(
     if not content:
         diagnostics.empty_files += 1
         diagnostics.warnings.append(f"跳过空文件 {path.name}")
+        return None
+    if kind in {"weekly", "monthly"} and is_no_continuous_theme_summary(content):
+        diagnostics.skipped_no_continuous_theme += 1
         return None
     return LongTermArchiveEntry(kind, path, start_date, end_date, content)
 

@@ -33,7 +33,6 @@ from ..config_manager.layer2_memory import Layer2MemoryGenerationConfig
 from ..data_paths import resolve_character_history_root
 from . import daily_child_event_providers as provider_adapter
 from .daily_child_event_providers import DailyChildEventProviderError
-from .diary_review import load_matching_approval
 from .layer2_context import (
     CURRENT_CONTEXT_NAME,
     CURRENT_POINTER_NAME,
@@ -316,6 +315,41 @@ def _number_overview_bullets(
     return numbered
 
 
+def _currently_injected_fact_ids(
+    sections: list[dict[str, Any]], previous: dict[str, Any]
+) -> list[str]:
+    """Return ledger facts that still occupy the editable direct context."""
+
+    known_ids = set(_fact_map(previous))
+    return sorted(
+        {
+            fact_id
+            for section in sections
+            if section["category"] != "unknowns_and_do_not_assume"
+            for bullet in section["bullets"]
+            for fact_id in bullet["source_fact_ids"]
+            if fact_id in known_ids and not fact_id.startswith("manual-")
+        }
+    )
+
+
+def _append_injected_context_priority(
+    task_prompt: str, injected_fact_ids: list[str]
+) -> str:
+    return (
+        task_prompt
+        + "\n\n<currently_injected_fact_ids>\n"
+        + json.dumps(injected_fact_ids, ensure_ascii=False, indent=2)
+        + "\n</currently_injected_fact_ids>\n"
+        + "以上 fact_id 对应的事实目前仍直接出现在下一轮对话的个人背景中。"
+        "做时效清理时，必须先完整复核其中会误导当前状态的 ongoing、scheduled、"
+        "transient 与 recent_changes。只要清单内还有明确过时项，就不得先用"
+        "清理名额删除清单外本来就没有直接注入的旧事件。不要把该清单当作删除"
+        "授权，也不要因进入清单而删除稳定身份、长期关系、偏好、边界或仍有效承诺。"
+        "unknowns_and_do_not_assume 已从该清单排除，本轮仍不清理该栏。"
+    )
+
+
 def _render_overview_sections(sections: list[dict[str, Any]]) -> str:
     chunks: list[str] = []
     for section in sections:
@@ -400,6 +434,8 @@ def _authorized_projection_changes(
                 "today_evidence_excerpts": copy.deepcopy(
                     operation.get("evidence_excerpts", [])
                 ),
+                "evidence_type": operation.get("evidence_type"),
+                "removal_basis": operation.get("removal_basis"),
             }
         )
 
@@ -449,6 +485,7 @@ def _filter_rolling_operations(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     targets = {item["bullet_id"]: item for item in numbered_bullets}
     allowed_ids = {item["fact_id"] for item in authorized_changes}
+    changes_by_id = {item["fact_id"]: item for item in authorized_changes}
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     used_targets: set[str] = set()
@@ -474,11 +511,27 @@ def _filter_rolling_operations(
                 reasons.append("target_bullet_not_found")
             elif target.get("category") != category:
                 reasons.append("target_category_mismatch")
-            elif any(
-                not fact_id.startswith("manual-")
-                for fact_id in target.get("source_fact_ids", [])
-            ) and not set(source_ids).intersection(target["source_fact_ids"]):
-                reasons.append("target_not_linked_to_authorized_fact")
+            else:
+                target_source_ids = target.get("source_fact_ids", [])
+                if any(
+                    not fact_id.startswith("manual-") for fact_id in target_source_ids
+                ) and not set(source_ids).intersection(target_source_ids):
+                    reasons.append("target_not_linked_to_authorized_fact")
+                if action == "remove" and category == "unknowns_and_do_not_assume":
+                    reasons.append("unknown_section_removal_disabled")
+                if (
+                    action == "remove"
+                    and target_source_ids
+                    and all(
+                        fact_id.startswith("manual-") for fact_id in target_source_ids
+                    )
+                    and any(
+                        changes_by_id.get(fact_id, {}).get("removal_basis")
+                        == "stale_for_current_context"
+                        for fact_id in source_ids
+                    )
+                ):
+                    reasons.append("manual_bullet_stale_removal_disabled")
             if target_id in used_targets:
                 reasons.append("target_bullet_modified_more_than_once")
             if action == "update" and (not isinstance(text, str) or not text.strip()):
@@ -560,7 +613,9 @@ def _apply_projection_fallbacks(
         if change_type in {"removed", "superseded"}:
             if location is not None:
                 section, bullet = location
-                if bullet["source_fact_ids"] == [fact_id]:
+                if section["category"] != "unknowns_and_do_not_assume" and bullet[
+                    "source_fact_ids"
+                ] == [fact_id]:
                     section["bullets"].remove(bullet)
                     fallback_operations.append({"action": "remove", "fact_id": fact_id})
             continue
@@ -1561,20 +1616,13 @@ def run_daily_layer2_update(
         raise Layer2RuntimeError("same_day_diary_changed_manual_review_required")
     if existing_status == "invalid":
         raise Layer2RuntimeError("current_layer2_publication_invalid")
-    diary_path = history / "diaries" / f"diary_{memory_day}.txt"
-    if not diary_path.is_file() or diary_path.stat().st_size == 0:
-        raise Layer2RuntimeError(f"diary_missing_or_empty:{diary_path}")
-    diary_text = diary_path.read_text(encoding="utf-8")
-    if not diary_text.strip():
-        raise Layer2RuntimeError(f"diary_missing_or_empty:{diary_path}")
-    if load_matching_approval(history, memory_day, diary_path) is None:
-        raise Layer2RuntimeError(f"diary_requires_current_approval:{memory_day}")
-    diary_hash = sha256_file(diary_path)
     loaded = load_layer2_publication(history)
+    # A new installation has no published background yet; the first approved
+    # diary then builds it from an in-memory empty ledger.
     bootstrap = loaded.diagnostics.get("status") == "missing"
     if bootstrap:
-        # This is only an in-memory empty ledger, never a published background.
-        # The first real, approved diary must supply every added fact/evidence.
+        # This empty ledger is never published. The first real, approved diary
+        # must supply every added fact and its evidence.
         previous = delta_runner._empty_background(current_day - timedelta(days=1))
         previous["daily_update"]["summary"] = "尚未根据日记建立用户背景。"
         if (layer2_root / CURRENT_CONTEXT_NAME).exists():
@@ -1587,7 +1635,34 @@ def run_daily_layer2_update(
     ):
         previous = _read_json(loaded.background_path)
     else:
-        raise Layer2RuntimeError("current_layer2_publication_invalid")
+        raise Layer2RuntimeError("no_valid_layer2_seed_publication")
+    current_context = load_current_layer2_context(history)
+    base_sections = (
+        []
+        if bootstrap
+        else _parse_overview_sections(
+            _extract_model_facing_overview(current_context.context)
+        )
+    )
+    previous_projection_path = (
+        loaded.background_path.parent / "projection_result.json"
+        if loaded.background_path is not None
+        else None
+    )
+    previous_projection = (
+        _read_json(previous_projection_path)
+        if previous_projection_path is not None and previous_projection_path.is_file()
+        else None
+    )
+    _attach_previous_sources(base_sections, previous_projection)
+    injected_fact_ids = _currently_injected_fact_ids(base_sections, previous)
+    diary_path = history / "diaries" / f"diary_{memory_day}.txt"
+    if not diary_path.is_file() or diary_path.stat().st_size == 0:
+        raise Layer2RuntimeError(f"diary_missing_or_empty:{diary_path}")
+    diary_text = diary_path.read_text(encoding="utf-8")
+    if not diary_text.strip():
+        raise Layer2RuntimeError(f"diary_missing_or_empty:{diary_path}")
+    diary_hash = sha256_file(diary_path)
     pointer_path = layer2_root / CURRENT_POINTER_NAME
     pointer_before = pointer_path.read_bytes() if pointer_path.is_file() else None
     cloud_settings, provider_safe = _settings_for_cloud(config_path, settings)
@@ -1620,6 +1695,7 @@ def run_daily_layer2_update(
             diary_text=diary_text,
             schema=ledger_schema,
         )
+        task_prompt = _append_injected_context_priority(task_prompt, injected_fact_ids)
         (ledger_dir / "task_prompt.txt").write_text(
             task_prompt, encoding="utf-8", newline="\n"
         )
@@ -1783,28 +1859,8 @@ def run_daily_layer2_update(
             if operation_limit_repair is not None:
                 ledger_metrics["operation_limit_repair"] = operation_limit_repair
             _write_json(ledger_dir / "metrics.json", ledger_metrics)
-            current_context = load_current_layer2_context(history)
-            base_sections = (
-                []
-                if bootstrap
-                else _parse_overview_sections(
-                    _extract_model_facing_overview(current_context.context)
-                )
-            )
             if bootstrap and not legacy._items_by_id(background):
                 raise Layer2RuntimeError("first_diary_has_no_verified_background_facts")
-            previous_projection_path = (
-                loaded.background_path.parent / "projection_result.json"
-                if loaded.background_path is not None
-                else None
-            )
-            previous_projection = (
-                _read_json(previous_projection_path)
-                if previous_projection_path is not None
-                and previous_projection_path.is_file()
-                else None
-            )
-            _attach_previous_sources(base_sections, previous_projection)
             authorized_changes = _authorized_projection_changes(
                 previous=previous,
                 current=background,
@@ -1828,18 +1884,16 @@ def run_daily_layer2_update(
                 cloud_settings=cloud_settings,
                 settings=settings,
             )
-            # Recheck the exact source and base immediately before publishing.
-            # Two different-day workers must not overwrite each other's result.
+            # Recheck the diary and the published base immediately before
+            # publishing so two workers for different days cannot overwrite
+            # each other's result.
             with _daily_lock(layer2_root, "publication"):
                 pointer_now = (
                     pointer_path.read_bytes() if pointer_path.is_file() else None
                 )
                 if pointer_now != pointer_before:
                     raise Layer2RuntimeError("layer2_base_changed_retry_required")
-                if (
-                    sha256_file(diary_path) != diary_hash
-                    or load_matching_approval(history, memory_day, diary_path) is None
-                ):
+                if sha256_file(diary_path) != diary_hash:
                     raise Layer2RuntimeError("diary_changed_during_generation")
                 publication = _publish(
                     layer2_root=layer2_root,

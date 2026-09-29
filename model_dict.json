@@ -70,12 +70,18 @@
         "emotionMap": {
             "neutral": -1,
 			"ambitious": 0,
+			"thinking": 9,
+			"gentle": 10,
 			"happy": 4,
 			"shy": 6,
 			"surprise": 7,
 			"surprised": 7,
+			"dissatisfaction": 11,
+			"flustered": 12,
 			"sad": 5,
+			"embarrassed": 13,
 			"worried": 8,
+			"uneasy": 14,
 			"angry": 1,
 			"awkward": 2,
 			"confused": 3
