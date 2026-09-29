@@ -30,10 +30,10 @@
 ```text
 git --version
 uv --version
-uv python install 3.12
+uv python install 3.10
 ```
 
-前两行会显示软件版本；第三行安装 Python 3.12。本项目支持 Python 3.10–3.12，推荐使用 3.12。
+前两行会显示软件版本；第三行安装本项目使用的 Python 3.10。项目根目录的 `.python-version` 固定为 3.10，后面的 `uv sync` 会用它创建环境，不需要另外安装其他版本的 Python。
 
 再启动 Ollama，检查命令是否可用：
 
@@ -43,42 +43,95 @@ ollama --version
 
 ### 提前留出磁盘空间
 
-翻译模型约 3.4 GB，记忆整理模型约 15 GB。此外还要存放语音程序、约 1 GB 的语音识别模型和记忆检索模型。
+项目本身下载后约 5 GB，Python 环境约 3 GB。翻译模型约 3.4 GB，记忆整理模型约 15 GB。此外还要存放语音程序、约 1 GB 的语音识别模型和记忆检索模型。
 
 **Ollama 可以在设置中选择模型保存位置。** 不想占用 C 盘时，请先改好位置，再下载模型。
 
 <a id="download"></a>
 ## 2. 下载项目，选择安装位置
 
-下面以 `D:\AI\Open-LLM-VTuber-Rinne` 为例。
+### 2.1 先决定放在哪里
 
-想放在其他位置，就把命令中的 `D:\AI` 换成你选的文件夹。即使命令窗口当前显示 C 盘，项目也会下载到你指定的位置。
+项目会下载成一个名叫 `Open-LLM-VTuber-Rinne` 的文件夹，你只需要决定它放在哪里。
 
-### 如果用 PowerShell
+- **路径越短越好。** Windows 默认限制一个文件的完整路径不能超过 260 个字符，而项目的 Python 环境里有些文件本身的路径就接近 190 个字符。放在盘符根目录，或者根目录下只隔一层文件夹最稳妥。
+- **路径里只用英文、数字和短横线**，不要有中文、空格或特殊符号。
+- **不要放在桌面、下载、文档**这类藏得很深的文件夹里，也不要放在 OneDrive 等网盘的同步文件夹里。
 
-```powershell
-New-Item -ItemType Directory -Force 'D:\AI' | Out-Null
-git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git 'D:\AI\Open-LLM-VTuber-Rinne'
-Set-Location 'D:\AI\Open-LLM-VTuber-Rinne'
-uv sync
-```
+| 想放在哪里 | 下载后的项目目录 |
+| --- | --- |
+| D 盘根目录（路径最短，最推荐） | `D:\Open-LLM-VTuber-Rinne` |
+| D 盘的 AI 文件夹里 | `D:\AI\Open-LLM-VTuber-Rinne` |
+| E 盘的 Rinne 文件夹里 | `E:\Rinne\Open-LLM-VTuber-Rinne` |
 
-### 如果用 CMD
+表里的 `AI`、`Rinne` 这类上一层文件夹事先不存在也没关系，下载时会自动创建。
+
+### 2.2 方法一（推荐）：在想放的位置打开命令窗口
+
+1. 打开“此电脑”，进入你想放项目的位置。想放在 D 盘根目录，就双击打开 D 盘；想放在 `D:\AI`，就打开 D 盘里的 `AI` 文件夹（没有就先新建一个）。
+2. 单击窗口上方的**地址栏**（显示 `D:\` 或 `D:\AI` 的那一栏），删掉里面的文字，输入 `cmd`，按回车。
+3. 这时会弹出一个黑色的命令窗口，它就位于你刚才打开的文件夹。每次复制一行，按回车，等执行完再输入下一行：
 
 ```bat
-if not exist "D:\AI" mkdir "D:\AI"
-git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git "D:\AI\Open-LLM-VTuber-Rinne"
-cd /d "D:\AI\Open-LLM-VTuber-Rinne"
+git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git
+cd Open-LLM-VTuber-Rinne
 uv sync
 ```
 
-两组命令选一组执行，**不需要都执行**。
+在 D 盘根目录执行，就得到 `D:\Open-LLM-VTuber-Rinne`；在 `D:\AI` 里执行，就得到 `D:\AI\Open-LLM-VTuber-Rinne`。
+
+以后本文说“在项目目录打开命令窗口”，也用同样的办法：打开 `Open-LLM-VTuber-Rinne` 文件夹，在地址栏输入 `cmd`，按回车。
+
+### 2.3 方法二：在任意命令窗口写出完整路径
+
+已经打开了 PowerShell 或 CMD 时，也可以直接写出完整路径。下面以 D 盘根目录为例；想放到 `D:\AI`，就把命令里的 `D:\Open-LLM-VTuber-Rinne` 全部换成 `D:\AI\Open-LLM-VTuber-Rinne`。
+
+如果用 PowerShell：
+
+```powershell
+git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git 'D:\Open-LLM-VTuber-Rinne'
+Set-Location 'D:\Open-LLM-VTuber-Rinne'
+uv sync
+```
+
+如果用 CMD：
+
+```bat
+git clone --recurse-submodules https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne.git "D:\Open-LLM-VTuber-Rinne"
+cd /d "D:\Open-LLM-VTuber-Rinne"
+uv sync
+```
+
+两组命令选一组执行，**不需要都执行**。容易出错的三个地方：
+
+- 路径要一直写到 `Open-LLM-VTuber-Rinne` 这一层。**不要只写 `D:\` 或 `D:`**：git 只能下载到一个新的空文件夹里，只写盘符会报错 `destination path ... already exists and is not an empty directory`。
+- CMD 里换到别的盘必须写 `cd /d`。只写 `cd` 不会换盘，接下来的 `uv sync` 会提示找不到项目（`No pyproject.toml found`）。
+- PowerShell 和 CMD 的命令不能混着用，比如 `cd /d` 在 PowerShell 里会报错。
 
 `--recurse-submodules` 会一起下载项目需要的前端文件，请保留。最后的 `uv sync` 用来安装后端依赖，等待它完成。
 
 下文说的“项目目录”，就是刚下载的 `Open-LLM-VTuber-Rinne` 文件夹，里面能看到 `conf.yaml` 和 `run_server.py`。
 
 项目的 Python 环境会留在这个目录里。其他软件的缓存位置由各自设置决定，仍可能使用 C 盘。
+
+<a id="slow-download"></a>
+### 2.4 下载很慢或中途断开
+
+项目从 GitHub 下载的数据约 150 MB，下载后会展开成约 5 GB 的文件。最后显示 `Updating files` 的阶段是在往硬盘写文件，需要几分钟，这一步慢是正常的。
+
+国内网络直连 GitHub 常常很慢，或者下到一半断开。如果你在用代理软件（如 Clash、v2rayN），它的“系统代理”对 git 不生效，需要单独告诉 git：
+
+```text
+git config --global http.https://github.com.proxy http://127.0.0.1:7890
+```
+
+把 `7890` 换成代理软件显示的 HTTP 端口（常见的有 `7890`、`7897`、`10809`）。这条设置只对 GitHub 生效，以后更新凛祢时也会用到它。不再需要代理时执行：
+
+```text
+git config --global --unset http.https://github.com.proxy
+```
+
+下载中断后，先删掉没下载完的 `Open-LLM-VTuber-Rinne` 文件夹，再重新执行 `git clone`。
 
 <a id="keys"></a>
 ## 3. 填写 API 密钥
@@ -181,6 +234,8 @@ ollama list
 ### 5.1 下载并解压语音程序
 
 下载 [GPT-SoVITS 官方 Windows 整合包](https://huggingface.co/lj1995/GPT-SoVITS-windows-package/blob/8b081e1fa1b3ad121e0f310e525dc80fcf15becc/GPT-SoVITS-v2pro-20250604.7z)，用 7-Zip 解压到项目的根目录，就是 open-llm-vtuber-rinne 这个文件夹下，不要再点进任何一个子文件夹了。
+
+国内网络打不开 Hugging Face 时，可以试试第三方镜像站：把下载地址里的 `huggingface.co` 换成 `hf-mirror.com`，其余部分不变。
 
 打开解压后的文件夹，找到**同时能看到 `api_v2.py` 和 `runtime` 文件夹**的那一层。下文把它叫作“语音目录”。
 
@@ -349,6 +404,14 @@ TTS 和后端窗口都要保持打开。第一次使用先按[一键启动说明
 
 这次升级要先打开新版客户端来更新后端，和日常启动顺序不同。
 
+<a id="after-121"></a>
+**从 1.2.1 升级后，还要做两件事：**
+
+1. 1.2.1 用 `Rinne_model\rinne_voice_runtime_bundle\启动凛祢语音服务.bat` 启动语音，它会自动配置凛祢的声线。新版改用项目目录里的 `启动凛祢.bat`，不会再替你配置声线，所以要按[5.3 修改语音配置](#voice)改好 `tts_infer.yaml`，否则凛祢会用 GPT-SoVITS 的默认声音说话。两份权重文件和 1.2.1 用的是同一份，不用重新下载。
+2. 按[6.1 填写语音目录](#start)，在 `启动凛祢.bat` 里填好 `TTS_DIR`。
+
+1.2.1 默认用 DeepSeek 对话和写日记。你已经填过 DeepSeek 密钥的话，更新工具会让对话、日记、周记和月记继续用 DeepSeek，不会把它们换成还没有填密钥的 APINebula。想改用 APINebula 上的 Claude：先按[填写 API 密钥](#keys)填好 APINebula 密钥，再把 `conf.yaml` 中 `basic_memory_agent:` 下的 `llm_provider` 改成 `'openai_compatible_llm'`；日记也要换的话，把 `diary_generator.py` 里的 `LLM_API_URL` 改成 `'https://apinebula.ai/v1/chat/completions'`，`LLM_MODEL` 改成 `'claude-sonnet-4-6'`。
+
 ### 9.3 如果你使用 1.2.2 或之后的客户端
 
 有配套的正式新版时，客户端会显示更新提示。
@@ -365,6 +428,7 @@ TTS 和后端窗口都要保持打开。第一次使用先按[一键启动说明
 
 - `conf.yaml` 中的个人设置和密钥。
 - `diary_generator.py`、`memory_generation_config.py` 中前文指定位置填写的密钥。
+- 已经填了密钥的服务，会继续使用原来的接口地址和模型。新版默认值变了也不会替换它们，避免把密钥发给别的服务。
 - 原有聊天、日记、记忆和私人文件。
 
 如果你和新版修改了不同位置，工具会尽量自动合并。
@@ -383,12 +447,13 @@ TTS 和后端窗口都要保持打开。第一次使用先按[一键启动说明
 
 ### 9.5 客户端更新失败时，手动更新
 
-先关闭后端，在**原项目目录**打开 PowerShell 或 CMD。
+先关闭后端，在**原项目目录**打开命令窗口（方法见[2.2](#download)）。下面的命令在 PowerShell 和 CMD 里都能用。
 
-第一步：下载更新工具。
+第一步：用 git 取得最新的更新工具。git 能使用[2.4](#slow-download)设置的代理，所以不需要另外访问 `raw.githubusercontent.com`。
 
 ```text
-curl.exe --fail --location --output rinne-update-now.py https://raw.githubusercontent.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne/main/tools/rinne_safe_update.py
+git fetch --no-recurse-submodules origin main
+cmd /c "git show origin/main:tools/rinne_safe_update.py > rinne-update-now.py"
 ```
 
 第二步：只检查，暂不更新。
@@ -487,6 +552,22 @@ uv run python setup_rinne_game_assets.py status
 检查密钥是否填对、账户是否有额度、网络是否能访问对应服务。
 
 默认不需要代理。只有自己的网络确实需要代理时，才配置本地代理地址，并保持代理软件运行。
+
+### 下载或更新时连不上 GitHub
+
+看到 `Could not resolve host`、`Failed to connect`、`Connection was reset`、`early EOF`、`RPC failed` 这类字样，都是 git 连接 GitHub 失败了，和项目文件无关。按[下载很慢或中途断开](#slow-download)为 git 设置代理后重试。
+
+### 提示 Filename too long
+
+项目放的路径太长了。最稳妥的办法是删掉这次下载的文件夹，按[2.1](#download)换到更短的位置（例如 `D:\Open-LLM-VTuber-Rinne`）重新下载。
+
+如果一定要用现在的位置，先执行第一行允许 git 使用长路径，再在项目目录执行后两行补全文件：
+
+```text
+git config --global core.longpaths true
+git restore --source=HEAD --staged --worktree :/
+git submodule update --init --recursive
+```
 
 ### 提示找不到前端
 
