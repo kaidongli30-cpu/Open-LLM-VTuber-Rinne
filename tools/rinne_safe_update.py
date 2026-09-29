@@ -37,19 +37,103 @@ OFFICIAL_REMOTES = {
     "git@github.com:kaidongli30-cpu/Open-LLM-VTuber-Rinne",
     "ssh://git@github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne",
 }
-# Only this released, pre-sanitization checkout has an audited rewritten base.
+# Official commits that were published on main and later dropped when the
+# public history was rewritten (2026-08-18 and 2026-09-22/23). Users who
+# cloned or pulled during those windows still have one of them as HEAD.
 # Never use this exception for arbitrary user commits or divergent branches.
-LEGACY_RELEASE_BASES = {
-    "0c66f0f350a4955e2094c0d84e663bcef0cc4875": "3f63381720bf97375160cbd37fa11b998ede81d5",
-}
+LEGACY_RELEASE_COMMITS = frozenset(
+    {
+        # Pre-sanitization history up to desktop 1.2.1.
+        "562071703735bf1d3819c843700bbbf5f3319227",
+        "030ef57afd05501e9955d69a81dc110816f3c4f8",
+        "51e28b7e707760bea990f5c6f62b896d2055a42f",
+        "a383d592d2c4312a1e629fa2c432776496de8593",
+        "7387decaafb3f2e3915ae7fb1e5cd450158386c4",
+        "82a0015901e47ba0929b03049e2830fcac861838",
+        "f1a83839875fc8675cc7d9819614206707818e41",
+        "256a7e66bfdfe31819325ace8163756631f8c71c",
+        "10ad5865c7594aa61032872d4a8fa8e5bbb4be5a",
+        "5a253807fd86ebc38216b185a216732136925142",
+        "a579991683e9ce60316f834c48b6c4910cd7b0df",
+        "e2cf53f05938eba96da37b25d1abc81597ac0fd9",
+        "0c66f0f350a4955e2094c0d84e663bcef0cc4875",
+        # V2 migration commits replaced on 2026-09-23.
+        "fc78dd70f2d3dd36f8af24d49d2a005d5f76f745",
+        "67a1a44bf04817ba425027b01113e8209abba5da",
+        "3e3554bb428eea0a3da572225d7d8c41bb702048",
+        "13c3643d5e21de91e2c6d79ecb218e53878aacfc",
+        "c48f582c04bebea14893eccb3097095473b47a4c",
+        "376ab2329dcbd362f73c8a034dfc37b0f872c963",
+        "0452e552c43a1d707233ff8d13b4e02bd5f00bef",
+        "3b2ac65f84128525621ce6229393edd96eda4807",
+        "953f057c4fae79ebeb601c210e04565821d33cef",
+        "68ff1123937975b8e5a9679d6998a0b1e30582fd",
+        "5518356d012dfe377b58443d1c5809cd319878c7",
+        "3fca900211420f598bc6ddd2b802d282172c55a5",
+        "07d557ad6e1d9bd4e73cd0f72589e3655b50bd39",
+        "8e814907b8eeb20677dfdcac9c4b33cb60b166f5",
+        "235f1196d0d423e2c2e55f693b4b82aca04742b8",
+        "f0022f3e3fc51e3a775453dbda2cb0e160ad176c",
+        "7963fc7eb39b2674a7eef7085c2918de0bc21601",
+        "cdc51282fa381b093e8d7930094052aaeeda61cd",
+        "f5a7c07daa9b197a0acd2368d359b002d536080d",
+        "4d7d6a2c2af3e47339a150278a3cb9a3429ac5c9",
+        "efeecdc50094de2ba45dc07a2cfeb3e7d3af4c1a",
+        "38418f3c486bb0e5b39bf21d9c577bad519632fa",
+        "0ad047db0a75a0359aa62ee32974e3834dc808b2",
+        "387af4833bca630e35bb950747cfc302168e876c",
+        "7b2867ed0c1aab38dfa457523e6e47a6ed3290b3",
+        "8a6b27c0e662b7c92bd538787bb13321562f2c39",
+        "442d95913127964bf807b8df778cc347fa276a3d",
+    }
+)
 PYTHON_KEY_FILES = {
     "diary_generator.py": "LLM_API_KEY",
     "memory_generation_config.py": "API_KEY",
 }
+# Connection settings that belong to the key filled in the same file.
+PYTHON_CONNECTION_VARIABLES = {
+    "diary_generator.py": ("LLM_API_URL", "LLM_MODEL"),
+    "memory_generation_config.py": ("BASE_URL", "MODEL"),
+}
+# YAML fields that decide where a filled-in key is sent.
+CONFIG_CONNECTION_FIELDS = ("llm_provider", "base_url", "api_url", "model")
+CONFIG_CONNECTION_KEYS = frozenset({"api_key", "llm_api_key"})
+ASSET_REFERENCE_FIELDS = frozenset({"ref_audio_path", "aux_ref_audio_paths"})
+GIT_NETWORK_HINTS = (
+    "could not resolve host",
+    "failed to connect",
+    "timed out",
+    "connection was reset",
+    "connection reset",
+    "early eof",
+    "rpc failed",
+    "unable to access",
+    "could not read from remote",
+)
 
 
 class UpdateError(Exception):
     """An update cannot proceed without risking local data."""
+
+
+def _git_failure(command: str, stderr: str | bytes | None) -> str:
+    """Describe a Git failure with Git's own last lines, minus credentials."""
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode("utf-8", errors="replace")
+    lines = [line.strip() for line in (stderr or "").splitlines() if line.strip()]
+    detail = re.sub(
+        r"(?i)(\b[a-z][a-z0-9+.-]*://)[^/\s@]+@", r"\1", "\n".join(lines[-3:])
+    )
+    message = f"Git 操作失败：{command}"
+    if detail:
+        message += "\n" + detail[-600:]
+    if any(hint in detail.lower() for hint in GIT_NETWORK_HINTS):
+        message += (
+            "\n连接 GitHub 失败：请检查网络；使用代理软件时，"
+            "请按 README 常见问题为 Git 设置代理后重试。"
+        )
+    return message
 
 
 def _git(*args: str, strip: bool = True) -> str:
@@ -63,8 +147,29 @@ def _git(*args: str, strip: bool = True) -> str:
         check=False,
     )
     if result.returncode:
-        raise UpdateError(f"Git 操作失败：{args[0]}")
+        raise UpdateError(_git_failure(args[0], result.stderr))
     return result.stdout.strip() if strip else result.stdout
+
+
+def _git_paths(args: tuple[str, ...], names: list[str]) -> None:
+    """Run a Git command on many literal paths without long command lines."""
+    if not names:
+        return
+    result = subprocess.run(
+        [
+            "git",
+            "--literal-pathspecs",
+            *args,
+            "--pathspec-from-file=-",
+            "--pathspec-file-nul",
+        ],
+        cwd=ROOT,
+        input=b"\0".join(name.encode("utf-8") for name in names),
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode:
+        raise UpdateError(_git_failure(args[0], result.stderr))
 
 
 def _yaml() -> YAML:
@@ -93,7 +198,8 @@ def merge_config(
 ) -> tuple[str, list[str]]:
     """Apply upstream-only field edits to the user's round-trip YAML tree."""
     old = _parse_config(old_text)
-    user = copy.deepcopy(_parse_config(user_text))
+    original_user = _parse_config(user_text)
+    user = copy.deepcopy(original_user)
     new = _parse_config(new_text)
     conflicts: list[str] = []
 
@@ -143,11 +249,117 @@ def merge_config(
         return "", sorted(conflicts)
     if merged is MISSING or not isinstance(merged, Mapping):
         raise UpdateError("配置合并结果无效，更新已停止")
+    _keep_keyed_connections(old, original_user, merged)
+    _keep_keyed_providers(old, original_user, merged)
     output = io.StringIO()
     _yaml().dump(merged, output)
     result = output.getvalue()
     _parse_config(result)
     return result, []
+
+
+def _node(tree: Any, path: tuple[str, ...]) -> Any:
+    for key in path:
+        if not isinstance(tree, Mapping) or key not in tree:
+            return MISSING
+        tree = tree[key]
+    return tree
+
+
+def _filled_by_user(value: Any, released: Any) -> bool:
+    """A key counts as the user's only when it is non-empty and not a default."""
+    return isinstance(value, str) and bool(value.strip()) and value != released
+
+
+def _keep_keyed_connections(old: Any, user: Any, merged: Any) -> None:
+    """Never move a user's filled-in key to a different endpoint or model.
+
+    A release may change the default provider address or model. Keys are only
+    valid for the service they were issued by, so a block holding the user's
+    key keeps its own connection settings instead of adopting new defaults.
+    """
+    if not isinstance(user, Mapping) or not isinstance(merged, Mapping):
+        return
+    released = old if isinstance(old, Mapping) else {}
+    if any(
+        str(key) in CONFIG_CONNECTION_KEYS
+        and _filled_by_user(value, released.get(key, MISSING))
+        for key, value in user.items()
+    ):
+        for field in CONFIG_CONNECTION_FIELDS:
+            # Only undo new defaults; a value the user edited was already merged
+            # or explicitly chosen by them.
+            if (
+                field in user
+                and field in merged
+                and user[field] == released.get(field, MISSING)
+                and merged[field] != user[field]
+            ):
+                merged[field] = copy.deepcopy(user[field])
+    for key, child in user.items():
+        if isinstance(child, Mapping) and key in merged:
+            _keep_keyed_connections(released.get(key, MISSING), child, merged[key])
+
+
+def _keep_keyed_providers(old: Any, user: Any, merged: Any) -> None:
+    """Keep an agent on the provider whose key the user filled in.
+
+    Switching to a new default provider is only safe when that provider
+    already has a key; otherwise the companion would stop replying.
+    """
+    settings = ("character_config", "agent_config", "agent_settings")
+    configs = ("character_config", "agent_config", "llm_configs")
+    user_agents = _node(user, settings)
+    merged_agents = _node(merged, settings)
+    if not isinstance(user_agents, Mapping) or not isinstance(merged_agents, Mapping):
+        return
+    for agent, user_agent in user_agents.items():
+        merged_agent = merged_agents.get(agent)
+        if not isinstance(user_agent, Mapping) or not isinstance(merged_agent, Mapping):
+            continue
+        mine = user_agent.get("llm_provider")
+        chosen = merged_agent.get("llm_provider")
+        if not isinstance(mine, str) or not isinstance(chosen, str) or mine == chosen:
+            continue
+        if mine != _node(old, (*settings, agent, "llm_provider")):
+            continue  # the user picked this provider themselves in a conflict
+        mine_key = _node(user, (*configs, mine, "llm_api_key"))
+        released_key = _node(old, (*configs, mine, "llm_api_key"))
+        chosen_key = _node(merged, (*configs, chosen, "llm_api_key"))
+        if _filled_by_user(mine_key, released_key) and not (
+            isinstance(chosen_key, str) and chosen_key.strip()
+        ):
+            merged_agent["llm_provider"] = mine
+
+
+def _release_path(value: str, tree: Mapping) -> str | None:
+    """Find the tracked release file that a (possibly absolute) path names."""
+    parts = [
+        part for part in value.replace("\\", "/").split("/") if part not in {"", "."}
+    ]
+    for index in range(len(parts)):
+        candidate = "/".join(parts[index:])
+        if candidate in tree:
+            return candidate
+    return None
+
+
+def _obsolete_release_reference(
+    section: str, value: Any, old_tree: Mapping, new_tree: Mapping
+) -> bool:
+    """True when every path in the value names a release file the update removes."""
+    if section.rsplit(".", 1)[-1] not in ASSET_REFERENCE_FIELDS:
+        return False
+    values = [value] if isinstance(value, str) else value
+    if not isinstance(values, list) or not values:
+        return False
+    for item in values:
+        if not isinstance(item, str):
+            return False
+        relative = _release_path(item, old_tree)
+        if relative is None or relative in new_tree:
+            return False
+    return True
 
 
 def apply_local_overlay(user_text: str, overlay_text: str) -> str:
@@ -323,6 +535,49 @@ def _replace_key_value(text: str, variable: str, expression: str) -> str:
     return (data[:start] + expression.encode("utf-8") + data[end:]).decode("utf-8")
 
 
+def _assignment_source(text: str | None, variable: str) -> str | None:
+    """Return the source of a top-level assignment value, or None if absent."""
+    if text is None:
+        return None
+    try:
+        _, start, end = _key_assignment(text, variable)
+    except UpdateError:
+        return None
+    return text.encode("utf-8")[start:end].decode("utf-8")
+
+
+def _user_filled_literal(user: str | None, base: str | None, variable: str) -> bool:
+    """True when the user wrote their own non-empty key string into the file."""
+    if user is None:
+        return False
+    try:
+        value, _, _ = _key_assignment(user, variable)
+    except UpdateError:
+        return False
+    return (
+        isinstance(value, ast.Constant)
+        and isinstance(value.value, str)
+        and bool(value.value.strip())
+        and _assignment_source(user, variable) != _assignment_source(base, variable)
+    )
+
+
+def _pin_connection(
+    merged: str, user: str, base: str, target: str, variables: tuple[str, ...]
+) -> str:
+    """Keep the endpoint and model that belong to the user's key."""
+    for variable in variables:
+        mine = _assignment_source(user, variable)
+        released = _assignment_source(base, variable)
+        upcoming = _assignment_source(target, variable)
+        current = _assignment_source(merged, variable)
+        if None in (mine, released, upcoming, current):
+            continue
+        if mine == released and upcoming != released and current != mine:
+            merged = _replace_key_value(merged, variable, mine)
+    return merged
+
+
 def _key_file_updates(head: str, target: str) -> dict[str, tuple[bytes, str, str]]:
     updates = {}
     for name, variable in PYTHON_KEY_FILES.items():
@@ -360,10 +615,15 @@ def _latest_release_tag(requested_tag: str | None = None) -> str | None:
         },
     )
     try:
-        with urlopen(request, timeout=10) as response:
+        with urlopen(request, timeout=20) as response:
             payload = response.read(2_000_001)
-    except (HTTPError, URLError, TimeoutError) as error:
-        raise UpdateError("无法检查 GitHub 正式版本；未修改文件") from error
+    except (HTTPError, URLError, TimeoutError, OSError):
+        # api.github.com is often slow or rate limited on shared networks in
+        # China while Git itself still works. The client names the exact
+        # release; otherwise read the release tags through Git.
+        if requested_tag is not None:
+            return requested_tag
+        return _latest_remote_release_tag()
     if len(payload) > 2_000_000:
         raise UpdateError("GitHub 版本信息过大；未修改文件")
     try:
@@ -392,6 +652,17 @@ def _latest_release_tag(requested_tag: str | None = None) -> str | None:
         if any(tag == requested_tag for _, tag in candidates):
             return requested_tag
         raise UpdateError("指定的后端正式版本尚未发布；未修改文件")
+    return max(candidates)[1] if candidates else None
+
+
+def _latest_remote_release_tag() -> str | None:
+    """Pick the newest app release tag that the official remote advertises."""
+    candidates: list[tuple[tuple[int, int, int], str]] = []
+    for line in _git("ls-remote", "--tags", "--refs", "origin").splitlines():
+        tag = line.rsplit("\t", 1)[-1].removeprefix("refs/tags/")
+        match = APP_RELEASE_TAG.fullmatch(tag)
+        if match:
+            candidates.append((tuple(map(int, match.groups())), tag))
     return max(candidates)[1] if candidates else None
 
 
@@ -613,6 +884,29 @@ def _personal_file(
     mine: bytes | None,
     new: bytes | None,
     book: Resolutions,
+    pin_connection: bool = False,
+) -> bytes | None:
+    output = _merge_personal_file(name, old, mine, new, book)
+    variables = PYTHON_CONNECTION_VARIABLES.get(name)
+    if not pin_connection or not variables or output is None:
+        return output
+    texts = [_text(data) for data in (old, mine, new, output)]
+    if any(text is None for text in texts):
+        return output
+    base, user, target, merged = texts
+    try:
+        pinned = _pin_connection(merged, user, base, target, variables)
+    except UpdateError:
+        return output
+    return output if pinned == merged else pinned.encode("utf-8")
+
+
+def _merge_personal_file(
+    name: str,
+    old: bytes | None,
+    mine: bytes | None,
+    new: bytes | None,
+    book: Resolutions,
 ) -> bytes | None:
     variable = PYTHON_KEY_FILES.get(name)
     texts = [_text(data) for data in (old, mine, new)]
@@ -658,14 +952,24 @@ def _prepare_update(release_tag: str | None, choices: Mapping | None = None) -> 
             "snapshot": "",
             "target": head,
         }
-    _git("fetch", "origin", "tag", release)
+    # Only the release tag is needed. Recursing into the frontend submodule
+    # would also request historical frontend commits that no longer exist on
+    # GitHub and fail every first update from 1.2.1; the submodule is updated
+    # to the release commit after checkout instead.
+    _git(
+        "fetch",
+        "--no-recurse-submodules",
+        "--no-tags",
+        "origin",
+        f"+refs/tags/{release}:refs/tags/{release}",
+    )
     target = _git("rev-parse", f"refs/tags/{release}^{{commit}}")
     legacy = False
     if head != target and _git("merge-base", head, target) != head:
-        rewritten = LEGACY_RELEASE_BASES.get(head)
-        if not rewritten or _git("merge-base", rewritten, target) != rewritten:
+        if head not in LEGACY_RELEASE_COMMITS:
             raise UpdateError(
-                "本地提交与正式版本分叉，不能自动改写提交历史；未修改文件"
+                "本地提交与正式版本分叉（本地可能提交过改动），"
+                "不能自动改写提交历史；未修改文件"
             )
         legacy = True
     old_tree, new_tree = _tree(head), _tree(target)
@@ -704,29 +1008,70 @@ def _prepare_update(release_tag: str | None, choices: Mapping | None = None) -> 
             value, _, _ = _key_assignment(source, variable)
             if isinstance(value, ast.Constant) and isinstance(value.value, str):
                 book.secrets.add(value.value)
+    # A key the user typed into diary_generator.py belongs to the endpoint next
+    # to it; weekly and monthly memories reuse that key unless given their own.
+    diary_user = _text(_read_local("diary_generator.py"))
+    diary_base = _text(_blob(head, "diary_generator.py", old_tree))
+    memory_user = _text(_read_local("memory_generation_config.py"))
+    memory_base = _text(_blob(head, "memory_generation_config.py", old_tree))
+    diary_key = _user_filled_literal(diary_user, diary_base, "LLM_API_KEY")
+    memory_key = _user_filled_literal(memory_user, memory_base, "API_KEY")
+    memory_inherits = "diary_generator.LLM_API_KEY" in (
+        _assignment_source(memory_user, "API_KEY") or ""
+    )
+    pinned_files = {
+        "diary_generator.py": diary_key,
+        "memory_generation_config.py": memory_key or (memory_inherits and diary_key),
+    }
+
+    def resolve_config(section: str, user_value: Any, new_value: Any) -> Any:
+        # Paths into files the release deleted cannot keep working.
+        if _obsolete_release_reference(section, user_value, old_tree, new_tree):
+            return copy.deepcopy(new_value)
+        return book.choose("conf.yaml", section, user_value, new_value)
+
     for name in sorted(candidates):
         for tree in (old_tree, new_tree):
             if name in tree and tree[name][0] not in {"100644", "100755"}:
                 raise UpdateError(f"不支持自动更新链接或子模块文件：{name}")
+        personal = (
+            name == "conf.yaml" or name in PYTHON_KEY_FILES or name == "启动凛祢.bat"
+        )
+        if not personal and name in old_tree and name not in local:
+            # Git reports no local edit (a Windows CRLF checkout is not an
+            # edit), so the checkout itself installs the release version.
+            continue
         mine = _read_local(name)
+        if not personal and name not in old_tree and mine is None:
+            continue  # nothing local stands in the way of a new release file
         originals[name] = mine
         old = _blob(head, name, old_tree)
         new = _blob(target, name, new_tree)
         if name == "conf.yaml":
+            if old is None:
+                # Some 2026-09-22/23 builds kept conf.yaml untracked and let
+                # users create it from this template; it is the merge base.
+                old = _blob(head, "config_templates/conf.rinne.public.yaml", old_tree)
             if old is None or new is None:
                 raise UpdateError("正式版本缺少 conf.yaml；未修改文件")
-            merged, _ = merge_config(
-                old.decode("utf-8-sig"),
-                user_config,
-                new.decode("utf-8-sig"),
-                lambda section, user, nxt: book.choose(name, section, user, nxt),
-            )
-            output = merged.encode("utf-8")
+            if overlay is None and _text(mine) == _text(old):
+                output = new
+            else:
+                merged, _ = merge_config(
+                    old.decode("utf-8-sig"),
+                    user_config,
+                    new.decode("utf-8-sig"),
+                    resolve_config,
+                )
+                output = merged.encode("utf-8")
         elif name in PYTHON_KEY_FILES or name == "启动凛祢.bat":
-            output = _personal_file(name, old, mine, new, book)
+            output = _personal_file(
+                name, old, mine, new, book, pinned_files.get(name, False)
+            )
         else:
             output = _merge_file(name, old, mine, new, book)
-        outputs[name] = output
+        if output != new:
+            outputs[name] = output
     known = {item["id"] for item in book.items}
     if set(book.choices) - known:
         raise UpdateError("文件内容或冲突已变化，请重新检查并选择；未修改文件")
@@ -774,6 +1119,32 @@ def _store_file(name: str, data: bytes | None) -> None:
         _atomic_write(path, data)
 
 
+def _short_reason(error: BaseException) -> str:
+    text = str(error).strip() or type(error).__name__
+    return text[-800:]
+
+
+def _restore_release_files(plan: dict, old_tree: Mapping) -> None:
+    """Undo the checkout for release files that had no local edits.
+
+    These files were never read into the plan, so they are restored from the
+    previous commit, and files the release added are removed again.
+    """
+    clean = sorted(
+        name
+        for name in plan["incoming"]
+        if name not in plan["originals"] and name != "frontend"
+    )
+    _git_paths(("checkout", plan["head"]), [name for name in clean if name in old_tree])
+    for name in clean:
+        if name not in old_tree:
+            _store_file(name, None)
+            parent = (ROOT / name).parent
+            while parent != ROOT and parent.is_dir() and not any(parent.iterdir()):
+                parent.rmdir()
+                parent = parent.parent
+
+
 def _execute_plan(plan: dict) -> tuple[str, Path | None]:
     if "head" not in plan:
         return plan["message"], None
@@ -815,6 +1186,7 @@ def _execute_plan(plan: dict) -> tuple[str, Path | None]:
         encoding="utf-8",
     )
     old_tree = _tree(plan["head"])
+    checkout_started = False
     try:
         # Only return reviewed, backed-up local edits to the base for fast-forward.
         for name in plan["originals"]:
@@ -829,6 +1201,7 @@ def _execute_plan(plan: dict) -> tuple[str, Path | None]:
                 _git("add", "--", *names[offset : offset + 32])
         _git("diff", "--cached", "--quiet")
         if plan["head"] != plan["target"]:
+            checkout_started = True
             if plan["legacy"]:
                 _git("branch", f"codex/pre-update-{stamp}", plan["head"])
                 _git("checkout", "--no-overwrite-ignore", "-B", "main", plan["target"])
@@ -849,6 +1222,8 @@ def _execute_plan(plan: dict) -> tuple[str, Path | None]:
                 raise UpdateError("更新期间 HEAD 被外部改变")
             if current != plan["head"]:
                 _git("update-ref", "HEAD", plan["head"], current)
+            if checkout_started:
+                _restore_release_files(plan, old_tree)
             for name, content in plan["originals"].items():
                 _store_file(name, content)
             _atomic_write(index_path, original_index)
@@ -857,9 +1232,12 @@ def _execute_plan(plan: dict) -> tuple[str, Path | None]:
             _git("submodule", "update", "--init", "--recursive")
         except Exception as rollback_error:
             raise UpdateError(
-                f"更新未完成，自动恢复也未完成；请勿继续更新。备份：{backup}"
+                f"更新未完成，自动恢复也未完成；请勿继续更新。备份：{backup}\n"
+                f"原因：{_short_reason(error)}"
             ) from rollback_error
-        raise UpdateError(f"更新未完成，原文件已恢复。备份：{backup}") from error
+        raise UpdateError(
+            f"更新未完成，原文件已恢复。原因：{_short_reason(error)}\n备份：{backup}"
+        ) from error
     return f"更新完成；文件备份：{backup}。请重新启动后端和客户端", backup
 
 
@@ -873,7 +1251,8 @@ def _apply_plan(plan: dict) -> tuple[str, Path | None]:
         handle = lock.open("x", encoding="utf-8")
     except FileExistsError as error:
         raise UpdateError(
-            "另一个更新正在进行，或上次更新被中断；请先确认再重试"
+            "另一个更新正在进行，或上次更新被中断。确认没有其他更新窗口在运行后，"
+            f"删除这个文件再重试：{lock}"
         ) from error
     try:
         with handle:
@@ -970,11 +1349,12 @@ def main() -> int:
             expected_snapshot=decisions.get("snapshot"),
             interactive=args.interactive,
         )
-    except (UpdateError, OSError, UnicodeError, ValueError) as error:
+    except UpdateError as error:
+        print(error)
+        return 1
+    except Exception as error:  # show the real cause instead of a silent failure
         print(
-            error
-            if isinstance(error, UpdateError)
-            else "更新前检查失败；未继续修改文件"
+            f"更新检查失败；未继续修改文件。原因：{type(error).__name__}: {_short_reason(error)}"
         )
         return 1
     print(message)
