@@ -353,8 +353,8 @@ uv run run_server.py
 <a id="client"></a>
 ## 7. 安装桌面客户端，开始对话
 
-1. 打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.1.0-20260926)。
-2. 下载 `open-llm-vtuber-2.1.0-setup.exe`。
+1. 打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.1.1-20260929)。
+2. 下载 `open-llm-vtuber-2.1.1-setup.exe`。
 3. 双击安装，可以选择 D 盘等位置。
 4. 保持语音和后端运行，双击桌面上的客户端快捷方式。
 
@@ -394,15 +394,17 @@ TTS 和后端窗口都要保持打开。第一次使用先按[一键启动说明
 
 ### 9.2 如果你使用 1.2.1 客户端
 
-1.2.1 不会自动弹出更新提示。请**先用手动方法更新后端，再安装新版客户端**。
+1.2.1 不会自动弹出更新提示。请**直接安装 2.1.1 或之后的客户端**，由新客户端更新原来的后端。
 
-2.1.0 客户端内置的更新程序从 1.2.1 升级时有已知问题：第一次必定提示 `Git 操作失败：fetch`，还会弹出大量误报的选择框。修复会随下一个客户端版本发布。手动方法会直接使用已经修好的更新工具。
+2.1.0 客户端从 1.2.1 升级时有已知问题：第一次必定提示 `Git 操作失败：fetch`，还会弹出大量误报的选择框。2.1.1 已经修复，请不要再用 2.1.0 客户端升级。
 
-1. 按[9.5 手动更新](#manual-update)更新后端。
-2. 从[客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.1.0-20260926)下载新版 `.exe`。
-3. 完全退出旧客户端，再运行安装程序。可以选择原来的安装位置。
-4. 打开新版客户端。它请你确认后端时，选择**原来的后端项目目录**，里面应有 `conf.yaml` 和 `run_server.py`。后端已经是配套版本，不会再次更新。
-5. 按[日常启动顺序](#daily-start)启动。
+1. 从[客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.1.1-20260929)下载新版 `.exe`。
+2. 完全退出旧客户端，再运行安装程序。可以选择原来的安装位置。
+3. 打开新版客户端。它请你确认后端时，选择**原来的后端项目目录**，里面应有 `conf.yaml` 和 `run_server.py`。
+4. 按提示关闭后端，开始更新。遇到双方都改过的地方，逐项选择“保留我的”或“采用新版”。
+5. 看到“后端升级完成”后，按[日常启动顺序](#daily-start)重新启动。
+
+客户端更新失败时，改用[9.5 手动更新](#manual-update)，再重新打开客户端。
 
 <a id="after-121"></a>
 **从 1.2.1 升级后，还要做两件事：**
@@ -439,14 +441,14 @@ TTS 和后端窗口都要保持打开。第一次使用先按[一键启动说明
 
 更新文件的备份保存在项目 Git 目录的 `rinne-update-backups` 中，完成窗口会显示具体路径。写入失败时会尝试恢复原文件；如果提示恢复失败，请保留备份，先不要再次更新。
 
-2.0.0 或更早的客户端没有逐项选择界面。如果它提示需要选择，先手动下载安装 2.1.0 或之后的客户端，再由新客户端更新原后端；也可以使用下面的终端方法。
+2.0.0 或更早的客户端没有逐项选择界面。如果它提示需要选择，先手动下载安装 2.1.1 或之后的客户端，再由新客户端更新原后端；也可以使用下面的终端方法。
 
 已暂存的代码、分叉的 Git 提交历史、链接目录和前端子模块内的改动仍需先人工处理。更新器不会强行覆盖这些情况。
 
 更新后，检查 `ollama list` 中有前文指定的两个模型，并按[语音安装说明](#voice)检查 V2 权重和配置。已有翻译词表的路径会保留。
 
 <a id="manual-update"></a>
-### 9.5 手动更新（1.2.1 升级，或客户端更新失败时）
+### 9.5 手动更新（客户端更新失败时）
 
 先关闭后端，在**原项目目录**打开命令窗口（方法见[2.2](#download)）。下面的命令在 PowerShell 和 CMD 里都能用。
 
@@ -557,6 +559,8 @@ uv run python setup_rinne_game_assets.py status
 ### 下载或更新时连不上 GitHub
 
 看到 `Could not resolve host`、`Failed to connect`、`Connection was reset`、`early EOF`、`RPC failed` 这类字样，都是 git 连接 GitHub 失败了，和项目文件无关。按[下载很慢或中途断开](#slow-download)为 git 设置代理后重试。
+
+2.1.1 及之后的客户端检查更新时会使用 Windows 系统代理。连不上 `raw.githubusercontent.com` 时，会改用 git 下载更新工具，所以为 git 设置好代理后也能更新。
 
 ### 提示 Filename too long
 

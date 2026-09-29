@@ -929,7 +929,8 @@ def _merge_personal_file(
                 "utf-8"
             )
     if name == "启动凛祢.bat":
-        pattern = re.compile(r'(?im)^set "TTS_DIR=([^"\r\n]*)"\s*$')
+        # [ \t] rather than \s, which would also swallow the blank line below.
+        pattern = re.compile(r'(?im)^set "TTS_DIR=([^"\r\n]*)"[ \t]*$')
         matches = [list(pattern.finditer(text)) for text in texts]
         if all(len(items) == 1 for items in matches):
             value = matches[1][0].group(1)
