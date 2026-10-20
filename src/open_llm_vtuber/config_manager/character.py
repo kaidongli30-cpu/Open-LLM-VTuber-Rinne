@@ -8,6 +8,7 @@ from .vad import VADConfig
 from .tts_preprocessor import TTSPreprocessorConfig
 from .daily_child_event import DailyChildEventGenerationConfig
 from .layer2_memory import Layer2MemoryGenerationConfig
+from .today_summary import TodaySummaryConfig
 
 from .agent import AgentConfig
 
@@ -31,6 +32,7 @@ class CharacterConfig(I18nMixin):
         alias="layer2_memory_generation",
     )
     agent_config: AgentConfig = Field(..., alias="agent_config")
+    today_summary: TodaySummaryConfig = Field(default_factory=TodaySummaryConfig)
     asr_config: ASRConfig = Field(..., alias="asr_config")
     tts_config: TTSConfig = Field(..., alias="tts_config")
     vad_config: VADConfig = Field(..., alias="vad_config")
@@ -65,6 +67,10 @@ class CharacterConfig(I18nMixin):
         ),
         "agent_config": Description(
             en="Configuration for the conversation agent", zh="对话代理配置"
+        ),
+        "today_summary": Description(
+            en="Independent today's life summary and diary reuse",
+            zh="独立的今日生活摘要保存与日记复用",
         ),
         "asr_config": Description(
             en="Configuration for Automatic Speech Recognition", zh="语音识别配置"

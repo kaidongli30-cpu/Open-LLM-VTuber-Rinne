@@ -9,6 +9,7 @@ import copy
 import json
 import time
 import uuid
+from urllib.parse import urlsplit
 from typing import AsyncIterator, List, Dict, Any, Callable
 import httpx
 from openai import (
@@ -183,15 +184,20 @@ class AsyncLLM(StatelessLLMInterface):
             )
         self.upstream_max_attempts = max(1, min(2, int(upstream_max_attempts)))
         http_client = None
-        if proxy_url or self.upstream_first_data_timeout_seconds is None:
+        direct_deepseek = (
+            not proxy_url and urlsplit(base_url or "").hostname == "api.deepseek.com"
+        )
+        if proxy_url or direct_deepseek or self.upstream_first_data_timeout_seconds is None:
             client_timeout = (
                 httpx.Timeout(None, connect=10.0)
                 if self.upstream_first_data_timeout_seconds is None
                 else httpx.Timeout(600.0, connect=10.0)
             )
+            client_options = {"trust_env": False} if direct_deepseek else {}
             http_client = httpx.AsyncClient(
                 proxy=proxy_url,
                 timeout=client_timeout,
+                **client_options,
             )
         self.client = AsyncOpenAI(
             base_url=base_url,

@@ -96,6 +96,12 @@ def _operation_count(patch: dict[str, Any]) -> int:
     )
 
 
+def _is_operation_limit_violation(message: str) -> bool:
+    return message.startswith("delta contains ") and message.endswith(
+        f"maximum is {delta_runner.MAX_TOTAL_OPERATIONS}"
+    )
+
+
 def _is_only_operation_limit_error(
     objective_errors: dict[str, list[str]],
 ) -> bool:
@@ -104,12 +110,38 @@ def _is_only_operation_limit_error(
     if set(objective_errors) != {"$"}:
         return False
     root_errors = objective_errors.get("$", [])
-    if len(root_errors) != 1:
-        return False
-    message = root_errors[0]
-    return message.startswith("delta contains ") and message.endswith(
-        f"maximum is {delta_runner.MAX_TOTAL_OPERATIONS}"
+    return len(root_errors) == 1 and _is_operation_limit_violation(root_errors[0])
+
+
+def _resolve_operation_limit_by_quarantine(
+    patch: dict[str, Any],
+    objective_errors: dict[str, list[str]],
+) -> dict[str, int] | None:
+    """Drop the ceiling error when the operations quarantined anyway satisfy it.
+
+    Operations with objective errors never reach the merge, so the ceiling only
+    has to hold for the operations that are actually applied.
+    """
+
+    root_errors = objective_errors.get("$", [])
+    if len(root_errors) != 1 or not _is_operation_limit_violation(root_errors[0]):
+        return None
+    failed_ids = set(objective_errors) - {"$"}
+    if not failed_ids:
+        return None
+    applied_count = sum(
+        1
+        for field in ("added_facts", "updated_facts", "removed_facts")
+        for operation in patch.get(field, [])
+        if operation.get("fact_id") not in failed_ids
     )
+    if applied_count > delta_runner.MAX_TOTAL_OPERATIONS:
+        return None
+    del objective_errors["$"]
+    return {
+        "original_operation_count": _operation_count(patch),
+        "applied_operation_count": applied_count,
+    }
 
 
 def _build_operation_limit_repair_prompt(
@@ -1726,6 +1758,9 @@ def run_daily_layer2_update(
                 previous=previous,
                 diary_text=diary_text,
             )
+            operation_limit_quarantine = _resolve_operation_limit_by_quarantine(
+                prepared, objective_errors
+            )
             operation_limit_repair = None
             if _is_only_operation_limit_error(objective_errors):
                 original_operation_count = _operation_count(patch)
@@ -1784,6 +1819,9 @@ def run_daily_layer2_update(
                     current_day=current_day,
                     previous=previous,
                     diary_text=diary_text,
+                )
+                operation_limit_quarantine = _resolve_operation_limit_by_quarantine(
+                    repaired_prepared, repaired_objective_errors
                 )
                 operation_limit_repair = {
                     "attempted": True,
@@ -1858,6 +1896,10 @@ def run_daily_layer2_update(
             }
             if operation_limit_repair is not None:
                 ledger_metrics["operation_limit_repair"] = operation_limit_repair
+            if operation_limit_quarantine is not None:
+                ledger_metrics["operation_limit_met_after_quarantine"] = (
+                    operation_limit_quarantine
+                )
             _write_json(ledger_dir / "metrics.json", ledger_metrics)
             if bootstrap and not legacy._items_by_id(background):
                 raise Layer2RuntimeError("first_diary_has_no_verified_background_facts")

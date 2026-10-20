@@ -59,7 +59,7 @@ class DeepSeekTranslate(TranslateInterface):
         }
 
         for attempt in range(2):
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(trust_env=False) as session:
                 async with session.post(
                     self.api_url,
                     json=payload,

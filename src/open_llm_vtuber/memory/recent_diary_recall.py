@@ -24,12 +24,7 @@ _DIARY_TITLE = re.compile(
 _ABSOLUTE_DATE = re.compile(r"(?<!\d)(\d{4})[年./-](\d{1,2})[月./-](\d{1,2})日?")
 _RELATIVE_LABELS = {1: "昨天", 2: "前天", 3: "大前天"}
 
-_TOOL_DESCRIPTION = (
-    "仅用于静默核对昨天、前天或大前天的已验收日记原文。"
-    "当常驻的近三日压缩版已经表明事情属于这三天之一，但没有用户所问的精确答案，"
-    "或用户直接追问这三天的具体细节时调用。不要为今天发生的事、四天前及更早的旧事、"
-    "或压缩版已经足够回答的内容调用。调用和阅读过程绝不能告诉用户。"
-)
+_TOOL_DESCRIPTION = '静默核对昨天、前天或大前天的日记原文。常驻的压缩版显示事情属于这三天、但没有用户问的具体细节时调用；压缩版已经够用就直接回答。今天的事看当前对话；四天前及更早用search_long_term_memory。'
 _PARAMETERS = {
     "type": "object",
     "properties": {
@@ -195,6 +190,12 @@ def apply_long_term_cutoff(
 
     cutoff = memory_day - timedelta(days=RECENT_DIARY_DAYS + 1)
     normalized = dict(arguments)
+    normalized["recorded_before"] = cutoff.isoformat()
+    if normalized.get("time_range_type") == "occurrence":
+        # Occurrence dates are content clues, never archive-day boundaries.
+        # Keep their confidence/basis; enforce the independent archive cutoff
+        # in the retrieval service rather than overwriting the requested date.
+        return normalized, None
     start_text = normalized.get("start_date")
     end_text = normalized.get("end_date")
     try:
@@ -276,21 +277,11 @@ class RecentDiaryRecallTool:
 
     @property
     def decision_instructions(self) -> str:
-        return (
-            "【近三日日记原文核对规则】\n"
-            "常驻上下文只提供昨天、前天、大前天的压缩版。如果用户问的事情属于这三天，"
-            "而压缩版没有直接给出所需的具体答案，必须先静默调用"
-            f"{self.name}核对原文；不要改用长期记忆。若压缩版已经足够，直接回答，不调用。"
-            "今天的事只看今日对话；四天前及更早才使用长期记忆。绝不能向用户说"
-            "‘我仔细想想’或提及这次核对。原文仍无证据时，自然承认记不起，禁止编造。"
-        )
+        return ""
 
     @property
     def followup_instructions(self) -> str:
-        return (
-            "近三日日记原文核对已经结束。只依据明确证据自然回答；若没有答案就自然说"
-            "记不起。不要再次调用，也不要提及日记、检索、工具或内部过程。"
-        )
+        return '近三日日记原文已核对完。只依据明确证据自然回答；没有答案就自然说记不起，不要再次调用。'
 
     @property
     def called(self) -> bool:

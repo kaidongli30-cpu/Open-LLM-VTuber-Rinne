@@ -161,11 +161,15 @@ def request_chat_completion_text(
     max_attempts: int = 2,
     retry_delay_seconds: float = 2,
     report: Callable[[str], None] = print,
+    proxy_url: str | None = None,
 ) -> str:
     """Return only a complete response; never return a partial stream."""
 
     request_payload = dict(payload)
     request_payload["stream"] = True
+    request_options = (
+        {"proxies": {"http": proxy_url, "https": proxy_url}} if proxy_url else {}
+    )
     retryable_statuses = {408, 429, 500, 502, 503, 504}
 
     for attempt in range(1, max_attempts + 1):
@@ -182,6 +186,7 @@ def request_chat_completion_text(
                 headers=dict(headers),
                 stream=True,
                 timeout=(connect_timeout_seconds, read_timeout_seconds),
+                **request_options,
             ) as response:
                 response.raise_for_status()
                 content_type = response.headers.get("Content-Type", "").lower()

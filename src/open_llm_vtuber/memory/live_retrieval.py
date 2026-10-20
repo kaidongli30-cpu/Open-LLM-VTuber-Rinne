@@ -94,6 +94,38 @@ def _candidate_date_span(candidate: MemoryCandidate) -> tuple[date, date] | None
         return None
 
 
+def _event_raw_chat_windows(
+    events: Sequence[MemoryCandidate],
+    time_range: ValidatedTimeRange,
+) -> list[tuple[date, date]] | None:
+    """Use recorded event days to locate nearby raw messages."""
+
+    windows: list[tuple[date, date]] = []
+    valid_seed = False
+    for item in events[:3]:
+        try:
+            day = date.fromisoformat(item.period)
+            start = day - timedelta(days=1)
+            end = day + timedelta(days=1)
+        except (TypeError, ValueError, OverflowError):
+            continue
+        valid_seed = True
+        if time_range.mode == "hard" and time_range.is_bounded:
+            start = max(start, date.fromisoformat(time_range.start_date))
+            end = min(end, date.fromisoformat(time_range.end_date))
+        if start <= end:
+            windows.append((start, end))
+    if not valid_seed:
+        return None
+    merged: list[tuple[date, date]] = []
+    for start, end in sorted(windows):
+        if merged and start <= merged[-1][1] + timedelta(days=1):
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
 def _candidate_overlaps_range(
     candidate: MemoryCandidate,
     time_range: ValidatedTimeRange,
@@ -767,6 +799,8 @@ class LiveMemoryRetrievalService:
         self,
         query: str,
         time_range: ValidatedTimeRange,
+        *,
+        seed_events: Sequence[MemoryCandidate] = (),
     ) -> list[MemoryCandidate]:
         """Search raw JSON messages when a detail question needs exact wording.
 
@@ -778,9 +812,14 @@ class LiveMemoryRetrievalService:
 
         limit = min(20, max(1, self.settings.top_k * 2, self.settings.top_k))
         candidates: dict[str, MemoryCandidate] = {}
-        if time_range.mode == "hard" and time_range.is_bounded:
-            cursor = date.fromisoformat(time_range.start_date or "9999-12-31")
-            end = date.fromisoformat(time_range.end_date or "0001-01-01")
+        windows = _event_raw_chat_windows(seed_events, time_range)
+        if windows is None and time_range.mode == "hard" and time_range.is_bounded:
+            windows = [(
+                date.fromisoformat(time_range.start_date or "9999-12-31"),
+                date.fromisoformat(time_range.end_date or "0001-01-01"),
+            )]
+        for start, end in windows or []:
+            cursor = start
             while cursor <= end:
                 chunk_end = min(cursor + timedelta(days=31), end)
                 results = self.archive_tools.search_raw_chat(
@@ -794,7 +833,7 @@ class LiveMemoryRetrievalService:
                     if previous is None or item.score > previous.score:
                         candidates[item.candidate_id] = item
                 cursor = chunk_end + timedelta(days=1)
-        else:
+        if windows is None:
             for item in self.archive_tools.search_raw_chat(query, top_k=limit):
                 previous = candidates.get(item.candidate_id)
                 if previous is None or item.score > previous.score:
@@ -911,7 +950,9 @@ class LiveMemoryRetrievalService:
                 ),
             )
             diary_trace["direct_dated"] = dated_diary_trace
-            raw_chat = self._raw_chat_ranking(search_question, time_range)
+            raw_chat = self._raw_chat_ranking(
+                search_question, time_range, seed_events=events
+            )
         evidence_search_seconds = round(
             time.perf_counter() - evidence_started,
             3,
@@ -1062,6 +1103,75 @@ class LiveMemoryRetrievalService:
             diagnostics,
         )
 
+    def _recorded_time_range(
+        self,
+        requested: ValidatedTimeRange,
+        recorded_before: str | None,
+    ) -> ValidatedTimeRange:
+        """Filter archive days only; occurrence dates remain content clues."""
+
+        if requested.time_range_type == "recorded":
+            return requested
+        if recorded_before is None:
+            return normalize_time_range()
+        cutoff = date.fromisoformat(recorded_before)
+        # Use available archive dates rather than iterating empty years when
+        # the event predates the companion's first saved conversation.
+        earliest: list[date] = []
+        for item in getattr(self, "event_candidates", {}).values():
+            span = _candidate_date_span(item)
+            if span is not None:
+                earliest.append(span[0])
+        history_root = getattr(self, "history_root", None)
+        if history_root is not None:
+            for path in (history_root / "diaries").glob("diary_*.txt"):
+                try:
+                    earliest.append(date.fromisoformat(path.stem[6:]))
+                except ValueError:
+                    continue
+            for path in (history_root / "past_history").glob("20*.json"):
+                try:
+                    earliest.append(
+                        date.fromisoformat(path.name[:10]) - timedelta(days=1)
+                    )
+                except ValueError:
+                    continue
+        start = min(min(earliest), cutoff) if earliest else cutoff
+        return normalize_time_range(
+            start.isoformat(),
+            cutoff.isoformat(),
+            "high",
+            "后台边界：仅搜索大前天之前归档的记忆；不按事件发生时间排除后述经历。",
+        )
+
+    @staticmethod
+    def _with_date_semantics(
+        result: LiveRetrievalResult,
+        requested: ValidatedTimeRange,
+        recorded: ValidatedTimeRange,
+    ) -> LiveRetrievalResult:
+        if requested.time_range_type == "recorded":
+            return result
+        cloud = dict(result.cloud_payload or {})
+        cloud["time_range"] = requested.to_dict()
+        cloud["recorded_time_range"] = recorded.to_dict()
+        cloud["time_range_notice"] = (
+            "用户日期表示事情发生的时间，仅作内容线索；候选的period和来源日期表示"
+            "讲述或归档时间。两者不得互换；较晚记录可以讲述较早经历。"
+            "必须依据原文核对实际发生时间，不得把归档日期当成发生日期。"
+        )
+        diagnostics = {
+            **result.diagnostics,
+            "time_range": requested.to_dict(),
+            "recorded_time_range": recorded.to_dict(),
+        }
+        return replace(
+            result,
+            cloud_payload=cloud,
+            diagnostics=diagnostics,
+            hidden_context=format_hidden_memory_context(cloud),
+        )
+
     def retrieve_detail_from_seed(
         self,
         user_input: str,
@@ -1072,6 +1182,8 @@ class LiveMemoryRetrievalService:
         end_date: str | None = None,
         time_range_confidence: str = "none",
         time_range_basis: str = "",
+        time_range_type: str = "recorded",
+        recorded_before: str | None = None,
     ) -> LiveRetrievalResult:
         """Open one model-selected event's bounded diary window."""
 
@@ -1079,15 +1191,19 @@ class LiveMemoryRetrievalService:
         search_question = " ".join(user_input.split())
         if not search_question:
             raise ValueError("user_input must not be empty")
-        time_range = normalize_time_range(
+        requested_range = normalize_time_range(
             start_date,
             end_date,
             time_range_confidence,
             time_range_basis,
+            time_range_type,
         )
+        time_range = self._recorded_time_range(requested_range, recorded_before)
         seed = self.event_candidates.get(seed_event_id)
         if seed is None:
             raise ValueError("seed_event_id is not a known child event")
+        if not _candidate_overlaps_range(seed, time_range):
+            raise ValueError("seed_event_id is outside the allowed recorded window")
         supported_seed = replace(
             seed,
             score=1.0,
@@ -1099,7 +1215,9 @@ class LiveMemoryRetrievalService:
             [supported_seed],
             time_range=time_range,
         )
-        raw_chat = self._raw_chat_ranking(search_question, time_range)
+        raw_chat = self._raw_chat_ranking(
+            search_question, time_range, seed_events=[supported_seed]
+        )
         granularity = (
             question_granularity
             if question_granularity in {"specific_event", "exact_detail"}
@@ -1142,11 +1260,12 @@ class LiveMemoryRetrievalService:
             "detail_followup_available": False,
             "total_seconds": round(time.perf_counter() - started, 3),
         }
-        return LiveRetrievalResult(
-            True,
-            format_hidden_memory_context(cloud),
-            cloud,
-            diagnostics,
+        return self._with_date_semantics(
+            LiveRetrievalResult(
+                True, format_hidden_memory_context(cloud), cloud, diagnostics
+            ),
+            requested_range,
+            time_range,
         )
 
     def retrieve_from_cloud_request(
@@ -1159,6 +1278,8 @@ class LiveMemoryRetrievalService:
         end_date: str | None = None,
         time_range_confidence: str = "none",
         time_range_basis: str = "",
+        time_range_type: str = "recorded",
+        recorded_before: str | None = None,
     ) -> LiveRetrievalResult:
         """Run the frozen workers after the cloud model explicitly requests recall."""
 
@@ -1167,12 +1288,14 @@ class LiveMemoryRetrievalService:
         target = " ".join(retrieval_query.split()) or search_question
         if not search_question:
             raise ValueError("user_input must not be empty")
-        time_range = normalize_time_range(
+        requested_range = normalize_time_range(
             start_date,
             end_date,
             time_range_confidence,
             time_range_basis,
+            time_range_type,
         )
+        time_range = self._recorded_time_range(requested_range, recorded_before)
         if question_granularity not in {
             "overview",
             "specific_event",
@@ -1200,7 +1323,7 @@ class LiveMemoryRetrievalService:
                 3,
             ),
         }
-        return self._finish_retrieval(
+        result = self._finish_retrieval(
             search_question=search_question,
             target=target,
             granularity=question_granularity,
@@ -1210,6 +1333,7 @@ class LiveMemoryRetrievalService:
             started=started,
             time_range=time_range,
         )
+        return self._with_date_semantics(result, requested_range, time_range)
 
 
 __all__ = [

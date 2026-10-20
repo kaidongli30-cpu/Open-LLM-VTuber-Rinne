@@ -30,6 +30,7 @@ class ValidatedTimeRange:
     end_date: str | None = None
     confidence: TimeRangeConfidence = "none"
     basis: str = ""
+    time_range_type: Literal["recorded", "occurrence"] = "recorded"
 
     @property
     def mode(self) -> Literal["hard", "soft", "none"]:
@@ -48,6 +49,7 @@ class ValidatedTimeRange:
             "confidence": self.confidence,
             "basis": self.basis,
             "mode": self.mode,
+            "time_range_type": self.time_range_type,
         }
 
 
@@ -74,6 +76,7 @@ def normalize_time_range(
     end_date: Any = None,
     confidence: Any = "none",
     basis: Any = "",
+    time_range_type: Any = "recorded",
 ) -> ValidatedTimeRange:
     """Validate and normalize model-produced date-range arguments.
 
@@ -83,6 +86,8 @@ def normalize_time_range(
     are rejected instead of being guessed or silently swapped.
     """
 
+    if time_range_type not in {"recorded", "occurrence"}:
+        raise ValueError("time_range_type must be recorded or occurrence")
     start = _parse_iso_date(start_date, "start_date")
     end = _parse_iso_date(end_date, "end_date")
     if (start is None) != (end is None):
@@ -115,6 +120,7 @@ def normalize_time_range(
         end_date=end.isoformat() if end is not None else None,
         confidence=normalized_confidence,  # type: ignore[arg-type]
         basis=normalized_basis,
+        time_range_type=time_range_type,
     )
 
 

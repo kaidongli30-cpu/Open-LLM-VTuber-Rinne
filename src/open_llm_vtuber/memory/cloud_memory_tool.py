@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import re
 import time
 from dataclasses import dataclass, field
@@ -36,24 +37,7 @@ _CONCRETE_RECALL_TARGET = re.compile(
     r"20\d{2}[年./-]\d{1,2}|[一二三四五六七八九十\d]{1,2}月|"
     r"上旬|中旬|下旬|年初|年中|年底|暑假|寒假|生日那周"
 )
-_TOOL_DESCRIPTION = (
-    "仅当当前对话、近三日日记和用户背景仍不足以回答四天前或更早的真实经历时调用。"
-    "用户用陈述句或感叹句明确唤起一段更早的具体共同经历，并期待你回应当时的感受、"
-    "意义或细节时，仍属于长期回忆；用户本轮只给出旧事件线索，不等于已经提供了足够答案。"
-    "不要为承接当前对话、没有具体旧事件锚点的普通情感回应、用户完整提供的新事实，"
-    "或昨天、前天、大前天的内容调用；这三天缺精确答案时应改用"
-    "search_recent_diary_detail核对原文。"
-    "如果你已经能从近期日记定位到事件日期、关键词或答案，这就表示近期上下文已经覆盖，"
-    "必须直接回答，绝不能为了再次确认而调用本工具。"
-    "query应描述要寻找的经历，不要猜测用户未提供的年份或日期；但如果当前上下文已明确"
-    "给出基准日期，能可靠换算‘生日前一天’等相对日期，就应把换算后的绝对日期写进"
-    "query和时间范围。用户说‘五月中下旬’、‘暑假那阵子’、‘第一次见面后几天’等"
-    "模糊时间时，应依据当前上下文换算成包住该说法的start_date/end_date；无法可靠换算"
-    "时留空日期，不要编造。日期范围不确定时使用low置信度并适当放宽范围。"
-    "初次检索后，若工具结果"
-    "明确提供detail_navigation_options且仍缺精确细节，可以从中原样复制一个"
-    "seed_event_id再调用一次，只打开该事件附近的日记；否则不要再次调用。每轮至多两次。"
-)
+_TOOL_DESCRIPTION = '回想四天前或更早、你和用户真实经历过的事。用户提起一段具体的旧经历——不管是问句，还是用陈述句、感叹句唤起回忆——而当前对话、近三日日记和背景里没有你需要的细节时，先调用本工具再回答；只有零碎线索时也要查，不要按常理补全。眼前已经有答案时直接回答，不要为了确认再查。今天的事看当前对话；昨天、前天、大前天的细节用search_recent_diary_detail。只是聊此刻的心情，或用户已经把新的事情说完整时，不用查。你以前说过“想不起来”，不代表现在查不到，用户再问就再查。query写要找的经历，不要猜用户没说的年份或日期；用户给了时间说法（如“五月中下旬”“生日前一天”），能可靠换算就写成包住它的start_date/end_date，拿不准就用low并放宽，换算不了就不填。第一次的结果里有detail_navigation_options、但仍缺精确细节时，可以原样复制其中一个seed_event_id再调用一次；每轮最多两次。区分事情发生的时间和告诉你、写进记忆的时间：一般用time_range_type=occurrence（事情发生的时间）；只有问“某天告诉过你什么”时才用recorded。'
 _PARAMETERS = {
     "type": "object",
     "properties": {
@@ -73,15 +57,20 @@ _PARAMETERS = {
                 "detail_navigation_options中原样复制，不得自行编造。"
             ),
         },
+        "time_range_type": {
+            "type": "string",
+            "enum": ["occurrence", "recorded"],
+            "description": "occurrence表示事情发生时间（默认）；recorded仅用于用户明确给出的讲述或记录日期。两种日期不得互换。",
+        },
         "start_date": {
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-            "description": "可选，包含起点的记忆日，格式YYYY-MM-DD。",
+            "description": "可选，包含起点的日期；含义由time_range_type决定，格式YYYY-MM-DD。",
         },
         "end_date": {
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-            "description": "可选，包含终点的记忆日，格式YYYY-MM-DD。",
+            "description": "可选，包含终点的日期；含义由time_range_type决定，格式YYYY-MM-DD。",
         },
         "time_range_confidence": {
             "type": "string",
@@ -188,7 +177,7 @@ class CloudLongTermMemoryTool:
             "function": {
                 "name": self.name,
                 "description": _TOOL_DESCRIPTION,
-                "parameters": _PARAMETERS,
+                "parameters": copy.deepcopy(_PARAMETERS),
             },
         }
 
@@ -197,7 +186,7 @@ class CloudLongTermMemoryTool:
         return {
             "name": self.name,
             "description": _TOOL_DESCRIPTION,
-            "input_schema": _PARAMETERS,
+            "input_schema": copy.deepcopy(_PARAMETERS),
         }
 
     @property
@@ -223,68 +212,15 @@ class CloudLongTermMemoryTool:
 
     @property
     def decision_instructions(self) -> str:
-        instruction = (
-            "【长期记忆工具判定规则】\n"
-            "先依据整段当前对话的含义判断，而不是匹配某几个固定词。"
-            "是否需要回忆不取决于句末是否有问号。当用户的问题需要核对更早的真实经历、"
-            "旧事实或具体细节，或者用户用陈述句、感叹句明确唤起一段更早且可定位的共同"
-            "经历，而自然回应需要知道当时的细节、感受或意义时，且当前对话、"
-            "近三日日记和用户背景没有给出答案，并且事情发生在四天前或更早时，应先调用"
-            f"{self.name}，再根据结果回答。"
-            "用户本轮只提供了旧事件的表层线索，不等于已经有足够答案；不要仅凭常识补全"
-            "共同经历。当前情绪、没有具体旧事件锚点的泛泛感叹、用户已经完整提供的新事实，"
-            "以及今天、昨天、前天或大前天的内容，不要调用；近三日压缩版缺少具体答案时"
-            "改用search_recent_diary_detail。工具初次检索后只有在"
-            "你已经能从近期日记说出事件日期、关键词或答案时，说明答案就在现有上下文中，"
-            "不得为了确认、补充或展示记忆能力继续调用长期记忆。"
-            "结果明确给出可选事件且仍缺"
-            "精确细节时，才允许再调用一次打开一条事件附近的日记；不要向用户解释这套判定"
-            "规则或检索过程。当前聊天里如果只有助手过去说的‘想不起来’、‘没找到’、"
-            "‘第三层没修好’或其他失败回答，这不算已经有答案；用户再次追问旧事实时仍应"
-            "调用工具重新核对。这些旧失败回答也不代表当前系统状态，不要把它们当作当前事实"
-            "重复。除非用户明确讨论记忆系统，否则最终回复绝对不要复述第一层、"
-            "第二层、第三层、检索失败或系统没修好。"
-            "如果用户提到任何精确或大概时间，请把人类说法转换为包住它的"
-            "start_date/end_date；能确定就用high或medium，不能确定就用low并放宽，"
-            "不要把不确定日期硬写成单日。无法换算时省略日期而不是编造。"
-        )
         if self.force_first_call:
-            instruction += (
-                "本轮程序已标记为明确的旧经历/精确细节问题，必须先调用"
-                f"{self.name}；不要直接生成最终回答。调用参数必须由你根据用户原话"
-                "填写query、粒度和可判断的时间范围。"
-            )
-        return instruction
+            return '本轮是明确的旧经历或精确细节问题：先调用search_long_term_memory，不要直接回答。query、粒度和时间范围按用户的原话填写。'.replace("search_long_term_memory", self.name)
+        return ""
 
     @property
     def followup_instructions(self) -> str:
         if not self._exhausted:
-            return (
-                "长期记忆工具已返回初步证据和detail_navigation_options。先判断现有证据"
-                "是否足够：若足够就自然回答；如果用户问的是日期、原话、具体画面、原因或"
-                "其他精确细节，而现有evidence没有直接给出答案——也就是你否则只能说"
-                "‘想不起来’——不要先生成最终回复，必须从选项中挑最可能的一条，将其"
-                "seed_event_id原样复制后再调用同一工具一次。不要把导航选项本身当成"
-                "已证实答案，也不要为了概括性回答继续展开。"
-                "若用户明确询问一句原话，必须完整保留证据中的原句和重复词，不得自行缩写；"
-                "若用户明确说有两次、三件等很小的数量，且证据分别支持，就要覆盖每一项。"
-                "除非用户明确讨论记忆系统，否则不要用第一层、第二层、第三层、检索失败或"
-                "系统没修好解释自己为什么想起或想不起。最终只输出对用户说的话，绝不输出"
-                "分析、推理、证据审查或内部工作过程。对于硬件、健康、法律或安全问题，"
-                "若证据只记录了担心、不确定或建议观察，就必须保留这种不确定性；不得根据"
-                "后来暂时没出问题说‘大概率没事’、‘应该没事’或自行断言安全。"
-            )
-        return (
-            "长期记忆工具本轮已经执行。请直接依据工具结果和当前对话自然回答；"
-            "不要再次调用该工具，也不要向用户汇报检索过程。除非用户正在明确讨论"
-            "记忆系统本身，否则不要用第一层、第二层、第三层、检索失败、系统没修好"
-            "等内部实现解释自己为什么想起或想不起；只需像自然回忆一样回答。最终只输出"
-            "对用户说的话，绝不输出分析、推理、证据审查或内部工作过程。对于硬件、健康、"
-            "法律或安全问题，若证据只记录了担心、不确定或建议观察，就必须保留这种"
-            "不确定性；不得根据后来暂时没出问题说‘大概率没事’、‘应该没事’或自行断言"
-            "安全。若用户明确询问一句原话，必须完整保留证据中的原句和重复词，不得自行"
-            "缩写；若用户明确说有两次、三件等很小的数量，且证据分别支持，就要覆盖每一项。"
-        )
+            return '长期记忆的初步结果已返回。证据够就直接自然地回答。如果用户问的是日期、原话、具体画面、原因等精确细节，而证据里没有直接答案（否则你只能说“想不起来”），先不要回答：从detail_navigation_options里挑最可能的一条，原样复制它的seed_event_id再调用一次。导航选项本身不算答案，概括性的问题不用再展开。用户问原话时，完整保留证据里的原句和重复的字词；用户说有两次、三件这样的少数几项时，证据支持的每一项都要说到。健康、硬件、法律或安全方面的事，证据里只是担心或不确定，就保留这份不确定，不要说“应该没事”。'
+        return '长期记忆本轮已经查完，不要再调用。直接依据结果和当前对话自然回答。用户问原话时，完整保留证据里的原句和重复的字词；用户说有两次、三件这样的少数几项时，证据支持的每一项都要说到。健康、硬件、法律或安全方面的事，证据里只是担心或不确定，就保留这份不确定，不要说“应该没事”。'
 
     @property
     def called(self) -> bool:
@@ -308,6 +244,7 @@ class CloudLongTermMemoryTool:
             "start_date": time_range.start_date,
             "end_date": time_range.end_date,
             "time_range_confidence": time_range.confidence,
+            "time_range_type": time_range.time_range_type,
         }
         if time_range.basis:
             values["time_range_basis"] = time_range.basis
@@ -423,6 +360,7 @@ class CloudLongTermMemoryTool:
                 "end_date",
                 "time_range_confidence",
                 "time_range_basis",
+                "time_range_type",
             )
         )
         try:
@@ -432,6 +370,10 @@ class CloudLongTermMemoryTool:
                     normalized.get("end_date"),
                     normalized.get("time_range_confidence", "none"),
                     normalized.get("time_range_basis", ""),
+                    normalized.get(
+                        "time_range_type",
+                        self._time_range.time_range_type if was_called else "occurrence",
+                    ),
                 )
                 if range_fields_present
                 else self._time_range
@@ -451,6 +393,7 @@ class CloudLongTermMemoryTool:
             if (
                 requested_range.start_date != self._time_range.start_date
                 or requested_range.end_date != self._time_range.end_date
+                or requested_range.time_range_type != self._time_range.time_range_type
             ):
                 self._exhausted = True
                 self._result = CloudMemoryToolHandlerResult(

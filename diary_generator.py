@@ -1407,19 +1407,34 @@ def generate_for_date(target_date: datetime):
     start, end = get_day_range(target_date)
     messages   = load_messages_in_range(start, end)
     reference_context = build_diary_reference_context(target_date)
-    source_context = build_diary_source_context(
-        target_date,
-        messages,
-        reference_context=reference_context,
-    )
-
     print(f"  找到 {len(messages)} 条消息")
-    diary_text = call_llm_api(
-        format_for_llm(messages),
-        date_str,
-        context_text=source_context,
-        purpose="日记正文",
+    # Cache reuse is opt-in and independent from this diary's API/model.
+    from src.open_llm_vtuber.memory.today_summary_diary import (
+        build_saved_summary_diary_input, configured_diary_reuse,
     )
+    material = None
+    if configured_diary_reuse(Path(__file__).with_name("conf.yaml")):
+        material = build_saved_summary_diary_input(
+            CHAT_HISTORY_DIR, date_str, messages, reference_context, format_for_llm,
+        )
+    diary_text = ""
+    if material is not None:
+        print(f"  复用今日摘要：覆盖{material['covered_messages']}条，补入尾部{material['tail_messages']}条；日记模型不变")
+        diary_text = call_llm_api(
+            material["chat_text"], date_str, context_text=material["context_text"],
+            system_prompt=DIARY_SYSTEM_PROMPT + "\n\n" + material["system_suffix"],
+            purpose="摘要复用日记",
+        )
+        if not diary_text:
+            print("  [警告] 摘要复用未完成，回到原来的原文日记流程")
+    if not diary_text:
+        source_context = build_diary_source_context(
+            target_date, messages, reference_context=reference_context,
+        )
+        diary_text = call_llm_api(
+            format_for_llm(messages), date_str, context_text=source_context,
+            purpose="日记正文",
+        )
 
     if diary_text:
         save_diary(date_str, diary_text)

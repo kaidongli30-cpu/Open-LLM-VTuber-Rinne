@@ -20,7 +20,6 @@ from mcp.server.fastmcp import FastMCP  # noqa: E402
 from mcp.server.fastmcp import Image  # noqa: E402
 
 from src.open_llm_vtuber.file_library import (  # noqa: E402
-    find_library_files,
     list_library_folders,
     list_library_files,
     read_document,
@@ -28,6 +27,8 @@ from src.open_llm_vtuber.file_library import (  # noqa: E402
 )
 from src.open_llm_vtuber.library_filename_search import (  # noqa: E402
     default_filename_search,
+    find_filename_keywords,
+    browse_filename_records,
 )
 from src.open_llm_vtuber.video_analysis import (  # noqa: E402
     read_cached_video_analysis,
@@ -72,7 +73,8 @@ def library_list_folders(
 
     folder 是资料库相对路径；不带 documents/、images/ 或 videos/ 前缀时，
     kind=all 会同时浏览三个类型根目录。默认只返回直接子目录，需要展开整棵
-    树时传 recursive=true。
+    树时传 recursive=true。一次返回所选目录全部后代文件的名字和路径，
+    files 可直接交给读取工具；无需为了看内容逐层再次列举。没有打开文件内容。
     """
 
     return {
@@ -83,6 +85,8 @@ def library_list_folders(
             folder=folder,
             recursive=recursive,
         ),
+        "files": browse_filename_records(LIBRARY_ROOT, kind=kind, folder=folder),
+        "files_scope": "all_descendants_filenames_only",
     }
 
 
@@ -95,7 +99,11 @@ def library_find_by_filename(
     semantic: bool = True,
     min_score: float = 0.45,
 ) -> dict:
-    """按文件名查找资料库文件，可用本地 BGE 补充语义相近的文件名。
+    """递归搜索 documents、images、videos 下的文件名，不搜索文件内容。
+
+    多个关键词用空格分隔：全部命中优先，部分命中随后。目录层级不限，
+    kind=all 包含任意文件格式。关键词已完整命中时直接返回；否则可用
+    本地 BGE 补充意思相近的文件名。文件夹名不参与匹配。
 
     ``query`` is kept as a compatibility alias because some OpenAI-compatible
     models use that natural parameter name after seeing an earlier tool result.
@@ -103,28 +111,42 @@ def library_find_by_filename(
     """
 
     resolved_name = str(name or query).strip()
-    exact = [
-        {**item, "match_type": "literal_filename", "semantic_score": 1.0}
-        for item in find_library_files(resolved_name, LIBRARY_ROOT, kind=kind)
-    ]
-    files = list(exact[:limit])
+    if not 1 <= limit <= 50:
+        raise ValueError("limit must be between 1 and 50")
+    if not -1.0 <= min_score <= 1.0:
+        raise ValueError("min_score must be between -1 and 1")
+    keywords = find_filename_keywords(resolved_name, LIBRARY_ROOT, kind=kind)
+    files = list(keywords[:limit])
     semantic_status = "disabled"
-    if semantic and len(files) < limit:
+    complete_keyword_match = any(
+        item["keyword_match_count"] == item["keyword_count"] for item in keywords
+    )
+    if semantic and complete_keyword_match:
+        semantic_status = "not_needed"
+    elif semantic:
         try:
-            semantic_matches = FILENAME_SEARCH.search(
+            search = getattr(FILENAME_SEARCH, "search_bounded", FILENAME_SEARCH.search)
+            semantic_matches = search(
                 resolved_name,
                 kind=kind,
                 limit=limit,
                 min_score=min_score,
             )
-            known_paths = {item["relative_path"] for item in files}
+            by_path = {item["relative_path"]: dict(item) for item in keywords}
             for item in semantic_matches:
-                if item["relative_path"] in known_paths:
-                    continue
-                files.append(item)
-                known_paths.add(item["relative_path"])
-                if len(files) >= limit:
-                    break
+                existing = by_path.get(item["relative_path"])
+                if existing is None:
+                    by_path[item["relative_path"]] = dict(item)
+                else:
+                    existing["semantic_score"] = item["semantic_score"]
+            files = sorted(
+                by_path.values(),
+                key=lambda item: (
+                    -item.get("keyword_match_count", 0),
+                    -item.get("semantic_score", 0.0),
+                    item["relative_path"].casefold(),
+                ),
+            )[:limit]
             semantic_status = "used"
         except Exception as exc:  # exact filename lookup remains available
             logger.warning(
@@ -201,6 +223,13 @@ def library_read_video_analysis(
 
 
 if __name__ == "__main__":
+    try:
+        FILENAME_SEARCH.prepare_dependencies()
+    except Exception as exc:
+        logger.warning(
+            "Filename semantic dependencies unavailable: %s; keyword search remains available",
+            type(exc).__name__,
+        )
     logger.info(
         "Starting Rinne library MCP server at %s",
         LIBRARY_ROOT or "rinne_library/rinne_01",

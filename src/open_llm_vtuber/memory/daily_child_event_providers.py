@@ -171,6 +171,11 @@ def _post_json(
                 urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
             )
             response_context = opener.open(request, timeout=timeout)
+        elif urllib.parse.urlsplit(url).hostname == "api.deepseek.com":
+            # Official DeepSeek defaults to a direct connection, even when
+            # Windows or the process environment advertises a system proxy.
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            response_context = opener.open(request, timeout=timeout)
         else:
             response_context = urllib.request.urlopen(request, timeout=timeout)
         with response_context as response:

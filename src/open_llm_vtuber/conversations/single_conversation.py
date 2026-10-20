@@ -41,6 +41,7 @@ from ..memory.recent_diary_recall import (
     load_recent_diary_originals,
 )
 from ..memory.today_history_loader import TodayHistoryLoader
+from ..memory.today_summary_runtime import request_today_summary
 from ..memory.long_term_archive import select_long_term_memories
 from ..memory.layer2_context import load_current_layer2_context
 from ..memory.mandatory_response_rules import load_mandatory_response_rules
@@ -536,6 +537,8 @@ async def process_single_conversation(
                                 "time_range_confidence", "none"
                             ),
                             time_range_basis=arguments.get("time_range_basis", ""),
+                            time_range_type=arguments.get("time_range_type", "recorded"),
+                            recorded_before=arguments.get("recorded_before"),
                         )
                     else:
                         retrieval_result = await asyncio.to_thread(
@@ -549,6 +552,8 @@ async def process_single_conversation(
                                 "time_range_confidence", "none"
                             ),
                             time_range_basis=arguments.get("time_range_basis", ""),
+                            time_range_type=arguments.get("time_range_type", "recorded"),
+                            recorded_before=arguments.get("recorded_before"),
                         )
                     hidden_memory_context = retrieval_result.hidden_context
                     retrieval_diagnostics = {
@@ -780,6 +785,10 @@ async def process_single_conversation(
                 avatar=context.character_config.avatar,
             )
             logger.info("AI response stored: {}", text_log_fields(full_response))
+            try:
+                request_today_summary(history_root, context.character_config)
+            except Exception as exc:
+                logger.warning("[今日摘要] 后台调度失败：{}；不影响本轮回复", type(exc).__name__)
         return full_response
 
     except asyncio.CancelledError:

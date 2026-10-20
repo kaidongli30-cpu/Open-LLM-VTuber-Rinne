@@ -28,7 +28,7 @@ class LongTermMemoryRetrievalConfig(I18nMixin, BaseModel):
     )
     reranker_batch_size: int = Field(8, alias="reranker_batch_size")
     max_retrieval_seconds: float = Field(
-        30.0, ge=1.0, le=300.0, alias="max_retrieval_seconds"
+        60.0, ge=1.0, le=300.0, alias="max_retrieval_seconds"
     )
     legacy_archive_fallback_on_error: bool = Field(
         True, alias="legacy_archive_fallback_on_error"

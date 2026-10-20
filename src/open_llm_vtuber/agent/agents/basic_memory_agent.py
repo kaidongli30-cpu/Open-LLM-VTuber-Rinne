@@ -29,6 +29,11 @@ from ..transformers import (
 )
 from ...config_manager import TTSPreprocessorConfig
 from ..input_types import BatchInput, ImageSource, TextSource
+from ..library_evidence import (
+    LibraryTurnEvidence,
+    LIBRARY_NAVIGATION_TOOLS,
+    navigation_key,
+)
 from prompts import prompt_loader
 from ...mcpp.tool_manager import ToolManager
 from ...mcpp.json_detector import StreamJSONDetector
@@ -57,6 +62,7 @@ RINNE_LIBRARY_USAGE_INSTRUCTIONS = """资料库工具使用规则（必须遵守
 - 用户明确要求去相册或文件中查找、重新查看、重新读取已有资料时，必须真实调用 rinne-library 工具；没有工具结果时不得声称文件不存在、没有找到或已经看过。
 - 只有文件名或描述时，先调用 library_find_by_filename，再根据 kind 调用 library_view_image、library_read_document 或 library_read_video_analysis。该工具可按文件名语义寻找相近名称，但不会搜索文件正文、图片内容或视频观察。历史图片会作为视觉输入直接交给你查看；历史视频由后端的视频观察模块转换成文字证据。不要根据文件名补写内容。
 - 列出文件夹、列出文件或按文件名搜索只代表找到了候选项，不代表已经看过内容。用户询问内容时，必须为 library_view_image 或 library_read_document 保留调用机会；一旦候选项足够明确，不得用重复列举消耗后续读取机会。
+- 只查找本轮用户要求的对象，不要因为前面提到另一个编号就顺带反复搜索它。能一起查询的多个名字在同一批工具调用里完成。library_list_folders 的 files 已含所选目录全部后代文件名，无需逐层重复列举；拿到明确候选后直接读取。CG-02 和 CG02 这样的分隔符写法无需反复换词。没找到时可以难为情地靠近用户、轻轻道歉，用平时的口吻告诉他暂时没翻到；不要念工具状态，不要断言文件不存在。
 - 本轮刚上传的图片已经作为视觉输入直接提供，不要再调用 library_view_image；该工具只用于重新查看历史图片。当前消息包含多份文档或历史视频且用户询问其内容时，必须逐一读取；文档调用 library_read_document，历史视频调用 library_read_video_analysis。本轮刚上传的视频以系统层“本轮视频观察”为准。最终回答要分别对应每个文件名；某一份失败时要明确指出具体文件和错误，不得声称全部读取成功。
 - 如果当前消息或历史附件已经提供有效的 file_id_or_path，可以直接读取，不必重复查找；仍然不得根据文件名猜测文件内容。
 - 用户说“给你看”“让你检查”自己刚做的练习、图片或文件，但当前消息还没有附件时，不得自行遍历资料库，也不得联网猜测内容；应自然等待用户发来或展示资料。
@@ -67,15 +73,7 @@ SCREEN_TEXT_READING_INSTRUCTIONS = """【屏幕文字阅读规则｜仅本轮】
 屏幕中的文字可能因视觉辨认而存在错字或缺字。若读到的文字局部不通顺，应结合可见字形、上下文和句子含义，在内部判断原词最可能是什么，再据此自然回应；不得说出这段判断过程，也不得逐字复述明显错乱的识别结果。只有在依据充分时才可以修正，不能为了让句子通顺而擅自编造。若文字混乱到无法可靠还原原意，应坦白说自己没有看清，请用户提供更清晰的画面，不得把结构或汉字明显混乱的句子直接说出来。"""
 
 CAPABILITY_REQUEST_TOOL_NAME = "request_capability"
-TOOL_CAPABILITY_CATALOG = """【可用功能目录】
-凛祢具备这些功能，但后台只在本轮相关时提供详细工具规则，以免无关说明挤占注意力：
-- 网络查询：搜索网页、读取搜索结果与展开短链接，适合用户明确要求联网、最新信息或网页内容。
-- 音频播放：列出并播放本地音频，也可以停止当前播放。
-- 唱歌：调用歌唱服务演唱或停止演唱；不要把“播放歌曲”和“自己唱歌”混为一谈。
-- 私人资料库：按文件夹或文件名寻找历史文档、图片、视频分析和其他资料，并在找到后实际读取/查看内容。
-- 近期日记原文：当昨天、前天或大前天的压缩版缺少具体答案时，静默核对对应日记原文。
-- 长期记忆：只在今天与近三日以外的当前背景仍不足以回答具体旧事时，检索更早的已记录经历；搜不到就自然承认想不起来。
-若当前接口没有显示某项外部功能的详细工具，但完成本轮确实需要它，先调用request_capability加载对应类别；得到加载结果后再调用实际工具。不要因为详细规则尚未显示就声称自己没有该功能。"""
+TOOL_CAPABILITY_CATALOG = '【可用功能目录】\n凛祢具备这些功能，但后台只在本轮相关时提供详细工具规则，以免无关说明挤占注意力：\n- 网络查询：搜索网页、读取搜索结果与展开短链接，适合用户明确要求联网、最新信息或网页内容。\n- 音频播放：列出并播放本地音频，也可以停止当前播放。\n- 唱歌：调用歌唱服务演唱或停止演唱；不要把“播放歌曲”和“自己唱歌”混为一谈。\n- 私人资料库：按文件夹或文件名寻找历史文档、图片、视频分析和其他资料，并在找到后实际读取/查看内容。\n若当前接口没有显示某项外部功能的详细工具，但完成本轮确实需要它，先调用request_capability加载对应类别；得到加载结果后再调用实际工具。不要因为详细规则尚未显示就声称自己没有该功能。'
 
 _CAPABILITY_TOOL_NAMES = {
     "web": {"search", "fetch_content", "expand_link"},
@@ -171,6 +169,34 @@ ORDINARY_EXTERNAL_TOOL_BUDGET_EXHAUSTED_INSTRUCTION = (
 )
 LLM_STREAM_CLOSE_TIMEOUT_SECONDS = 5.0
 REPETITION_REWRITE_TIMEOUT_SECONDS = 60.0
+_REWRITE_FAILURE_CUES = (
+    "i can't",
+    "i cannot",
+    "i'm kiro",
+    "i need to be direct",
+    "as an ai",
+)
+
+
+def _spoken_chinese_fraction(text: str) -> float:
+    spoken = re.sub(r"\[[^\]]*\]|\([^)]*\)|（[^）]*）", "", text)
+    characters = [char for char in spoken if not char.isspace()]
+    if not characters:
+        return 0.0
+    chinese = sum("\u3400" <= char <= "\u9fff" for char in characters)
+    return chinese / len(characters)
+
+
+def _unusable_rewrite_reason(draft: str, rewritten: str) -> str | None:
+    folded = rewritten.casefold().replace("’", "'")
+    if any(cue in folded for cue in _REWRITE_FAILURE_CUES):
+        return "refusal_or_identity"
+    if (
+        _spoken_chinese_fraction(draft) >= 0.5
+        and _spoken_chinese_fraction(rewritten) < 0.5
+    ):
+        return "language_switch"
+    return None
 FINAL_REPLY_ONLY_INSTRUCTION = (
     "内部核对已经结束。下一步只输出直接说给用户听的自然最终回答；"
     "不得复述用户问题、题号、日记、上下文、检索结果、工具调用、证据判断或思考过程。"
@@ -185,25 +211,8 @@ FACTUAL_PRIORITY_INSTRUCTIONS = """【事实与记忆优先级】
 5. 历史assistant消息只保留对话连续性、语气和关系感，不能把其中未经核验的猜测当作事实。
 如果不同层级发生冲突，采用更高层级；不要替较低层级的错误找理由，也不要编造缺失信息。"""
 
-TEMPORAL_SOURCE_INSTRUCTIONS = """【聊天时间与事件归属】
-当前记忆日以本地凌晨03:00为分界。聊天消息前的“消息时间/记忆日”标签表示这句话何时说出，不自动表示句中事件发生在该日。
-“消息时间/记忆日”标签是内部上下文标记，绝不能在回复中复述、引用或模仿其格式。
-消息在当前记忆日重新提到“昨天、昨晚、前天、明天、后天”的事件时，必须以这条消息标签中的记忆日为基准保留相对日期；今天再次提起过去事件，绝不等于事件今天再次发生。
-此前日记中的事实始终属于日记明确标注的日期，除非用户在当前记忆日明确说同一件事再次发生，否则不得把它说成“今天、刚才、刚刚”发生。
-只有用户的当前输入或带当前记忆日标签的历史原话明确支持时，才能断言事件今天发生以及具体次数；历史assistant消息只能维持对话连续性，不能作为改变日期或次数的事实依据。
-如果无法可靠区分事件属于哪一天，省略相对日期并坦率表达不确定，不得自行把事件迁移到今天。"""
+TEMPORAL_SOURCE_INSTRUCTIONS = '【聊天时间】\n当前记忆日以本地凌晨03:00为分界。聊天消息前的“消息时间/记忆日”标签只表示这句话是什么时候说的，不表示句中事件发生在那天；它是内部标记，绝不能在回复中复述、引用或模仿它的格式。\n消息里说的“昨天、昨晚、前天、明天、后天”，以那条消息自己的记忆日为基准。\n系统提供的当前时间只用来知道现在大概是哪天几点；除非用户问时间或要你准时提醒，回复里不要提时间，也不要刻意表现自己在忽略它。'
 
-RESPONSE_FOCUS_INSTRUCTIONS = """【本轮回复纪律｜输出前最后核对】
-先确定用户本轮真正说的内容，只对这一内容作出直接、自然、简短的回应。
-所有回忆、核对上下文、判断工具和整理证据的过程都在内部静默完成。表情标签[focused]只表示专注神情，标签后的文字仍必须是直接说给用户听的话；不得输出“用户在问我……”“用户在问……”“我从近期日记里看到……”“检索结果显示……”等分析或来源说明，也不得先说一遍分析再重复答案。
-即使用户连续使用“第一个问题、第二个问题、下一个问题”等测试说法，也直接自然回答当前内容，不要机械复述题号或用“第几个问题——”开头。
-最近对话中已经确认、已经回答或已经充分表达过的事实、关心、安慰和感情，若本轮没有新增意义，就不要复述或换句话再说。
-Layer 2、日记、旧对话和场景记忆只在回答本轮确实不可缺少时使用；不要为了展示记忆而补充与本轮无关的话题、安排、提醒或背景。
-可以围绕本轮自然展开情感、解释、动作和真正能推进交流的追问；“简短”是避免重复、串线和跑题，不是强制压成一句话。
-旧事实只有在能帮助理解本轮、回应情绪或推进当前对话时才带入；不要为了展示记忆或凑结论而补述旧日程、旧身体状况、旧安排或旧回忆。
-复述或评价本轮事件时，只使用用户本轮明确给出的细节；不得把相邻时间、相似会议或其他事件里的行为、结果和评价移用到本轮事件。
-不要求每轮用问题收尾。只有确实需要用户补充信息，或自然推进本轮正在进行的共同活动时才提问；不得询问最近对话中已经回答过的问题。
-本轮内容回应完整后立即结束，不要没话找话。"""
 
 SCENE_RESPONSE_INSTRUCTIONS = f"""【当前场景记忆协议】
 当前场景记忆会紧邻本轮请求提供。先用本轮用户的新说法修正它，再回答；不得忽略已经
@@ -403,6 +412,138 @@ def _find_repeated_response_passage(
                 if repeated:
                     return previous_visible, draft_visible
     return None
+
+
+def _rewrite_comparison_text_with_positions(text: str) -> tuple[str, list[int]]:
+    """Build a comparison-only form while retaining offsets into ``text``."""
+
+    normalized: list[str] = []
+    positions: list[int] = []
+    index = 0
+    while index < len(text):
+        tag = _VISIBLE_ACTION_TAG.match(text, index)
+        if tag is not None:
+            index = tag.end()
+            continue
+        character = text[index]
+        lowered = character.lower()
+        if (
+            "a" <= lowered <= "z"
+            or "0" <= lowered <= "9"
+            or "\u4e00" <= character <= "\u9fff"
+        ):
+            normalized.append(lowered)
+            positions.append(index)
+        index += 1
+    return "".join(normalized), positions
+
+
+def _include_leading_rewrite_tag(text: str, visible_start: int) -> int:
+    """Move a visible-text offset back over its immediately preceding tag."""
+
+    prefix = text[:visible_start]
+    tag = re.search(
+        r"(?:[ \t\r\n]*\[[A-Za-z][A-Za-z0-9_-]*\][ \t\r\n]*)+$",
+        prefix,
+    )
+    return tag.start() if tag is not None else visible_start
+
+
+def _rewrite_version_looks_complete(text: str) -> bool:
+    trimmed = text.rstrip()
+    return bool(trimmed) and trimmed[-1] in "。！？!?…）)]】」』”’\"'"
+
+
+def _strip_repeated_rewrite_versions(text: str) -> tuple[str, int]:
+    """Keep the final complete version when a rewrite contains adjacent copies.
+
+    This deliberately operates only inside one rewrite result.  It never compares
+    against conversation history, and it only cuts at sentence, paragraph, or
+    visible-tag boundaries so that an ordinary clause cannot be removed midway.
+    """
+
+    stripped = text.strip()
+    normalized, positions = _rewrite_comparison_text_with_positions(stripped)
+    minimum_version_length = 30
+    if len(normalized) < minimum_version_length * 2:
+        return stripped, 0
+
+    # Exact two-or-more copies are safest to handle first.  Comparison ignores
+    # formatting and emotion tags, while the returned text remains untouched.
+    maximum_copies = min(6, len(normalized) // minimum_version_length)
+    for copies in range(maximum_copies, 1, -1):
+        if len(normalized) % copies:
+            continue
+        version_length = len(normalized) // copies
+        version = normalized[:version_length]
+        if version * copies != normalized:
+            continue
+        raw_start = positions[len(normalized) - version_length]
+        raw_start = _include_leading_rewrite_tag(stripped, raw_start)
+        earlier = stripped[:raw_start].strip()
+        latest = stripped[raw_start:].strip()
+        if not _rewrite_version_looks_complete(latest) and _rewrite_version_looks_complete(
+            earlier
+        ):
+            kept, earlier_removed = _strip_repeated_rewrite_versions(earlier)
+            return kept, earlier_removed + 1
+        return latest, copies - 1
+
+    boundaries: set[int] = set()
+    for tag in _VISIBLE_ACTION_TAG.finditer(stripped):
+        if tag.start() > 0:
+            boundaries.add(tag.start())
+    for paragraph in re.finditer(r"(?:\r?\n){2,}", stripped):
+        if paragraph.end() < len(stripped):
+            boundaries.add(paragraph.end())
+    for ending in re.finditer(r"[。！？!?](?:[\"”’」』】）)]*)[ \t\r\n]*", stripped):
+        if ending.end() < len(stripped):
+            boundaries.add(ending.end())
+
+    best: tuple[tuple[float, float, float], str] | None = None
+    for boundary in boundaries:
+        earlier = stripped[:boundary].strip()
+        latest = stripped[boundary:].strip()
+        earlier_normalized, _ = _rewrite_comparison_text_with_positions(earlier)
+        latest_normalized, _ = _rewrite_comparison_text_with_positions(latest)
+        shorter = min(len(earlier_normalized), len(latest_normalized))
+        longer = max(len(earlier_normalized), len(latest_normalized))
+        if shorter < minimum_version_length or not longer:
+            continue
+        length_balance = shorter / longer
+        if length_balance < 0.70:
+            continue
+
+        comparison = SequenceMatcher(
+            None,
+            earlier_normalized,
+            latest_normalized,
+            autojunk=False,
+        )
+        similarity = comparison.ratio()
+        longest_match = comparison.find_longest_match(
+            0,
+            len(earlier_normalized),
+            0,
+            len(latest_normalized),
+        ).size
+        match_coverage = longest_match / shorter
+        strongly_similar_overall = similarity >= 0.90
+        strongly_similar_contiguous = similarity >= 0.88 and match_coverage >= 0.72
+        if not (strongly_similar_overall or strongly_similar_contiguous):
+            continue
+        if not _rewrite_version_looks_complete(latest) and _rewrite_version_looks_complete(
+            earlier
+        ):
+            continue
+
+        score = (similarity, match_coverage, length_balance)
+        if best is None or score > best[0]:
+            best = (score, latest)
+
+    if best is None:
+        return stripped, 0
+    return best[1], 1
 
 
 async def _strip_message_time_context_stream(
@@ -665,9 +806,6 @@ class BasicMemoryAgent(AgentInterface):
         """Set the system prompt."""
         logger.debug("Memory Agent: setting system prompt: {}", text_log_fields(system))
 
-        if self.interrupt_method == "user":
-            system = f"{system}\n\nIf you received `[interrupted by user]` signal, you were interrupted."
-
         self._system = system
         self._request_system_prompt = system
 
@@ -704,7 +842,11 @@ class BasicMemoryAgent(AgentInterface):
 
         start_value = arguments.get("start_date")
         end_value = arguments.get("end_date")
-        if isinstance(start_value, str) and isinstance(end_value, str):
+        if (
+            arguments.get("time_range_type", "recorded") == "recorded"
+            and isinstance(start_value, str)
+            and isinstance(end_value, str)
+        ):
             try:
                 start = date.fromisoformat(start_value)
                 end = date.fromisoformat(end_value)
@@ -738,7 +880,7 @@ class BasicMemoryAgent(AgentInterface):
         """Build the single system prompt for the current provider request."""
 
         metadata = input_data.metadata or {}
-        parts = [getattr(self, "_system", ""), FACTUAL_PRIORITY_INSTRUCTIONS]
+        parts = [getattr(self, "_system", "")]
         has_screen_image = any(
             image.source is ImageSource.SCREEN for image in (input_data.images or [])
         )
@@ -747,6 +889,7 @@ class BasicMemoryAgent(AgentInterface):
         # image in ``messages``. Layer 2, diaries, tool catalogues and general
         # response checklists only dilute this short companion response.
         if metadata.get("proactive_speak"):
+            parts.append(FACTUAL_PRIORITY_INSTRUCTIONS)
             if has_screen_image:
                 parts.append(SCREEN_TEXT_READING_INSTRUCTIONS)
             return "\n\n".join(part for part in parts if part and part.strip())
@@ -786,7 +929,6 @@ class BasicMemoryAgent(AgentInterface):
             parts.append(scene_context.strip())
 
         parts.append(TEMPORAL_SOURCE_INSTRUCTIONS)
-        parts.append(RESPONSE_FOCUS_INSTRUCTIONS)
         if has_screen_image:
             parts.append(SCREEN_TEXT_READING_INSTRUCTIONS)
 
@@ -795,9 +937,33 @@ class BasicMemoryAgent(AgentInterface):
     def _current_request_system_prompt(self) -> str:
         """Return the one system prompt assembled for the current turn."""
 
-        return getattr(self, "_request_system_prompt", "") or getattr(
+        prompt = getattr(self, "_request_system_prompt", "") or getattr(
             self, "_system", ""
         )
+        return self._library_evidence_prompt(prompt)
+
+    def _library_evidence_prompt(self, prompt: str) -> str:
+        evidence = getattr(self, "_library_turn_evidence", None)
+        instruction = evidence.instructions() if evidence is not None else ""
+        return (
+            f"{prompt}\n\n{instruction}"
+            if instruction and instruction not in prompt
+            else prompt
+        )
+
+    def _guard_library_reply(self, reply: str) -> str:
+        evidence = getattr(self, "_library_turn_evidence", None)
+        return evidence.guard_final(reply) if evidence is not None else reply
+
+    def _library_tools_for_turn(self, tools):
+        evidence = getattr(self, "_library_turn_evidence", None)
+        if evidence is None or not evidence.navigation_exhausted:
+            return tools
+        return [
+            tool
+            for tool in tools
+            if self._schema_tool_name(tool) not in LIBRARY_NAVIGATION_TOOLS
+        ]
 
     def _finalize_request_system_prompt(self, system_prompt: str) -> str:
         """Append the highest response rules and any one-turn final reminder."""
@@ -942,6 +1108,18 @@ class BasicMemoryAgent(AgentInterface):
     ) -> str:
         """Ask for one complete rewrite after identifying the repeated clause."""
 
+        guarded = self._guard_library_reply(draft)
+        evidence = getattr(self, "_library_turn_evidence", None)
+        failure_without_content = bool(
+            evidence is not None
+            and (
+                evidence.failed_search or evidence.empty_search or evidence.failed_reads
+            )
+            and not (evidence.successful_reads or evidence.current_image)
+        )
+        if guarded != draft or failure_without_content:
+            return guarded
+
         if not draft.strip() or getattr(self, "_request_is_proactive", False):
             return draft
         current_user_text = self._latest_user_text(messages)
@@ -973,7 +1151,7 @@ class BasicMemoryAgent(AgentInterface):
         response_parts: list[str] = []
         stream = self._llm.chat_completion(
             messages,
-            f"{system_prompt}\n\n{retry_instruction}",
+            self._library_evidence_prompt(f"{system_prompt}\n\n{retry_instruction}"),
         )
 
         async def collect_rewrite() -> None:
@@ -1015,12 +1193,34 @@ class BasicMemoryAgent(AgentInterface):
         if not rewritten:
             return draft
 
+        rewritten, removed_versions = _strip_repeated_rewrite_versions(rewritten)
+        if removed_versions:
+            logger.warning(
+                "重写结果内部包含连续重复版本，已静默删除前面的{}版",
+                removed_versions,
+            )
+
+        rejection_reason = _unusable_rewrite_reason(draft, rewritten)
+        evidence = getattr(self, "_library_turn_evidence", None)
+        if (
+            evidence is not None
+            and evidence.calls
+            and _find_repeated_response_passage(rewritten, previous_responses)
+        ):
+            rejection_reason = "repeated_library_history"
+        if rejection_reason is not None:
+            logger.warning(
+                "重写结果未通过语言与身份检查，保留原草稿（原因：{}）",
+                rejection_reason,
+            )
+            return draft
+
         logger.info(
             "检测到明显重复句，已让模型整段重写一次（草稿{}字，重写{}字）",
             len(draft),
             len(rewritten),
         )
-        return rewritten
+        return self._guard_library_reply(rewritten)
 
     async def _build_forced_search_query(self, current_user_text: str) -> str:
         """Rewrite a spoken request into a concise query, with a local fallback."""
@@ -1174,14 +1374,7 @@ class BasicMemoryAgent(AgentInterface):
         elif heard_response:
             self._add_message(heard_response, "assistant")
 
-        interrupt_role = "system" if self.interrupt_method == "system" else "user"
-        self._memory.append(
-            {
-                "role": interrupt_role,
-                "content": "[Interrupted by user]",
-            }
-        )
-        logger.info(f"Handled interrupt with role '{interrupt_role}'.")
+        logger.info("Handled interrupt; retained only the played response prefix.")
 
     def _to_text_prompt(self, input_data: BatchInput) -> str:
         """Format input data to text prompt."""
@@ -1230,6 +1423,7 @@ class BasicMemoryAgent(AgentInterface):
 
     def _to_messages(self, input_data: BatchInput) -> List[Dict[str, Any]]:
         """Prepare messages for LLM API call."""
+        self._library_turn_evidence = LibraryTurnEvidence()
         # ``system`` is supplied separately to every supported provider.  Keep
         # conversation turns in ``messages`` and fold any legacy system entries
         # into the one request-level system prompt below; OpenAI-compatible
@@ -1415,6 +1609,7 @@ class BasicMemoryAgent(AgentInterface):
                 logger.warning(
                     "User input contains images but none could be processed."
                 )
+            self._library_turn_evidence.current_image = image_added
 
         if user_content:
             user_message = {"role": "user", "content": user_content}
@@ -1717,10 +1912,24 @@ class BasicMemoryAgent(AgentInterface):
         external_elapsed_seconds = 0.0
         external_calls: list[ToolCallObject | Dict[str, Any]] = []
         ordinary_external_calls = 0
+        duplicate_navigation = []
+        scheduled_navigation = set()
+        cached_calls = 0
+        if getattr(self, "_library_turn_evidence", None) is None:
+            self._library_turn_evidence = LibraryTurnEvidence()
         for call in tool_calls:
             tool_name, tool_id, arguments, parse_error = self._parse_turn_tool_call(
                 call
             )
+            self._library_turn_evidence.register(tool_id, tool_name, arguments)
+            key = navigation_key(tool_name, arguments) if not parse_error else None
+            if key is not None:
+                cached = self._library_turn_evidence.cached_navigation(tool_id)
+                if cached is not None or key in scheduled_navigation:
+                    duplicate_navigation.append(tool_id)
+                    cached_calls += cached is not None
+                    continue
+                scheduled_navigation.add(key)
             current_image_error = self._current_image_reference_error(
                 tool_name, arguments
             )
@@ -1776,6 +1985,9 @@ class BasicMemoryAgent(AgentInterface):
                     max_external_calls is not None
                     and len(external_calls) >= max_external_calls
                 ):
+                    self._library_turn_evidence.observe_status(
+                        {"tool_id": tool_id, "status": "error"}
+                    )
                     results.append(
                         self._format_turn_tool_result(
                             caller_mode,
@@ -1919,11 +2131,24 @@ class BasicMemoryAgent(AgentInterface):
                             results.extend(update.get("results", []))
                             media_messages.extend(update.get("media_messages", []))
                             break
+                        self._library_turn_evidence.observe_status(update)
                         yield update
                 except StopAsyncIteration:
                     logger.warning(
                         "External tool executor finished without final results marker."
                     )
+                    for call in external_calls:
+                        name, missing_id, _args, _error = self._parse_turn_tool_call(
+                            call
+                        )
+                        results.append(
+                            self._format_turn_tool_result(
+                                caller_mode,
+                                missing_id,
+                                f"Error: {name} ended without a completed result.",
+                                True,
+                            )
+                        )
                 except asyncio.TimeoutError:
                     logger.error(
                         "Ordinary external tools exceeded the per-turn time budget."
@@ -1946,6 +2171,54 @@ class BasicMemoryAgent(AgentInterface):
                         asyncio.get_running_loop().time() - external_started
                     )
                     await _close_llm_stream(iterator)
+        # Cache completed navigation only, never an in-flight search or a read.
+        self._library_turn_evidence.observe_results(results)
+        for duplicate_id in duplicate_navigation:
+            cached = self._library_turn_evidence.cached_navigation(duplicate_id)
+            if cached is None:
+                cached = ("工具未完成，不能把等待中的查询当成结果。", True)
+            content, is_error = cached
+            results.append(
+                self._format_turn_tool_result(
+                    caller_mode, duplicate_id, content, is_error
+                )
+            )
+            tool_name = self._library_turn_evidence.calls[duplicate_id][0]
+            update = {
+                "type": "tool_call_status",
+                "tool_id": duplicate_id,
+                "tool_name": tool_name,
+                "status": "error" if is_error else "completed",
+                "content": "",
+                "reused_result": True,
+                "timestamp": datetime.now().astimezone().isoformat(),
+            }
+            self._library_turn_evidence.observe_status(update)
+            logger.info(
+                "Reused completed library navigation result: tool={}", tool_name
+            )
+            yield update
+        if cached_calls and cached_calls == len(tool_calls):
+            self._library_turn_evidence.navigation_exhausted = True
+        for result in results:
+            content = str(result.get("content", ""))
+            if (
+                result.get("is_error")
+                or content.startswith(("Error", "Unexpected error"))
+                or (
+                    content.startswith("工具 ")
+                    and any(word in content for word in ("未执行", "超时", "不可用"))
+                )
+            ):
+                result_id = (
+                    result.get("tool_call_id")
+                    or result.get("tool_use_id")
+                    or result.get("tool_id")
+                )
+                self._library_turn_evidence.observe_status(
+                    {"tool_id": result_id, "status": "error"}
+                )
+        self._library_turn_evidence.observe_results(results)
         yield {
             "type": "final_tool_results",
             "results": results,
@@ -1984,7 +2257,9 @@ class BasicMemoryAgent(AgentInterface):
                 or ordinary_external_tool_calls >= MAX_ORDINARY_EXTERNAL_TOOL_CALLS
                 or ordinary_external_tool_seconds >= MAX_ORDINARY_EXTERNAL_TOOL_SECONDS
             )
-            active_tools = self._tools_for_capabilities(tools, active_capabilities)
+            active_tools = self._library_tools_for_turn(
+                self._tools_for_capabilities(tools, active_capabilities)
+            )
             current_system_prompt = self._current_request_system_prompt()
             if recent_diary_tool is not None:
                 recent_instruction = (
@@ -1992,18 +2267,20 @@ class BasicMemoryAgent(AgentInterface):
                     if recent_diary_tool.called
                     else recent_diary_tool.decision_instructions
                 )
-                current_system_prompt = (
-                    f"{current_system_prompt}\n\n{recent_instruction}"
-                )
+                if recent_instruction:
+                    current_system_prompt = (
+                        f"{current_system_prompt}\n\n{recent_instruction}"
+                    )
             if internal_memory_tool is not None:
                 memory_instruction = (
                     internal_memory_tool.followup_instructions
                     if internal_memory_tool.called
                     else internal_memory_tool.decision_instructions
                 )
-                current_system_prompt = (
-                    f"{current_system_prompt}\n\n{memory_instruction}"
-                )
+                if memory_instruction:
+                    current_system_prompt = (
+                        f"{current_system_prompt}\n\n{memory_instruction}"
+                    )
             current_system_prompt = self._append_rinne_library_prompt(
                 current_system_prompt,
                 active_tools,
@@ -2262,19 +2539,33 @@ class BasicMemoryAgent(AgentInterface):
             if self.prompt_mode_flag:
                 prompt_parts = [self._current_request_system_prompt()]
                 if recent_diary_tool is not None:
-                    prompt_parts.append(
+                    recent_instruction = (
                         recent_diary_tool.followup_instructions
                         if recent_diary_tool.called
                         else recent_diary_tool.decision_instructions
                     )
+                    if recent_instruction:
+                        prompt_parts.append(recent_instruction)
                 if internal_memory_tool is not None:
-                    prompt_parts.append(
+                    memory_instruction = (
                         internal_memory_tool.followup_instructions
                         if internal_memory_tool.called
                         else internal_memory_tool.decision_instructions
                     )
+                    if memory_instruction:
+                        prompt_parts.append(memory_instruction)
                 if self._mcp_prompt_string and not external_budget_exhausted:
-                    prompt_parts.append(self._mcp_prompt_string)
+                    evidence = getattr(self, "_library_turn_evidence", None)
+                    if evidence is not None and evidence.navigation_exhausted:
+                        remaining_tools = self._library_tools_for_turn(
+                            self._tools_for_capabilities(tools, active_capabilities)
+                        )
+                        prompt_parts.append(
+                            "本轮可用工具："
+                            + json.dumps(remaining_tools, ensure_ascii=False)
+                        )
+                    else:
+                        prompt_parts.append(self._mcp_prompt_string)
                 elif self._use_mcpp and not external_budget_exhausted:
                     logger.warning("Prompt mode active but mcp_prompt_string is empty!")
                 library_prompt = (
@@ -2305,19 +2596,23 @@ class BasicMemoryAgent(AgentInterface):
                         if recent_diary_tool.called
                         else recent_diary_tool.decision_instructions
                     )
-                    current_system_prompt = (
-                        f"{current_system_prompt}\n\n{recent_instruction}"
-                    )
+                    if recent_instruction:
+                        current_system_prompt = (
+                            f"{current_system_prompt}\n\n{recent_instruction}"
+                        )
                 if internal_memory_tool is not None:
                     memory_instruction = (
                         internal_memory_tool.followup_instructions
                         if internal_memory_tool.called
                         else internal_memory_tool.decision_instructions
                     )
-                    current_system_prompt = (
-                        f"{current_system_prompt}\n\n{memory_instruction}"
-                    )
-                tools_for_api = self._tools_for_capabilities(tools, active_capabilities)
+                    if memory_instruction:
+                        current_system_prompt = (
+                            f"{current_system_prompt}\n\n{memory_instruction}"
+                        )
+                tools_for_api = self._library_tools_for_turn(
+                    self._tools_for_capabilities(tools, active_capabilities)
+                )
                 current_system_prompt = self._append_rinne_library_prompt(
                     current_system_prompt,
                     tools_for_api,
