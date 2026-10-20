@@ -353,8 +353,8 @@ uv run run_server.py
 <a id="client"></a>
 ## 7. 安装桌面客户端，开始对话
 
-1. 打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.1.1-20260929)。
-2. 下载 `open-llm-vtuber-2.1.1-setup.exe`。
+1. 打开 [Windows 客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.1.2-20261020)。
+2. 下载 `open-llm-vtuber-2.1.2-setup.exe`。
 3. 双击安装，可以选择 D 盘等位置。
 4. 保持语音和后端运行，双击桌面上的客户端快捷方式。
 
@@ -386,6 +386,8 @@ TTS 和后端窗口都要保持打开。第一次使用先按[一键启动说明
 
 **在原来的项目目录升级，不需要删除旧版后端，也不需要搬走原有记忆。**
 
+当前正式版为 **2.1.2**，主要改进旧事发生日期与记录日期的区分、资料库文件查找，以及重复回复和打断处理。已经安装 1.2.2 或之后客户端的用户，重新打开客户端、完成后端版本确认后，会在联网检查成功时看到更新提示；点击“更新”后按提示操作。
+
 ### 9.1 先备份
 
 把项目目录中的 `conf.yaml` 和整个 `chat_history` 文件夹，复制到项目目录之外保存。
@@ -398,7 +400,7 @@ TTS 和后端窗口都要保持打开。第一次使用先按[一键启动说明
 
 2.1.0 客户端从 1.2.1 升级时有已知问题：第一次必定提示 `Git 操作失败：fetch`，还会弹出大量误报的选择框。2.1.1 已经修复，请不要再用 2.1.0 客户端升级。
 
-1. 从[客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.1.1-20260929)下载新版 `.exe`。
+1. 从[客户端下载页](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/tag/rinne-desktop-v2.1.2-20261020)下载新版 `.exe`。
 2. 完全退出旧客户端，再运行安装程序。可以选择原来的安装位置。
 3. 打开新版客户端。它请你确认后端时，选择**原来的后端项目目录**，里面应有 `conf.yaml` 和 `run_server.py`。
 4. 按提示关闭后端，开始更新。遇到双方都改过的地方，逐项选择“保留我的”或“采用新版”。
@@ -487,6 +489,22 @@ uv run python tools/rinne_safe_update.py --apply --interactive
 
 <a id="optional"></a>
 ## 10. 可选功能
+
+### 今日摘要与日记复用
+
+此功能默认关闭。开启后，每隔 10 轮完整对话，后台会用 `deepseek_llm` 的配置保存一份当日摘要；写日记时，可以复用摘要并补上尚未覆盖的对话。对话和日记原来使用的模型不变。
+
+先在 `conf.yaml` 的 `deepseek_llm:` 下填好自己的密钥。摘要生成会调用 API，产生请求费用。
+
+在已有的 `character_config:` 下添加下面这段，与 `agent_config:` 保持同一级缩进。不要重复添加 `character_config:`；如果已有 `today_summary:`，修改原来的项目即可。
+
+```yaml
+  today_summary:
+    enabled: true
+    reuse_for_diary: true
+```
+
+保存后重启后端。摘要保存在 `chat_history/today_summaries/`，原始聊天记录不会被压缩或删除。摘要不可用时，日记仍沿用原来的原文生成流程。想关闭时，把 `enabled` 改回 `false`，保存并重启后端。
 
 ### 从已有日记建立第二层背景
 
