@@ -2,6 +2,15 @@
 
 凛祢桌宠支持文字和语音对话、换装、日记与长期记忆。本指南介绍 Windows 桌面客户端的安装和使用。
 
+## 最近更新
+
+| 版本 | 发布日期 | 主要变化 |
+| --- | --- | --- |
+| [2.1.2](CHANGELOG.md#212---2026-10-20) | 2026-10-20 | 改进旧事日期判断、资料库查找与读取反馈、重复回复和对话打断处理；修正客户端版本显示。 |
+| [2.1.1](CHANGELOG.md#211---2026-09-30) | 2026-09-30 | 修复旧版升级失败和大量误报选择框，改善设置保留、更新下载、周记月记与长期记忆。 |
+
+[查看完整更新日志](CHANGELOG.md) · [下载最新 Windows 客户端](https://github.com/kaidongli30-cpu/Open-LLM-VTuber-Rinne-Frontend/releases/latest) · [旧版怎样升级](#upgrade)
+
 ## 从哪里开始
 
 - 第一次安装：从[准备软件](#prepare)开始，按顺序操作。
@@ -489,22 +498,6 @@ uv run python tools/rinne_safe_update.py --apply --interactive
 
 <a id="optional"></a>
 ## 10. 可选功能
-
-### 今日摘要与日记复用
-
-此功能默认关闭。开启后，每隔 10 轮完整对话，后台会用 `deepseek_llm` 的配置保存一份当日摘要；写日记时，可以复用摘要并补上尚未覆盖的对话。对话和日记原来使用的模型不变。
-
-先在 `conf.yaml` 的 `deepseek_llm:` 下填好自己的密钥。摘要生成会调用 API，产生请求费用。
-
-在已有的 `character_config:` 下添加下面这段，与 `agent_config:` 保持同一级缩进。不要重复添加 `character_config:`；如果已有 `today_summary:`，修改原来的项目即可。
-
-```yaml
-  today_summary:
-    enabled: true
-    reuse_for_diary: true
-```
-
-保存后重启后端。摘要保存在 `chat_history/today_summaries/`，原始聊天记录不会被压缩或删除。摘要不可用时，日记仍沿用原来的原文生成流程。想关闭时，把 `enabled` 改回 `false`，保存并重启后端。
 
 ### 从已有日记建立第二层背景
 
