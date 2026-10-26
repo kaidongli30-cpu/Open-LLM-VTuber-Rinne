@@ -17,6 +17,7 @@ from .types import ToolCallObject
 from .mcp_client import MCPClient
 from .tool_manager import ToolManager
 from ..privacy_logging import mapping_log_fields, text_log_fields
+from ..ra3_teaching import RA3_MUTATIONS, teaching_match_id, teaching_tool_rejection
 from ..video_analysis import (
     MediaAnalyzerSettings,
     analyze_video_attachments,
@@ -481,6 +482,9 @@ class ToolExecutor:
         """
         requested_tool_name = tool_name
         tool_name = self._canonical_tool_name(tool_name)
+        is_teaching_mutation = (
+            teaching_match_id.get() is not None and tool_name in RA3_MUTATIONS
+        )
         logger.info(
             "Executing tool: name={}, id_present={}", requested_tool_name, bool(tool_id)
         )
@@ -580,6 +584,11 @@ class ToolExecutor:
             is_error = True
         else:
             try:
+                rejection = await teaching_tool_rejection(
+                    self._mcp_client, tool_name, tool_input, tool_info.related_server
+                )
+                if rejection:
+                    return True, rejection, {}, [{"type": "error", "text": rejection}]
                 result_dict = await self._mcp_client.call_tool(
                     server_name=tool_info.related_server,
                     tool_name=tool_name,
@@ -588,6 +597,21 @@ class ToolExecutor:
 
                 metadata = result_dict.get("metadata", {})
                 content_items = result_dict.get("content_items", [])
+                if is_teaching_mutation:
+                    # Error metadata and JSON error messages can contain raw
+                    # server details, even when the transport itself succeeded.
+                    failed = any(item.get("type") == "error" for item in content_items)
+                    for item in content_items:
+                        if item.get("type") == "text":
+                            try:
+                                body = json.loads(item.get("text", ""))
+                            except (ValueError, TypeError):
+                                continue
+                            if isinstance(body, dict) and body.get("status") in {"error", "offline"}:
+                                failed = True
+                    if failed:
+                        text_content = "未能确认游戏任务结果，请核对任务状态，勿自动重发。"
+                        return True, text_content, {}, [{"type": "error", "text": text_content}]
 
                 # Check if the first content item is an error reported by MCPClient
                 if content_items and content_items[0].get("type") == "error":
@@ -619,6 +643,9 @@ class ToolExecutor:
                     "Error executing tool '{}': {}", tool_name, type(e).__name__
                 )
                 text_content = f"Error executing tool '{tool_name}': {e}"
+                if is_teaching_mutation:
+                    metadata = {}
+                    text_content = "教学游戏工具调用失败，请核对任务状态，勿自动重发。"
                 content_items = [{"type": "error", "text": text_content}]
                 is_error = True
             except Exception as e:
@@ -628,6 +655,9 @@ class ToolExecutor:
                     type(e).__name__,
                 )
                 text_content = f"Unexpected error executing tool '{tool_name}': {e}"
+                if is_teaching_mutation:
+                    metadata = {}
+                    text_content = "教学游戏工具调用失败，请核对任务状态，勿自动重发。"
                 content_items = [{"type": "error", "text": text_content}]
                 is_error = True
 

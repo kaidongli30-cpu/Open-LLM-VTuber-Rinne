@@ -45,7 +45,7 @@ class AgentFactory:
                 raise ValueError("LLM provider not specified for basic memory agent")
 
             # Get the LLM config for this provider
-            llm_config: dict = llm_configs.get(llm_provider)
+            llm_config: dict = dict(llm_configs.get(llm_provider) or {})
             interrupt_method: Literal["system", "user"] = llm_config.pop(
                 "interrupt_method", "user"
             )
@@ -59,6 +59,21 @@ class AgentFactory:
             llm = StatelessLLMFactory.create_llm(
                 llm_provider=llm_provider, system_prompt=system_prompt, **llm_config
             )
+            question_judge_llm = None
+            judge_model = basic_memory_settings.get("question_judge_model")
+            if judge_model and judge_model.strip():
+                from .semantic_question_guard import CHECK_SYSTEM
+
+                question_judge_llm = StatelessLLMFactory.create_llm(
+                    llm_provider=llm_provider,
+                    system_prompt=CHECK_SYSTEM,
+                    **{
+                        **llm_config,
+                        "model": judge_model.strip(),
+                        "empty_stream_recovery": False,
+                    },
+                )
+                logger.info("Independent question judge initialized: {}", judge_model)
 
             tool_prompts = kwargs.get("system_config", {}).get("tool_prompts", {})
 
@@ -83,6 +98,7 @@ class AgentFactory:
                 tool_manager=tool_manager,
                 tool_executor=tool_executor,
                 mcp_prompt_string=mcp_prompt_string,
+                question_judge_llm=question_judge_llm,
             )
 
         elif conversation_agent_choice == "mem0_agent":

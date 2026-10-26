@@ -10,6 +10,7 @@ from copy import deepcopy
 from loguru import logger
 
 from .main import Config
+from ..background_catalog import load_background_catalog
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -200,6 +201,9 @@ def scan_config_alts_directory(config_alts_dir: str) -> list[dict]:
 def scan_bg_directory() -> list[str]:
     bg_files = []
     bg_dir = "backgrounds"
+    catalog = load_background_catalog(bg_dir)
+    if catalog is not None:
+        return list(catalog.files)
     for root, _, files in os.walk(bg_dir):
         for file in files:
             if file.endswith((".jpg", ".jpeg", ".png", ".gif")):

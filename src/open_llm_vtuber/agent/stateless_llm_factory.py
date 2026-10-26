@@ -47,6 +47,7 @@ class LLMFactory:
                 ),
                 upstream_max_attempts=kwargs.get("upstream_max_attempts", 2),
                 proxy_url=kwargs.get("proxy_url"),
+                empty_stream_recovery=kwargs.get("empty_stream_recovery", True),
             )
         if llm_provider == "stateless_llm_with_template":
             return StatelessLLMWithTemplate(

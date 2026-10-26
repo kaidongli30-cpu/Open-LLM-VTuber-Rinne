@@ -22,6 +22,7 @@ class Layer2MemoryGenerationConfig(I18nMixin, BaseModel):
     """
 
     enabled: bool = Field(False, alias="enabled")
+    pipeline: Literal["v1", "v2"] = Field("v1", alias="pipeline")
     inject_into_conversation: bool = Field(True, alias="inject_into_conversation")
     provider_config_name: Layer2ProviderConfigName = Field(
         "deepseek_llm", alias="provider_config_name"
@@ -37,6 +38,10 @@ class Layer2MemoryGenerationConfig(I18nMixin, BaseModel):
     audit_retention_days: int = Field(14, ge=1, alias="audit_retention_days")
 
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {
+        "pipeline": Description(
+            en="Daily Layer-2 pipeline version; v2 requires a migrated publication.",
+            zh="每日第二层更新版本；v2 需要先安装迁移后的发布。",
+        ),
         "enabled": Description(
             en="Enable the daily Layer-2 user-background update.",
             zh="是否启用每日第二层用户背景更新。",

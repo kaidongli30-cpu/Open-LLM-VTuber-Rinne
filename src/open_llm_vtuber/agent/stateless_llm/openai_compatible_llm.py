@@ -151,6 +151,7 @@ class AsyncLLM(StatelessLLMInterface):
         upstream_first_data_timeout_seconds: float = 90.0,
         upstream_max_attempts: int = 2,
         proxy_url: str | None = None,
+        empty_stream_recovery: bool = True,
     ):
         """
         Initializes an instance of the `AsyncLLM` class.
@@ -183,6 +184,8 @@ class AsyncLLM(StatelessLLMInterface):
                 self.upstream_warning_seconds,
             )
         self.upstream_max_attempts = max(1, min(2, int(upstream_max_attempts)))
+        # Internal per-client policy; the chat brain keeps recovery enabled.
+        self.empty_stream_recovery = empty_stream_recovery
         http_client = None
         direct_deepseek = (
             not proxy_url and urlsplit(base_url or "").hostname == "api.deepseek.com"
@@ -998,6 +1001,24 @@ class AsyncLLM(StatelessLLMInterface):
                                 yield [safe_failure_call]
 
                     if not received_meaningful_output:
+                        if not getattr(self, "empty_stream_recovery", True):
+                            self._emit_trace(
+                                {
+                                    "event": "request_error",
+                                    "trace_request_id": trace_request_id,
+                                    "request_index": trace_request_index,
+                                    "error_class": "empty_response",
+                                    "elapsed_seconds": round(
+                                        time.perf_counter() - trace_started, 3
+                                    ),
+                                    "upstream_attempts": trace_upstream_attempts,
+                                }
+                            )
+                            logger.warning(
+                                "Streaming check returned no text or tool calls; "
+                                "empty-stream recovery is disabled, no followup sent."
+                            )
+                            return
                         logger.warning(
                             "Streaming chat completion ended without text or tool calls. "
                             "Retrying once with a non-streaming request."

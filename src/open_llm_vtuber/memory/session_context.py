@@ -61,6 +61,7 @@ def load_cloud_session_memory(
         "covered_diary_files": list(recent_result.covered_diary_files),
         "missing_diary_dates": list(recent_result.missing_diary_dates),
         "character_count": recent_result.character_count,
+        "today_raw_count": len(today_result.turns),
         "warnings": list(recent_result.warnings),
     }
     return CloudSessionMemory(

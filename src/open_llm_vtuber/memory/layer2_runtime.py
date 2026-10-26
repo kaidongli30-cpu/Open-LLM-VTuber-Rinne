@@ -1641,6 +1641,10 @@ def run_daily_layer2_update(
     settings = generation_settings or load_layer2_settings(config_path)
     if not settings.enabled:
         return {"status": "disabled", "memory_day": memory_day}
+    if settings.pipeline == "v2":
+        from .layer2_v2 import run_daily_layer2_update_v2
+
+        return run_daily_layer2_update_v2(memory_day, history, config_path, settings)
     existing_status = layer2_publication_status(memory_day, history)
     if existing_status == "current":
         return {"status": "already_current", "memory_day": memory_day}
@@ -1649,6 +1653,10 @@ def run_daily_layer2_update(
     if existing_status == "invalid":
         raise Layer2RuntimeError("current_layer2_publication_invalid")
     loaded = load_layer2_publication(history)
+    if loaded.background_path is not None:
+        manifest = _read_json(loaded.background_path.parent / "manifest.json")
+        if manifest.get("pipeline") == "v2":
+            raise Layer2RuntimeError("v1_cannot_continue_v2_publication")
     # A new installation has no published background yet; the first approved
     # diary then builds it from an in-memory empty ledger.
     bootstrap = loaded.diagnostics.get("status") == "missing"

@@ -77,11 +77,16 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
         "mistral_llm",
     ] = Field(..., alias="llm_provider")
 
+    question_judge_model: Optional[str] = Field(None, alias="question_judge_model")
+
     faster_first_response: Optional[bool] = Field(True, alias="faster_first_response")
     segment_method: Literal["regex", "pysbd"] = Field("pysbd", alias="segment_method")
     use_mcpp: Optional[bool] = Field(False, alias="use_mcpp")
     mcp_enabled_servers: Optional[List[str]] = Field([], alias="mcp_enabled_servers")
     scene_memory_enabled: bool = Field(False, alias="scene_memory_enabled")
+    response_reminder_enabled: bool = Field(False, alias="response_reminder_enabled")
+    scene_card_enabled: bool = Field(False, alias="scene_card_enabled")
+    scene_card_position: Literal["end", "start"] = Field("end", alias="scene_card_position")
     bocha_api_key: str = Field("", alias="bocha_api_key", repr=False)
     long_term_memory_retrieval: LongTermMemoryRetrievalConfig = Field(
         default_factory=LongTermMemoryRetrievalConfig,
@@ -92,6 +97,10 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
         "llm_provider": Description(
             en="LLM provider to use for this agent",
             zh="Basic Memory Agent 智能体使用的大语言模型选项",
+        ),
+        "question_judge_model": Description(
+            en="Independent model for repeated questions, using the same endpoint and credentials; empty keeps the existing detector",
+            zh="独立检测同一聊天记录内重复问句的模型，复用接口和密钥；留空保持原有检测",
         ),
         "faster_first_response": Description(
             en="Whether to respond as soon as encountering a comma in the first sentence to reduce latency (default: True)",
@@ -112,6 +121,18 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
         "scene_memory_enabled": Description(
             en="Keep one shared current-scene snapshot across desktop and private QQ",
             zh="在电脑端和私人QQ之间维护一份共享的当前场景快照",
+        ),
+        "response_reminder_enabled": Description(
+            en="Place the response reminder immediately before the current user text",
+            zh="在本轮用户文字之前加入贴身提醒（默认关闭）",
+        ),
+        "scene_card_enabled": Description(
+            en="Write and reuse a private assistant-authored scene card",
+            zh="让模型撰写并在下一轮读取私有场景卡片（默认关闭）",
+        ),
+        "scene_card_position": Description(
+            en="Write the private scene card at the end or start of the reply",
+            zh="场景卡片放在回复结尾 end 或开头 start（默认 end）",
         ),
         "bocha_api_key": Description(
             en="Private persistent Bocha Web Search API key; BOCHA_API_KEY overrides it",

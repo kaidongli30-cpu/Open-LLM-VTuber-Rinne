@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Layer 2 v2 ledger update",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_date",
+    "added_facts",
+    "updated_facts",
+    "retired_facts",
+    "reviewed_facts",
+    "added_memories",
+    "updated_memories",
+    "anniversaries_line"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0-layer2-v2-ledger-update"},
+    "source_date": {"$ref": "#/$defs/date"},
+    "added_facts": {"type": "array", "maxItems": 8, "items": {"$ref": "#/$defs/added_fact"}},
+    "updated_facts": {"type": "array", "maxItems": 10, "items": {"$ref": "#/$defs/updated_fact"}},
+    "retired_facts": {"type": "array", "maxItems": 8, "items": {"$ref": "#/$defs/retired_fact"}},
+    "reviewed_facts": {"type": "array", "maxItems": 5, "items": {"$ref": "#/$defs/reviewed_fact"}},
+    "added_memories": {"type": "array", "maxItems": 3, "items": {"$ref": "#/$defs/added_memory"}},
+    "updated_memories": {"type": "array", "maxItems": 3, "items": {"$ref": "#/$defs/updated_memory"}},
+    "anniversaries_line": {"type": "string", "maxLength": 300}
+  },
+  "$defs": {
+    "date": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+    "date_or_empty": {"type": "string", "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"},
+    "block": {"type": "string", "enum": ["1", "2", "3", "5", "6"]},
+    "temporal_class": {"type": "string", "enum": ["persistent", "ongoing", "transient", "scheduled"]},
+    "ref_id": {"type": "string", "minLength": 3, "maxLength": 40},
+    "excerpts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {"type": "string", "minLength": 2, "maxLength": 200}
+    },
+    "optional_excerpts": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {"type": "string", "minLength": 2, "maxLength": 200}
+    },
+    "added_fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["temp_id", "block", "topic", "statement", "temporal_class", "expected_end_on", "evidence_excerpts", "reason"],
+      "properties": {
+        "temp_id": {"type": "string", "pattern": "^new[1-8]$"},
+        "block": {"$ref": "#/$defs/block"},
+        "topic": {"type": "string", "minLength": 1, "maxLength": 20},
+        "statement": {"type": "string", "minLength": 4, "maxLength": 160},
+        "temporal_class": {"$ref": "#/$defs/temporal_class"},
+        "expected_end_on": {"$ref": "#/$defs/date_or_empty"},
+        "evidence_excerpts": {"$ref": "#/$defs/excerpts"},
+        "reason": {"type": "string", "maxLength": 200}
+      }
+    },
+    "updated_fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fact_id", "block", "topic", "statement", "temporal_class", "expected_end_on", "evidence_excerpts", "reason"],
+      "properties": {
+        "fact_id": {"$ref": "#/$defs/ref_id"},
+        "block": {"$ref": "#/$defs/block"},
+        "topic": {"type": "string", "minLength": 1, "maxLength": 20},
+        "statement": {"type": "string", "minLength": 4, "maxLength": 400},
+        "temporal_class": {"$ref": "#/$defs/temporal_class"},
+        "expected_end_on": {"$ref": "#/$defs/date_or_empty"},
+        "evidence_excerpts": {"$ref": "#/$defs/excerpts"},
+        "reason": {"type": "string", "maxLength": 200}
+      }
+    },
+    "retired_fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fact_id", "basis", "replaced_by", "evidence_excerpts", "reason"],
+      "properties": {
+        "fact_id": {"$ref": "#/$defs/ref_id"},
+        "basis": {"type": "string", "enum": ["changed_today", "replaced", "plan_done", "duplicate", "stale"]},
+        "replaced_by": {"type": "string", "maxLength": 40},
+        "evidence_excerpts": {"$ref": "#/$defs/optional_excerpts"},
+        "reason": {"type": "string", "minLength": 2, "maxLength": 200}
+      }
+    },
+    "reviewed_fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fact_id", "next_review_after", "reason"],
+      "properties": {
+        "fact_id": {"$ref": "#/$defs/ref_id"},
+        "next_review_after": {"$ref": "#/$defs/date"},
+        "reason": {"type": "string", "minLength": 2, "maxLength": 200}
+      }
+    },
+    "added_memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["temp_id", "date_start", "date_end", "title", "happened", "why", "later", "evidence_excerpts"],
+      "properties": {
+        "temp_id": {"type": "string", "pattern": "^mem[1-3]$"},
+        "date_start": {"$ref": "#/$defs/date"},
+        "date_end": {"$ref": "#/$defs/date"},
+        "title": {"type": "string", "minLength": 2, "maxLength": 30},
+        "happened": {"type": "string", "minLength": 4, "maxLength": 300},
+        "why": {"type": "string", "minLength": 2, "maxLength": 200},
+        "later": {"type": "string", "maxLength": 200},
+        "evidence_excerpts": {"$ref": "#/$defs/excerpts"}
+      }
+    },
+    "updated_memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["memory_id", "later", "evidence_excerpts", "reason"],
+      "properties": {
+        "memory_id": {"$ref": "#/$defs/ref_id"},
+        "later": {"type": "string", "minLength": 2, "maxLength": 200},
+        "evidence_excerpts": {"$ref": "#/$defs/excerpts"},
+        "reason": {"type": "string", "minLength": 2, "maxLength": 200}
+      }
+    }
+  }
+}

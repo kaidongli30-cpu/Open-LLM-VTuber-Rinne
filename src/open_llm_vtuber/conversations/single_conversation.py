@@ -22,6 +22,10 @@ from .scene_continuity import decide_scene_continuity_instruction
 from .tts_manager import TTSTaskManager
 from .tool_call_feedback import ToolCallFeedbackManager
 from ..chat_history_manager import store_message
+from .attention_slot import (
+    CARD_INSTRUCTION_END, CARD_INSTRUCTION_START, SceneCardStore,
+    build_response_reminder, render_previous_card,
+)
 from ..data_paths import character_history_root
 from ..service_context import ServiceContext
 from ..memory.live_retrieval import (
@@ -297,6 +301,11 @@ async def process_single_conversation(
         getattr(basic_memory_config, "scene_memory_enabled", False)
     )
     scene_store = SceneStateStore(history_root) if scene_memory_enabled else None
+    response_reminder_enabled = bool(getattr(basic_memory_config, "response_reminder_enabled", False))
+    scene_card_enabled = bool(getattr(basic_memory_config, "scene_card_enabled", False))
+    scene_card_position = getattr(basic_memory_config, "scene_card_position", "end")
+    card_store = SceneCardStore(history_root) if scene_card_enabled else None
+    card_injected_written_at = None
     scene_memory_day: str | None = None
     scene_snapshot: dict[str, Any] = {}
     scene_deltas: list[dict[str, Any]] = []
@@ -392,6 +401,20 @@ async def process_single_conversation(
                 "[最高回复方式] 文件无效，本轮未注入：{}",
                 mandatory_response_rules_diagnostics.get("error", "unknown"),
             )
+        if not metadata.get("proactive_speak"):
+            if response_reminder_enabled and mandatory_response_rules:
+                reminder = build_response_reminder(mandatory_response_rules)
+                if reminder is not None:
+                    metadata["response_reminder"] = reminder
+                else:
+                    logger.warning("[贴身提醒] 回复方式第 7 条不存在，本轮跳过")
+            if card_store is not None:
+                previous_card = await asyncio.to_thread(card_store.load_fresh, datetime.fromisoformat(request_received_at))
+                if previous_card is not None:
+                    card_injected_written_at = previous_card["written_at"]
+                    metadata["scene_card_previous_text"] = render_previous_card(previous_card["card_lines"], card_injected_written_at)
+                    logger.info("[场景卡片] 已放入上一轮卡片：written_at={}", card_injected_written_at)
+                metadata["scene_card_instruction"] = CARD_INSTRUCTION_START if scene_card_position == "start" else CARD_INSTRUCTION_END
         retrieval_config = context.character_config.agent_config.agent_settings.basic_memory_agent.long_term_memory_retrieval
         trial_log_enabled = bool(retrieval_config.trial_logging)
         llm = getattr(context.agent_engine, "_llm", None)
@@ -756,6 +779,10 @@ async def process_single_conversation(
             client_uid=client_uid,
         )
 
+        if card_store is not None and not metadata.get("proactive_speak") and metadata.get("_scene_card_new"):
+            await asyncio.to_thread(card_store.save, metadata["_scene_card_new"], datetime.now().astimezone(), str(metadata.get("source_channel", "desktop")))
+            logger.info("[场景卡片] 已写下本轮卡片：status={}", metadata.get("_scene_card_status"))
+
         scene_deltas = metadata.get("_scene_deltas")
         if (
             scene_store is not None
@@ -875,6 +902,13 @@ async def process_single_conversation(
                     mandatory_response_rules_diagnostics
                 ),
                 "video_analysis_diagnostics": video_analysis_diagnostics,
+                "attention_slot": {
+                    "reminder_chars": len(metadata.get("response_reminder", "")),
+                    "card_injected": bool(metadata.get("scene_card_previous_text")),
+                    "card_injected_written_at": card_injected_written_at,
+                    "card_status": metadata.get("_scene_card_status"),
+                    "card_lines": metadata.get("_scene_card_new"),
+                },
                 "scene_memory": scene_snapshot,
                 "scene_deltas": list(scene_deltas)
                 if isinstance(scene_deltas, list)

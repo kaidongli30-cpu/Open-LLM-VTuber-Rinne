@@ -30,6 +30,7 @@ from .conversations.conversation_handler import (
 from .memory.session_context import load_cloud_session_memory
 from .data_paths import character_history_root
 from .rinne_renderer_profile import RinneRuntimeOutfitController
+from .ra3_teaching import Ra3TeachingGateway
 
 
 class MessageType(Enum):
@@ -46,6 +47,7 @@ class MessageType(Enum):
     CONFIG = ["fetch-configs", "switch-config"]
     CONTROL = ["interrupt-signal", "audio-play-start"]
     DATA = ["mic-audio-data", "manual-audio-data"]
+    RA3_TEACHING = ["ra3-teaching-state", "ra3-teaching-input"]
 
 
 class WSMessage(TypedDict, total=False):
@@ -61,6 +63,8 @@ class WSMessage(TypedDict, total=False):
     file: Optional[str]
     profile_id: Optional[str]
     display_text: Optional[dict]
+    request_id: Optional[str]
+    match_id: Optional[str]
 
 
 class WebSocketHandler:
@@ -81,6 +85,7 @@ class WebSocketHandler:
         self.manual_audio_buffers: Dict[str, Dict[str, List[np.ndarray]]] = {}
         self.pending_system_notifications: List[dict] = []
         self.rinne_outfit_controller = rinne_outfit_controller
+        self.ra3_teaching = Ra3TeachingGateway()
 
         # Message handlers mapping
         self._message_handlers = self._init_message_handlers()
@@ -103,6 +108,8 @@ class WebSocketHandler:
             "manual-audio-end": self._handle_manual_audio_end,
             "raw-audio-data": self._handle_raw_audio_data,
             "text-input": self._handle_conversation_trigger,
+            "ra3-teaching-state": self._handle_ra3_teaching_state,
+            "ra3-teaching-input": self._handle_ra3_teaching_input,
             "ai-speak-signal": self._handle_conversation_trigger,
             "fetch-configs": self._handle_fetch_configs,
             "switch-config": self._handle_config_switch,
@@ -247,11 +254,6 @@ class WebSocketHandler:
                 "set_recent_memory_context",
                 None,
             )
-            if callable(set_recent_context):
-                set_recent_context("")
-            session_service_context.recent_memory_context = ""
-            session_service_context.recent_memory_diagnostics = {}
-
             ##=====2026-07-08新加：让本地模型无需读取先前记忆，只根据conf.yaml里的prompt进行输出=====
             # 本地模型模式：跳过长期记忆注入
             # 目的：让 qwen3:14b 不读取长期记忆，仅保留人格提示和今日历史
@@ -270,6 +272,8 @@ class WebSocketHandler:
             if is_local_ollama:
                 if callable(set_recent_context):
                     set_recent_context("")
+                session_service_context.recent_memory_context = ""
+                session_service_context.recent_memory_diagnostics = {}
                 if hasattr(session_service_context.agent_engine, "_memory"):
                     session_service_context.agent_engine._memory = []
 
@@ -328,8 +332,6 @@ class WebSocketHandler:
             )
 
             if history_dir.exists() and hasattr(session_service_context.agent_engine, '_memory'):
-                session_service_context.agent_engine._memory = []
-
                 retrieval_config = (
                     session_service_context.character_config.agent_config
                     .agent_settings.basic_memory_agent.long_term_memory_retrieval
@@ -347,9 +349,9 @@ class WebSocketHandler:
                 )
                 if callable(set_recent_context):
                     set_recent_context(memory_snapshot.recent_context)
-                session_service_context.agent_engine._memory.extend(
-                    memory_snapshot.messages
-                )
+                # Replace only after both disk-backed contexts have loaded.
+                # A failed refresh must not erase an already usable day.
+                session_service_context.agent_engine._memory = list(memory_snapshot.messages)
 
                 logger.info(
                     f"[记忆加载完成] 客户端 {client_uid}：注入近期"
@@ -446,7 +448,10 @@ class WebSocketHandler:
             while True:
                 try:
                     data = await websocket.receive_json()
-                    message_handler.handle_message(client_uid, data)
+                    # Teaching requests have their own strict ID validator and
+                    # are not replies to a generic message-handler waiter.
+                    if data.get("type") not in MessageType.RA3_TEACHING.value:
+                        message_handler.handle_message(client_uid, data)
                     await self._route_message(websocket, client_uid, data)
                 except WebSocketDisconnect:
                     raise
@@ -510,6 +515,7 @@ class WebSocketHandler:
 
     async def handle_disconnect(self, client_uid: str) -> None:
         """Handle client disconnection"""
+        self.ra3_teaching.discard(client_uid)
         group = self.chat_group_manager.get_client_group(client_uid)
         if group:
             await handle_group_interrupt(
@@ -548,6 +554,7 @@ class WebSocketHandler:
 
     async def _cleanup_failed_connection(self, client_uid: str) -> None:
         """Clean up failed connection data"""
+        self.ra3_teaching.discard(client_uid)
         context = self.client_contexts.pop(client_uid, None)
         self.client_connections.pop(client_uid, None)
         self.received_data_buffers.pop(client_uid, None)
@@ -672,6 +679,19 @@ class WebSocketHandler:
         history_uid = create_new_history(context.character_config.conf_uid)
         if history_uid:
             context.history_uid = history_uid
+            # The new file controls UI/persistence, not the companion's day.
+            # Restore all current-memory-day turns, including earlier sessions,
+            # so the automatic create-new-history after connect cannot wipe them.
+            if hasattr(context.agent_engine, "_memory"):
+                await self._load_session_memory(context, client_uid)
+            else:
+                context.agent_engine.set_memory_from_history(
+                    conf_uid=context.character_config.conf_uid,
+                    history_uid=history_uid,
+                )
+            reset_repetition = getattr(context.agent_engine, "reset_repetition_history", None)
+            if callable(reset_repetition):
+                reset_repetition()
             await websocket.send_text(
                 json.dumps(
                     {
@@ -785,6 +805,16 @@ class WebSocketHandler:
                     await websocket.send_text(
                         json.dumps({"type": "control", "text": "mic-audio-end"})
                     )
+
+    async def _handle_ra3_teaching_state(
+        self, websocket: WebSocket, client_uid: str, data: dict
+    ) -> None:
+        await self.ra3_teaching.state(self, websocket, client_uid, data)
+
+    async def _handle_ra3_teaching_input(
+        self, websocket: WebSocket, client_uid: str, data: dict
+    ) -> None:
+        await self.ra3_teaching.submit(self, websocket, client_uid, data)
 
     async def _handle_conversation_trigger(
         self, websocket: WebSocket, client_uid: str, data: WSMessage

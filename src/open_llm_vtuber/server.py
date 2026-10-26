@@ -29,6 +29,7 @@ from .routes import (
 )
 from .service_context import ServiceContext
 from .config_manager.utils import Config
+from .background_catalog import load_background_catalog
 from .websocket_handler import WebSocketHandler
 from .memory.daily_child_events import ChildEventWorkerLaunch
 from .memory.layer2_runtime import Layer2WorkerLaunch
@@ -81,6 +82,19 @@ class CORSStaticFiles(StarletteStaticFiles):
         if path in ("", "index.html"):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
             response.headers["Pragma"] = "no-cache"
+        return response
+
+
+class BackgroundStaticFiles(CORSStaticFiles):
+    """Keep saved background URLs working when a local catalog replaces images."""
+
+    async def get_response(self, path: str, scope):
+        catalog = load_background_catalog(self.directory)
+        if catalog is not None:
+            path = catalog.aliases.get(path, path)
+        response = await super().get_response(path, scope)
+        if catalog is not None:
+            response.headers["Cache-Control"] = "no-cache"
         return response
 
 
@@ -221,7 +235,7 @@ class WebSocketServer:
         )
         self.app.mount(
             "/bg",
-            CORSStaticFiles(directory="backgrounds"),
+            BackgroundStaticFiles(directory="backgrounds"),
             name="backgrounds",
         )
         self.app.mount(

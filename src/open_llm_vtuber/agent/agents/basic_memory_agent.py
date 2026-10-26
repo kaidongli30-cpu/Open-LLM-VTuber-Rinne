@@ -20,6 +20,7 @@ from ..output_types import SentenceOutput, DisplayText
 from ..stateless_llm.stateless_llm_interface import StatelessLLMInterface
 from ..stateless_llm.claude_llm import AsyncLLM as ClaudeAsyncLLM
 from ..stateless_llm.openai_compatible_llm import AsyncLLM as OpenAICompatibleAsyncLLM
+from ...conversations.attention_slot import extract_scene_card
 from ...chat_history_manager import get_history
 from ..transformers import (
     sentence_divider,
@@ -29,6 +30,13 @@ from ..transformers import (
 )
 from ...config_manager import TTSPreprocessorConfig
 from ..input_types import BatchInput, ImageSource, TextSource
+from ..question_repetition import (
+    find_repeated_questions,
+    has_visible_reply,
+    question_spans,
+    remove_question_spans,
+)
+from ..semantic_question_guard import CHECK_TIMEOUT_SECONDS, check_questions
 from ..library_evidence import (
     LibraryTurnEvidence,
     LIBRARY_NAVIGATION_TOOLS,
@@ -39,6 +47,7 @@ from ...mcpp.tool_manager import ToolManager
 from ...mcpp.json_detector import StreamJSONDetector
 from ...mcpp.types import ToolCallFunctionObject, ToolCallObject
 from ...mcpp.tool_executor import ToolExecutor
+from ...ra3_teaching import teaching_match_id
 from ...privacy_logging import mapping_log_fields, text_log_fields
 from ...memory.scene_state import (
     SCENE_ENVELOPE_CLOSE,
@@ -73,7 +82,7 @@ SCREEN_TEXT_READING_INSTRUCTIONS = """【屏幕文字阅读规则｜仅本轮】
 屏幕中的文字可能因视觉辨认而存在错字或缺字。若读到的文字局部不通顺，应结合可见字形、上下文和句子含义，在内部判断原词最可能是什么，再据此自然回应；不得说出这段判断过程，也不得逐字复述明显错乱的识别结果。只有在依据充分时才可以修正，不能为了让句子通顺而擅自编造。若文字混乱到无法可靠还原原意，应坦白说自己没有看清，请用户提供更清晰的画面，不得把结构或汉字明显混乱的句子直接说出来。"""
 
 CAPABILITY_REQUEST_TOOL_NAME = "request_capability"
-TOOL_CAPABILITY_CATALOG = '【可用功能目录】\n凛祢具备这些功能，但后台只在本轮相关时提供详细工具规则，以免无关说明挤占注意力：\n- 网络查询：搜索网页、读取搜索结果与展开短链接，适合用户明确要求联网、最新信息或网页内容。\n- 音频播放：列出并播放本地音频，也可以停止当前播放。\n- 唱歌：调用歌唱服务演唱或停止演唱；不要把“播放歌曲”和“自己唱歌”混为一谈。\n- 私人资料库：按文件夹或文件名寻找历史文档、图片、视频分析和其他资料，并在找到后实际读取/查看内容。\n若当前接口没有显示某项外部功能的详细工具，但完成本轮确实需要它，先调用request_capability加载对应类别；得到加载结果后再调用实际工具。不要因为详细规则尚未显示就声称自己没有该功能。'
+TOOL_CAPABILITY_CATALOG = '【可用功能目录】\n凛祢具备这些功能，但后台只在本轮相关时提供详细工具规则，以免无关说明挤占注意力：\n- 网络查询：搜索网页、读取搜索结果与展开短链接，适合用户明确要求联网、最新信息或网页内容。\n- 音频播放：列出并播放本地音频，也可以停止当前播放。\n- 唱歌：调用歌唱服务演唱或停止演唱；不要把“播放歌曲”和“自己唱歌”混为一谈。\n- 私人资料库：按文件夹或文件名寻找历史文档、图片、视频分析和其他资料，并在找到后实际读取/查看内容。\n- 红警对局：读取本方可见与公开战况，按用户明确的游戏指令提交、查询、修改或取消任务，并查看教学记录；只在游戏在线时操作，不自行下令。\n若当前接口没有显示某项外部功能的详细工具，但完成本轮确实需要它，先调用request_capability加载对应类别；得到加载结果后再调用实际工具。不要因为详细规则尚未显示就声称自己没有该功能。'
 
 _CAPABILITY_TOOL_NAMES = {
     "web": {"search", "fetch_content", "expand_link"},
@@ -87,12 +96,17 @@ _CAPABILITY_TOOL_NAMES = {
         "library_view_image",
         "library_read_video_analysis",
     },
+    "ra3": {
+        "ra3_current_state", "ra3_submit_task", "ra3_task_status",
+        "ra3_cancel_task", "ra3_revise_task", "ra3_teaching_records",
+    },
 }
 _CAPABILITY_LABELS = {
     "web": "网络查询",
     "audio": "音频播放",
     "singing": "唱歌",
     "library": "私人资料库",
+    "ra3": "红警对局",
 }
 _CAPABILITY_PATTERNS = {
     "web": re.compile(
@@ -107,6 +121,14 @@ _CAPABILITY_PATTERNS = {
     "library": re.compile(
         r"资料库|相册|历史(?:文件|图片|照片|视频|文档)|文件|文档|图片|照片|视频|"
         r"专辑.*(?:放|在)哪|(?:放|存)在哪里|找出来|重新(?:看|读|打开)|打开.*(?:文件|文档|图片|照片|视频)",
+        re.IGNORECASE,
+    ),
+    "ra3": re.compile(
+        r"红警|红色警戒|RA3|天狗|矿车|兵营|重工|船厂|"
+        r"(?:[一二三四五六七八九十\d]+|主|副)矿|"
+        r"(?:造|出|生产).{0,8}(?:帽子|武士)|(?:帽子|武士).{0,8}(?:去|打|拆|守|回|保护)|"
+        r"(?:卖|造|建|放|下|收起|展开).{0,12}(?:电厂|基地|核心|围墙)|"
+        r"^\s*(?:算了|取消(?:刚才|上一条|任务|命令)?)[。.!！?？\s]*$",
         re.IGNORECASE,
     ),
 }
@@ -264,9 +286,17 @@ _PROVIDER_TOOL_PARAMETER = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _MESSAGE_TIME_CONTEXT_ECHO = re.compile(
-    r"【消息时间：[^\r\n】]{1,160}｜记忆日：\d{4}-\d{2}-\d{2}（03:00分界）】[ \t]*"
+    r"【消息时间[：:][ \t\r\n]*\d{4}-\d{2}-\d{2}"
+    r"[Tt ][0-9:.+Zz \t\r\n-]{1,64}[｜|]?[ \t\r\n]*"
+    r"记忆日[：:][ \t\r\n]*\d{4}-\d{2}-\d{2}"
+    r"(?:[ \t\r\n]*[（(]\d{2}:\d{2}分界[）)])?[ \t\r\n]*】[ \t]*"
 )
-_MESSAGE_TIME_CONTEXT_PREFIX = "【消息时间："
+_MESSAGE_TIME_CONTEXT_PREFIX = "【消息时间"
+_MESSAGE_TIME_CONTEXT_UNFINISHED = re.compile(
+    r"【消息时间[：:][ \t\r\n]*\d{4}-\d{2}-\d{2}"
+    r"[Tt ][0-9:.+Zz \t\r\n-]{1,64}"
+    r"(?:[｜|]?[ \t\r\n]*记忆日[：:][0-9\- \t\r\n（():：分界）]{0,80})?$"
+)
 _RESPONSE_CLAUSE_SPLIT = re.compile(r"[，,。！？!?；;：:\r\n]+")
 _EXPLICIT_REPEAT_REQUEST = re.compile(
     r"原样(?:再)?说|原话|再说一遍|再讲一遍|重复一遍|复述一遍|照着说"
@@ -347,9 +377,11 @@ def _strip_provider_control_tokens(text: str) -> str:
 
 
 def _strip_message_time_context_echo(text: str) -> str:
-    """Remove only the exact internal timestamp label used by this project."""
+    """Remove structured internal labels, including provider punctuation variants."""
 
-    return _MESSAGE_TIME_CONTEXT_ECHO.sub("", text)
+    return _MESSAGE_TIME_CONTEXT_UNFINISHED.sub(
+        "", _MESSAGE_TIME_CONTEXT_ECHO.sub("", text)
+    )
 
 
 def _response_repetition_clauses(text: str) -> list[tuple[str, str]]:
@@ -357,6 +389,8 @@ def _response_repetition_clauses(text: str) -> list[tuple[str, str]]:
 
     cleaned = _strip_message_time_context_echo(text)
     cleaned = _VISIBLE_ACTION_TAG.sub("", cleaned)
+    for question in reversed(question_spans(cleaned, informational_only=False)):
+        cleaned = cleaned[: question.start] + " " + cleaned[question.end :]
     clauses: list[tuple[str, str]] = []
     for raw_clause in _RESPONSE_CLAUSE_SPLIT.split(cleaned):
         visible = raw_clause.strip(" \t\"'“”‘’（）()…—-_")
@@ -403,12 +437,12 @@ def _find_repeated_response_passage(
                 ratio = similarity.ratio()
                 if response_offset < 5:
                     repeated = (
-                        (contained and shorter >= 10)
+                        contained
                         or ratio >= 0.82
-                        or longest_match >= 9
+                        or longest_match >= 7
                     )
                 else:
-                    repeated = (contained and shorter >= 14) or ratio >= 0.92
+                    repeated = contained or longest_match >= 7 or ratio >= 0.92
                 if repeated:
                     return previous_visible, draft_visible
     return None
@@ -557,9 +591,8 @@ async def _strip_message_time_context_stream(
 
     async for item in stream:
         if not isinstance(item, str):
-            if pending:
-                yield pending
-                pending = ""
+            # A tool/status event can arrive between text chunks. Keep a
+            # possible label quarantined until its following text arrives.
             yield item
             continue
         pending += item
@@ -604,7 +637,7 @@ async def _strip_message_time_context_stream(
                 pending = ""
             break
 
-    if pending:
+    if pending and _MESSAGE_TIME_CONTEXT_UNFINISHED.fullmatch(pending) is None:
         yield pending
 
 
@@ -645,10 +678,13 @@ class BasicMemoryAgent(AgentInterface):
         tool_manager: Optional[ToolManager] = None,
         tool_executor: Optional[ToolExecutor] = None,
         mcp_prompt_string: str = "",
+        question_judge_llm: StatelessLLMInterface | None = None,
     ):
         """Initialize agent with LLM and configuration."""
         super().__init__()
+        self._question_judge_llm = question_judge_llm
         self._memory = []
+        self._repetition_history_start = 0
         self._recent_memory_context = ""
         self._request_system_prompt = ""
         self._mandatory_response_rules = ""
@@ -765,6 +801,9 @@ class BasicMemoryAgent(AgentInterface):
             if ttl[capability] <= 0:
                 del ttl[capability]
         reasons: list[str] = []
+        if teaching_match_id.get() is not None:
+            ttl["ra3"] = 3
+            reasons.append("ra3:本局教学输入")
         for capability, pattern in _CAPABILITY_PATTERNS.items():
             if pattern.search(user_text or ""):
                 ttl[capability] = 3
@@ -1085,74 +1124,46 @@ class BasicMemoryAgent(AgentInterface):
         return "抱歉，刚才云端没有返回有效内容，请再说一次。"
 
     @staticmethod
-    def _latest_user_text(messages: List[Dict[str, Any]]) -> str:
+    def _latest_user_text(
+        messages: List[Dict[str, Any]], exclude_texts: tuple[str, ...] = ()
+    ) -> str:
         for message in reversed(messages):
             if message.get("role") != "user":
                 continue
             content = message.get("content")
             if isinstance(content, str):
-                return content
+                return "" if content in exclude_texts else content
             if isinstance(content, list):
                 return " ".join(
                     str(block.get("text", ""))
                     for block in content
-                    if isinstance(block, dict) and block.get("type") == "text"
+                    if isinstance(block, dict)
+                    and block.get("type") == "text"
+                    and block.get("text", "") not in exclude_texts
                 )
         return ""
 
-    async def _rewrite_repetitive_final_response(
+    def _attention_texts_to_exclude(self) -> tuple[str, ...]:
+        """Keep temporary attention blocks out of the user's actual words."""
+        metadata = getattr(self, "_active_scene_metadata", None) or {}
+        return tuple(
+            value
+            for key in (
+                "scene_card_previous_text", "response_reminder", "scene_card_instruction"
+            )
+            if isinstance(value := metadata.get(key), str) and value
+        )
+
+    async def _request_repetition_rewrite(
         self,
         draft: str,
         messages: List[Dict[str, Any]],
         system_prompt: str,
-    ) -> str:
-        """Ask for one complete rewrite after identifying the repeated clause."""
-
-        guarded = self._guard_library_reply(draft)
-        evidence = getattr(self, "_library_turn_evidence", None)
-        failure_without_content = bool(
-            evidence is not None
-            and (
-                evidence.failed_search or evidence.empty_search or evidence.failed_reads
-            )
-            and not (evidence.successful_reads or evidence.current_image)
-        )
-        if guarded != draft or failure_without_content:
-            return guarded
-
-        if not draft.strip() or getattr(self, "_request_is_proactive", False):
-            return draft
-        current_user_text = self._latest_user_text(messages)
-        if _EXPLICIT_REPEAT_REQUEST.search(current_user_text):
-            return draft
-        previous_responses = [
-            str(message.get("content", ""))
-            for message in self._memory
-            if message.get("role") == "assistant"
-            and isinstance(message.get("content"), str)
-            and str(message.get("content", "")).strip()
-        ]
-        match = _find_repeated_response_passage(draft, previous_responses)
-        if match is None:
-            return draft
-
-        previous_passage, repeated_passage = match
-        retry_instruction = (
-            "【本轮静默去重：重写完整回复】\n"
-            "下面草稿中有一句话重复了较早已经表达过的内容。请重新写出一份完整、"
-            "自然、可以直接发送给用户的最终回复：保持草稿回应本轮输入的原意、"
-            "事实和必要动作，但删去或真正改写指定的重复句，不要再复述它或换句话"
-            "重复。没有新的内容可替代时，直接省略该句。只输出重写后的完整回复，"
-            "保留正常的情绪标签和对话动作；不得解释规则、检查、草稿或重写过程。\n"
-            f"较早已经说过：{previous_passage[:180]}\n"
-            f"整段草稿：{draft[:500]}\n"
-            f"草稿中必须处理的重复句：{repeated_passage[:180]}"
-        )
+        instruction: str,
+    ) -> str | None:
+        """Make one bounded rewrite request, rejecting unusable model output."""
         response_parts: list[str] = []
-        stream = self._llm.chat_completion(
-            messages,
-            self._library_evidence_prompt(f"{system_prompt}\n\n{retry_instruction}"),
-        )
+        stream = None
 
         async def collect_rewrite() -> None:
             async for event in stream:
@@ -1166,32 +1177,43 @@ class BasicMemoryAgent(AgentInterface):
                     response_parts.append(event["text"])
 
         try:
+            stream = self._llm.chat_completion(
+                messages,
+                self._library_evidence_prompt(f"{system_prompt}\n\n{instruction}"),
+            )
             await asyncio.wait_for(
                 collect_rewrite(),
                 timeout=REPETITION_REWRITE_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
             logger.warning(
-                "重复回复整段重写等待超过{:.0f}秒，静默采用原草稿",
+                "重复回复重写等待超过{:.0f}秒",
                 REPETITION_REWRITE_TIMEOUT_SECONDS,
             )
-            return draft
+            return None
         except Exception as exc:
             logger.warning(
-                "重复回复整段重写失败，保留原草稿: {}",
+                "重复回复重写失败: {}",
                 type(exc).__name__,
             )
-            return draft
+            return None
         finally:
-            await _close_llm_stream(stream)
+            if stream is not None:
+                await _close_llm_stream(stream)
 
         rewritten = "".join(response_parts)
+        metadata = getattr(self, "_active_scene_metadata", None) or {}
+        if metadata.get("scene_card_instruction") and not metadata.get("proactive_speak"):
+            rewritten, _, _ = extract_scene_card(rewritten)
+            if not rewritten.strip():
+                logger.warning("重复回复重写只有卡片、没有正文，按重写失败处理")
+                return None
         rewritten = _strip_leading_internal_analysis(rewritten)
         rewritten = _strip_answer_number_prefix(rewritten)
         rewritten = _strip_provider_control_tokens(rewritten)
         rewritten = _strip_message_time_context_echo(rewritten).strip()
         if not rewritten:
-            return draft
+            return None
 
         rewritten, removed_versions = _strip_repeated_rewrite_versions(rewritten)
         if removed_versions:
@@ -1205,22 +1227,278 @@ class BasicMemoryAgent(AgentInterface):
         if (
             evidence is not None
             and evidence.calls
-            and _find_repeated_response_passage(rewritten, previous_responses)
+            and _find_repeated_response_passage(
+                rewritten,
+                [
+                    message["content"]
+                    for message in self._repetition_history()
+                    if message.get("role") == "assistant"
+                    and isinstance(message.get("content"), str)
+                ],
+            )
         ):
             rejection_reason = "repeated_library_history"
         if rejection_reason is not None:
             logger.warning(
-                "重写结果未通过语言与身份检查，保留原草稿（原因：{}）",
+                "重写结果未通过检查（原因：{}）",
                 rejection_reason,
             )
-            return draft
-
-        logger.info(
-            "检测到明显重复句，已让模型整段重写一次（草稿{}字，重写{}字）",
-            len(draft),
-            len(rewritten),
-        )
+            return None
+        logger.info("重复内容已整段重写一次（草稿{}字，重写{}字）", len(draft), len(rewritten))
         return self._guard_library_reply(rewritten)
+
+    async def _rewrite_repetitive_final_response(
+        self,
+        draft: str,
+        messages: List[Dict[str, Any]],
+        system_prompt: str,
+    ) -> str:
+        """Use validated repetition checks; preserve the draft if checking fails."""
+        # Transport errors are not Opus drafts. Keep diagnostics in the backend
+        # logs and deliver a fixed reply without another model request.
+        if draft.lstrip().startswith("Error calling the chat endpoint:"):
+            self._question_checks_this_reply = []
+            logger.warning("主模型请求失败，交付固定断线提示；详细错误见上游日志")
+            return "[gentle]……刚才好像断线了，再说一遍好吗？"
+        judge = getattr(self, "_question_judge_llm", None)
+        if judge is None:
+            return await self._rewrite_repetitive_final_response_legacy(
+                draft, messages, system_prompt
+            )
+        guarded = self._guard_library_reply(draft)
+        evidence = getattr(self, "_library_turn_evidence", None)
+        skip_passage = guarded != draft or bool(
+            evidence is not None
+            and (
+                evidence.failed_search or evidence.empty_search or evidence.failed_reads
+            )
+            and not (evidence.successful_reads or evidence.current_image)
+        )
+        draft = guarded
+        if not draft.strip():
+            return draft
+        history = [dict(message) for message in self._repetition_history()]
+        self._question_checks_this_reply = []
+        check_budget = CHECK_TIMEOUT_SECONDS
+
+        async def inspect(text):
+            nonlocal check_budget
+            result = await check_questions(
+                judge,
+                text,
+                history,
+                current_user_text=self._latest_user_text(messages, self._attention_texts_to_exclude()),
+                timeout_seconds=check_budget,
+            )
+            check_budget = max(0.0, check_budget - result.elapsed)
+            self._question_checks_this_reply.append(result)
+            logger.info(
+                "信息问句检查：完成={}，命中={}，请求={}，耗时={:.2f}秒",
+                result.ok,
+                len(result.repeated),
+                result.calls,
+                result.elapsed,
+            )
+            return result
+
+        checked = await inspect(draft)
+        if not checked.ok:
+            logger.warning("信息问句检查未完成，不重试，保留Opus原回复：{}", checked.error)
+            return draft
+        questions = checked.repeated
+        previous_responses = [
+            message["content"]
+            for message in history
+            if message.get("role") == "assistant"
+            and isinstance(message.get("content"), str)
+        ]
+        passage = (
+            None
+            if skip_passage
+            or getattr(self, "_request_is_proactive", False)
+            or _EXPLICIT_REPEAT_REQUEST.search(self._latest_user_text(messages, self._attention_texts_to_exclude()))
+            else _find_repeated_response_passage(
+                remove_question_spans(draft, [d.span for d in checked.decisions]),
+                previous_responses,
+            )
+        )
+        if not questions and passage is None:
+            return draft
+        details = []
+        if passage is not None:
+            details.append(f"较早已经说过：{passage[0]}\n草稿中的重复句：{passage[1]}")
+        for question in questions:
+            details.append(
+                f"已存在的信息依据（消息{question.source_id}）：{question.source_text}\n"
+                f"草稿中重复的问题：{question.span.text}\n"
+                f"旧问题之后的对话节选：{self._question_followup_context(history, question.source_id)}\n"
+                f"重复原因：{question.reason}"
+            )
+        instruction = (
+            "【本轮静默去重：重写完整回复】\n"
+            "请重新写出自然、可以直接发送给用户的完整回复，保留回应本轮输入的"
+            "事实和必要动作，删除或真正改写下列重复内容。只输出最终回复和正常情绪、"
+            "动作，不解释检查、草稿或重写过程。没有新内容可替代时直接省略。\n"
+        )
+        if questions:
+            instruction += (
+                "你问的问题重复了。请换一个问题，或者不要为了问问题而问问题。"
+                "用户已经回答过的内容不要再问；不得只换措辞重问同一个问题。\n"
+            )
+        instruction += "\n".join(details) + f"\n整段草稿：{draft}"
+        rewritten = await self._request_repetition_rewrite(
+            draft, messages, system_prompt, instruction
+        )
+        candidate = rewritten if rewritten is not None else draft
+        candidate_check = checked if candidate == draft else await inspect(candidate)
+        if not candidate_check.ok:
+            logger.warning("重写后的信息问句检查未完成，保留Opus原回复：{}", candidate_check.error)
+            return draft
+        remaining = candidate_check.repeated
+        if remaining:
+            candidate = remove_question_spans(
+                candidate, [item.span for item in remaining]
+            )
+        if has_visible_reply(candidate):
+            logger.info(
+                "重复问句已重写或移除，保留其余回复（原命中{}处）", len(questions)
+            )
+            return candidate
+
+        # A question-only reply gets one final attempt, with no further retries.
+        extra = await self._request_repetition_rewrite(
+            draft,
+            messages,
+            system_prompt,
+            instruction
+            + "\n重复问句已移除，回复没有剩余正文。请只回应用户本轮说的话，"
+            "生成一份简短、完全不带问题的完整回复，不要索取更多信息，也不要解释重写。",
+        )
+        if extra is not None:
+            final_check = await inspect(extra)
+            if not final_check.ok:
+                logger.warning("补写后的信息问句检查未完成，保留Opus原回复：{}", final_check.error)
+                return draft
+            if final_check.ok:
+                extra = remove_question_spans(
+                    extra, [item.span for item in final_check.decisions]
+                )
+                if has_visible_reply(extra):
+                    return extra
+        logger.warning(
+            "重复内容处理后仍无可朗读正文，使用固定兜底：路径=semantic，"
+            "问句命中={}，草稿字数={}，候选字数={}，补写字数={}",
+            len(questions), len(draft), len(candidate), len(extra or ""),
+        )
+        return "[gentle]我在听，用户。"
+
+    @staticmethod
+    def _question_followup_context(history, source_id):
+        if not isinstance(source_id, int):
+            return "同一份待发送回复中已经出现过该问题。"
+        excerpts = [
+            f"{m.get('role')}：{m['content'][:500]}"
+            for m in history[source_id + 1 : source_id + 7]
+            if m.get("role") in ("assistant", "user")
+            and isinstance(m.get("content"), str)
+        ]
+        return "\n".join(excerpts) or "没有后续对话，不能断言已得到回答。"
+
+    async def _rewrite_repetitive_final_response_legacy(
+        self,
+        draft: str,
+        messages: List[Dict[str, Any]],
+        system_prompt: str,
+    ) -> str:
+        """Rewrite repetition before delivery; never restore a repeated question."""
+        guarded = self._guard_library_reply(draft)
+        evidence = getattr(self, "_library_turn_evidence", None)
+        skip_passage = guarded != draft or bool(
+            evidence is not None
+            and (
+                evidence.failed_search or evidence.empty_search or evidence.failed_reads
+            )
+            and not (evidence.successful_reads or evidence.current_image)
+        )
+        draft = guarded
+        if not draft.strip() or getattr(self, "_request_is_proactive", False):
+            return draft
+        if _EXPLICIT_REPEAT_REQUEST.search(self._latest_user_text(messages, self._attention_texts_to_exclude())):
+            return draft
+        history = self._repetition_history()
+        previous_responses = [
+            message["content"]
+            for message in history
+            if message.get("role") == "assistant"
+            and isinstance(message.get("content"), str)
+        ]
+        questions = find_repeated_questions(draft, history)
+        passage = (
+            None
+            if skip_passage
+            else _find_repeated_response_passage(draft, previous_responses)
+        )
+        if not questions and passage is None:
+            return draft
+        details = []
+        if passage is not None:
+            details.append(f"较早已经说过：{passage[0]}\n草稿中的重复句：{passage[1]}")
+        for question in questions:
+            details.append(
+                f"同一聊天记录里已经问过：{question.previous}\n"
+                f"草稿中重复的问题：{question.current.text}\n"
+                f"随后对话（用于核对是否已有回答）：{question.followup}"
+            )
+        instruction = (
+            "【本轮静默去重：重写完整回复】\n"
+            "请重新写出自然、可以直接发送给用户的完整回复，保留回应本轮输入的"
+            "事实和必要动作，删除或真正改写下列重复内容。只输出最终回复和正常情绪、"
+            "动作，不解释检查、草稿或重写过程。没有新内容可替代时直接省略。\n"
+        )
+        if questions:
+            instruction += (
+                "你问的问题重复了。请换一个问题，或者不要为了问问题而问问题。"
+                "用户已经回答过的内容不要再问；不得只换措辞重问同一个问题。\n"
+            )
+        instruction += "\n".join(details) + f"\n整段草稿：{draft}"
+        rewritten = await self._request_repetition_rewrite(
+            draft, messages, system_prompt, instruction
+        )
+        candidate = rewritten if rewritten is not None else draft
+        remaining = find_repeated_questions(candidate, history)
+        if not questions and not remaining:
+            return candidate
+        if remaining:
+            candidate = remove_question_spans(
+                candidate, [item.current for item in remaining]
+            )
+        if has_visible_reply(candidate):
+            logger.info(
+                "重复问句已重写或移除，保留其余回复（原命中{}处）", len(questions)
+            )
+            return candidate
+
+        # A question-only reply gets one final attempt, with no further retries.
+        extra = await self._request_repetition_rewrite(
+            draft,
+            messages,
+            system_prompt,
+            instruction
+            + "\n重复问句已移除，回复没有剩余正文。请只回应用户本轮说的话，"
+            "生成一份简短、完全不带问题的完整回复，不要索取更多信息，也不要解释重写。",
+        )
+        if extra is not None:
+            extra = remove_question_spans(
+                extra, question_spans(extra, informational_only=False)
+            )
+            if has_visible_reply(extra):
+                return extra
+        logger.warning(
+            "重复内容处理后仍无可朗读正文，使用固定兜底：路径=legacy，"
+            "问句命中={}，草稿字数={}，候选字数={}，补写字数={}",
+            len(questions), len(draft), len(candidate), len(extra or ""),
+        )
+        return "[gentle]我在听，用户。"
 
     async def _build_forced_search_query(self, current_user_text: str) -> str:
         """Rewrite a spoken request into a concise query, with a local fallback."""
@@ -1319,11 +1597,20 @@ class BasicMemoryAgent(AgentInterface):
             ),
         }
 
+    def reset_repetition_history(self) -> None:
+        """Start a new chat's repeat checks while retaining today's memory."""
+        self._repetition_history_start = len(self._memory)
+
+    def _repetition_history(self) -> List[Dict[str, Any]]:
+        """Return only the active chat's turns for question/passage checks."""
+        return self._memory[getattr(self, "_repetition_history_start", 0) :]
+
     def set_memory_from_history(self, conf_uid: str, history_uid: str) -> None:
         """Load memory from chat history."""
         messages = get_history(conf_uid, history_uid)
 
         self._memory = []
+        self._repetition_history_start = 0
         for msg in messages:
             role = "user" if msg["role"] == "human" else "assistant"
             content = msg["content"]
@@ -1566,6 +1853,12 @@ class BasicMemoryAgent(AgentInterface):
                     user_content.append({"type": "text", "text": window_context})
             except Exception:
                 pass
+
+        if not self._request_is_proactive:
+            for slot_key in ("scene_card_previous_text", "response_reminder", "scene_card_instruction"):
+                slot_text = (input_data.metadata or {}).get(slot_key)
+                if isinstance(slot_text, str) and slot_text:
+                    user_content.append({"type": "text", "text": slot_text})
 
         if text_prompt:
             user_content.append(
@@ -1950,7 +2243,7 @@ class BasicMemoryAgent(AgentInterface):
                         self._format_turn_tool_result(
                             caller_mode,
                             tool_id,
-                            "功能类别无效；只能选择 web、audio、singing 或 library。",
+                            "功能类别无效；只能选择 web、audio、singing、library 或 ra3。",
                             True,
                         )
                     )
@@ -2364,6 +2657,10 @@ class BasicMemoryAgent(AgentInterface):
                             )
                         else:
                             current_assistant_message_content[-1]["text"] += text
+                    elif event["type"] == "thinking_complete":
+                        # Keep provider-signed blocks only in this tool exchange.
+                        # They are never added to visible text or stored memory.
+                        current_assistant_message_content.append(dict(event["data"]))
                     elif event["type"] == "tool_use_complete":
                         tool_call_data = event["data"]
                         logger.info(
@@ -2482,6 +2779,16 @@ class BasicMemoryAgent(AgentInterface):
                 # stop_reason = None
                 continue
             else:
+                scene_metadata = getattr(self, "_active_scene_metadata", None)
+                scene_card_requested = (
+                    isinstance(scene_metadata, dict)
+                    and bool(scene_metadata.get("scene_card_instruction"))
+                    and not scene_metadata.get("proactive_speak")
+                )
+                if scene_card_requested:
+                    current_turn_text, scene_card, card_status = extract_scene_card(current_turn_text)
+                    scene_metadata["_scene_card_new"] = scene_card
+                    scene_metadata["_scene_card_status"] = card_status
                 current_turn_text = _strip_leading_internal_analysis(current_turn_text)
                 current_turn_text = _strip_answer_number_prefix(current_turn_text)
                 current_turn_text = _strip_provider_control_tokens(current_turn_text)
@@ -2491,6 +2798,8 @@ class BasicMemoryAgent(AgentInterface):
                     messages,
                     current_system_prompt,
                 )
+                if scene_card_requested:
+                    current_turn_text, _, _ = extract_scene_card(current_turn_text)
                 if current_turn_text.strip():
                     yield current_turn_text
                     self._add_message(current_turn_text, "assistant")
@@ -2970,6 +3279,16 @@ class BasicMemoryAgent(AgentInterface):
                 continue
 
             else:
+                scene_metadata = getattr(self, "_active_scene_metadata", None)
+                scene_card_requested = (
+                    isinstance(scene_metadata, dict)
+                    and bool(scene_metadata.get("scene_card_instruction"))
+                    and not scene_metadata.get("proactive_speak")
+                )
+                if scene_card_requested:
+                    current_turn_text, scene_card, card_status = extract_scene_card(current_turn_text)
+                    scene_metadata["_scene_card_new"] = scene_card
+                    scene_metadata["_scene_card_status"] = card_status
                 current_turn_text = _strip_leading_internal_analysis(current_turn_text)
                 current_turn_text = _strip_answer_number_prefix(current_turn_text)
                 current_turn_text = _strip_provider_control_tokens(current_turn_text)
@@ -2979,6 +3298,8 @@ class BasicMemoryAgent(AgentInterface):
                     messages,
                     current_system_prompt,
                 )
+                if scene_card_requested:
+                    current_turn_text, _, _ = extract_scene_card(current_turn_text)
                 if current_turn_text.strip():
                     yield current_turn_text
                     self._add_message(current_turn_text, "assistant")
@@ -3225,6 +3546,8 @@ class BasicMemoryAgent(AgentInterface):
                 return
             else:
                 logger.info("Starting simple chat completion.")
+                if (input_data.metadata or {}).get("scene_card_instruction"):
+                    logger.warning("[场景卡片] 简单路径不提取卡片，仅使用现有输出过滤")
 
                 async def _simple_text_stream() -> AsyncIterator[str]:
                     token_stream = self._llm.chat_completion(
@@ -3253,9 +3576,14 @@ class BasicMemoryAgent(AgentInterface):
                     ),
                 ):
                     if isinstance(text_chunk, str):
-                        yield text_chunk
                         complete_response += text_chunk
+                complete_response = await self._rewrite_repetitive_final_response(
+                    complete_response,
+                    messages,
+                    self._finalize_request_system_prompt(self._current_request_system_prompt()),
+                )
                 if complete_response.strip():
+                    yield complete_response
                     self._add_message(complete_response, "assistant")
                 else:
                     fallback_text = self._build_missing_final_reply_message()
