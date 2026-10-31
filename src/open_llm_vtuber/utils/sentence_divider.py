@@ -460,8 +460,12 @@ class SentenceDivider:
                 processed_segment = ""
 
                 # Process complete sentences in text before tag
-                if contains_end_punctuation(text_before_tag):
+                if contains_end_punctuation(text_before_tag) or (
+                    self.segment_method == "lines" and "\n" in text_before_tag
+                ):
                     sentences, remaining_before = self._segment_text(text_before_tag)
+                    if self.segment_method == "lines" and remaining_before.strip():
+                        sentences.append(remaining_before)
                     for sentence in sentences:
                         if sentence.strip():
                             yield SentenceWithTags(
@@ -520,7 +524,9 @@ class SentenceDivider:
                         continue  # Restart processing loop
 
                 # Process normal sentences based on end punctuation
-                if contains_end_punctuation(self._buffer):
+                if contains_end_punctuation(self._buffer) or (
+                    self.segment_method == "lines" and "\n" in self._buffer
+                ):
                     sentences, remaining = self._segment_text(self._buffer)
                     if sentences:  # Only process if segmentation yielded sentences
                         self._buffer = remaining
@@ -610,6 +616,9 @@ class SentenceDivider:
 
     def _segment_text(self, text: str) -> Tuple[List[str], str]:
         """Segment text using the configured method"""
+        if self.segment_method == "lines":
+            parts = text.split("\n")
+            return parts[:-1], parts[-1]
         if self.segment_method == "regex":
             return segment_text_by_regex(text)
         return segment_text_by_pysbd(text)

@@ -506,9 +506,15 @@ def run(console_log_level: str):
                 config_data,
                 renderer_startup,
             )
-        config_data = apply_rinne_renderer_profile_to_config(
-            config_data, renderer_startup.profile
-        )
+        if all(os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+               for name in ("RINNE_HEADLESS_PRIVATE_BRIDGE", "RINNE_PRIVATE_BRIDGE_ENABLED")):
+            from src.open_llm_vtuber.rinne_renderer_profile import apply_qq_text_persona_to_config
+
+            config_data = apply_qq_text_persona_to_config(config_data)
+        else:
+            config_data = apply_rinne_renderer_profile_to_config(
+                config_data, renderer_startup.profile
+            )
         logger.info(f"Rinne renderer selected: {renderer_startup.profile.menu_label}")
     config: Config = validate_config(config_data)
     server_config = config.system_config

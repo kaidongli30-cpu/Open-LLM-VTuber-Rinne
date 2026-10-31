@@ -1,4 +1,5 @@
 import re
+import os
 from typing import AsyncIterator, Tuple, Callable, List, Union, Dict, Any
 from functools import wraps
 from .output_types import Actions, SentenceOutput, DisplayText
@@ -36,25 +37,51 @@ def sentence_divider(
         async def wrapper(
                 *args, **kwargs
         ) -> AsyncIterator[Union[SentenceWithTags, Dict[str, Any]]]:
+            private_lines = all(
+                os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+                for name in ("RINNE_HEADLESS_PRIVATE_BRIDGE", "RINNE_PRIVATE_BRIDGE_ENABLED")
+            )
             divider = SentenceDivider(
-                faster_first_response=faster_first_response,
-                segment_method=segment_method,
+                faster_first_response=False if private_lines else faster_first_response,
+                segment_method="lines" if private_lines else segment_method,
                 valid_tags=valid_tags or [],
             )
             stream_from_func = func(*args, **kwargs)
+            stats = {"source_chars": 0, "source_line_breaks": 0, "segments": 0}
 
-            async for item in divider.process_stream(stream_from_func):
-                if isinstance(item, SentenceWithTags):
-                    logger.debug(
-                        "sentence_divider yielding sentence: text={}, tag_count={}",
-                        text_log_fields(item.text),
-                        len(item.tags),
-                    )
-                elif isinstance(item, dict):
-                    logger.debug(
-                        "sentence_divider yielding dict: {}", mapping_log_fields(item)
-                    )
-                yield item
+            async def observed_stream():
+                async for item in stream_from_func:
+                    if private_lines and isinstance(item, str):
+                        stats["source_chars"] += len(item)
+                        stats["source_line_breaks"] += item.count("\n")
+                    yield item
+
+            complete = False
+            try:
+                source = observed_stream() if private_lines else stream_from_func
+                async for item in divider.process_stream(source):
+                    if isinstance(item, SentenceWithTags):
+                        if private_lines and any(tag.name == "think" for tag in item.tags):
+                            continue
+                        stats["segments"] += 1
+                        logger.debug(
+                            "sentence_divider yielding sentence: text={}, tag_count={}",
+                            text_log_fields(item.text),
+                            len(item.tags),
+                        )
+                    elif isinstance(item, dict):
+                        logger.debug(
+                            "sentence_divider yielding dict: {}", mapping_log_fields(item)
+                        )
+                    yield item
+                complete = True
+            finally:
+                if private_lines:
+                    batch = args[0] if args else kwargs.get("input_data")
+                    metadata = getattr(batch, "metadata", None)
+                    if isinstance(metadata, dict):
+                        metadata["qq_reply_format"] = dict(stats, complete=complete)
+                    logger.info("私人 QQ 分行统计：{}", dict(stats, complete=complete))
 
         return wrapper
 

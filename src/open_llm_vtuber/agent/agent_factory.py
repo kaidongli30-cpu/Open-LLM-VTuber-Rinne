@@ -82,8 +82,15 @@ class AgentFactory:
             tool_executor: Optional[ToolExecutor] = kwargs.get("tool_executor")
             mcp_prompt_string: str = kwargs.get("mcp_prompt_string", "")
 
+            official_runtime = None
+            official_settings = basic_memory_settings.get("official_route") or {}
+            if official_settings.get("enabled", False):
+                from ..official_route.runtime_factory import create_official_route
+                official_runtime = create_official_route(official_settings, llm, llm_provider, llm_config,
+                    kwargs.get("conf_uid", "rinne_01"))
+
             # Create the agent with the LLM and live2d_model
-            return BasicMemoryAgent(
+            agent = BasicMemoryAgent(
                 llm=llm,
                 system=system_prompt,
                 live2d_model=live2d_model,
@@ -99,7 +106,12 @@ class AgentFactory:
                 tool_executor=tool_executor,
                 mcp_prompt_string=mcp_prompt_string,
                 question_judge_llm=question_judge_llm,
+                official_route_runtime=official_runtime,
             )
+            if official_runtime is not None:
+                from ..official_route.prewarm import schedule_prewarm
+                schedule_prewarm(official_runtime, agent)
+            return agent
 
         elif conversation_agent_choice == "mem0_agent":
             from .agents.mem0_llm import LLM as Mem0LLM

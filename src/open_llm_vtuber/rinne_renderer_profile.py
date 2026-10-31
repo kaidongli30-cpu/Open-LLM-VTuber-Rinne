@@ -7,12 +7,15 @@ remain untouched during backend startup.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, MutableMapping
+
+from loguru import logger
 
 
 MP_EXPRESSION_MAP: dict[str, int] = {
@@ -64,6 +67,53 @@ _LIVE2D_LATER_RULE = (
     "你【必须】在每一句回复的开头加上提示当前表情的词语，包括："
     "[happy][shy][surprise][angry][sad][confused][ambitious][awkward][worried]。"
 )
+_QQ_REPLY_PARAGRAPH_HASHES = (
+    "7e86baae1cff6bcc4568bd417ee650be2e274306e2fbcfcc4315df90eee63f53",
+    "04f792f3bc34786f0964f0a8d00f24dfe7992c52692456a8f9e1b7538e1c7a6a",
+)
+
+
+def qq_text_persona(persona: str) -> str:
+    """Remove only the four approved reply-format passages in memory."""
+    import re
+
+    original = persona
+    found = []
+    start = persona.find(_MP_GUIDANCE_START)
+    end = persona.find(_CORE_PRINCIPLE, start) if start >= 0 else -1
+    found.append(start >= 0 and end >= 0)
+    if found[-1]:
+        persona = persona[:start] + persona[end:]
+    parts = re.split(r"(\r?\n[ \t]*(?:\r?\n)+)", persona)
+    for target in (_MP_LATER_RULE, *_QQ_REPLY_PARAGRAPH_HASHES):
+        index = next((i for i in range(0, len(parts), 2) if parts[i].strip() and (
+            parts[i].strip() == target if target == _MP_LATER_RULE else
+            hashlib.sha256(parts[i].strip().encode("utf-8")).hexdigest() == target
+        )), None)
+        found.append(index is not None)
+        if index is not None:
+            parts[index] = ""
+            if index + 1 < len(parts):
+                parts[index + 1] = ""
+    persona = "".join(parts)
+    for number, present in enumerate(found, 1):
+        if not present:
+            logger.warning("QQ 文字版人格未找到第 {} 处", number)
+    logger.info(
+        "QQ 文字版人格：去掉 {}/4，字数 {} -> {}，SHA256 {} -> {}",
+        sum(found), len(original), len(persona),
+        hashlib.sha256(original.encode("utf-8")).hexdigest(),
+        hashlib.sha256(persona.encode("utf-8")).hexdigest(),
+    )
+    return persona
+
+
+def apply_qq_text_persona_to_config(config_data: Mapping[str, object]) -> dict:
+    result = copy.deepcopy(dict(config_data))
+    character = result["character_config"]
+    character["persona_prompt"] = qq_text_persona(character["persona_prompt"])
+    return result
+
 _SPIRIT_TTS_REFERENCE_CONFIG_KEY = "spirit_form_reference"
 _PROFILE_ID_ALIASES = {
     "custom_navy_blazer_jk_skirt": "custom_navy_sailor_jk_skirt",

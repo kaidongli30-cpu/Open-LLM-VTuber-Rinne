@@ -267,6 +267,7 @@ class PrivateChannelBridge:
         )
         self._context: Any | None = None
         self._history: PrivateHistorySessionManager | None = None
+        self._last_qq_reply: dict[str, str] | None = None
 
     @property
     def started(self) -> bool:
@@ -290,6 +291,7 @@ class PrivateChannelBridge:
         context = self._context
         self._context = None
         self._history = None
+        self._last_qq_reply = None
         if context is not None:
             await context.close()
 
@@ -364,6 +366,7 @@ class PrivateChannelBridge:
             "loaded_mcp_servers": loaded_servers,
             "optional_mcp_unavailable": unavailable_optional,
             "checked_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "last_qq_reply": dict(self._last_qq_reply) if self._last_qq_reply else None,
         }
 
     async def transcribe_audio(
@@ -425,6 +428,12 @@ class PrivateChannelBridge:
         if context is None:
             raise PrivateBridgeNotStarted("private bridge context is not ready")
         self.require_sender(sender_id)
+        runtime = getattr(getattr(context, "agent_engine", None), "_official_route_runtime", None)
+        if not media and runtime is not None and runtime.parse_command(text) is not None:
+            confirmation = await runtime.handle_command(text)
+            if confirmation is not None:
+                await event_observer({"type": "system", "text": confirmation})
+                return confirmation
         images: list[dict[str, Any]] = []
         attachments: list[dict[str, Any]] = []
         if media:
@@ -455,11 +464,27 @@ class PrivateChannelBridge:
             self._history.ensure_open()
             if self._context_refresher is not None:
                 await self._context_refresher(context, PRIVATE_BRIDGE_CLIENT_UID)
+            reply_route = None
+
+            async def observe_reply(event: dict[str, Any]) -> None:
+                nonlocal reply_route
+                if event.get("type") == "private-reply-route":
+                    if event.get("route") in {"official", "relay"}:
+                        reply_route = {
+                            name: str(event.get(name, ""))
+                            for name in ("route", "reason", "completed_at")
+                        }
+                    return
+                await event_observer(event)
+
             processor = self._processor_factory(
                 context=context,
                 client_uid=PRIVATE_BRIDGE_CLIENT_UID,
-                event_observer=event_observer,
+                event_observer=observe_reply,
             )
-            return await processor(message)
+            reply = await processor(message)
+            if reply.strip() and reply_route is not None:
+                self._last_qq_reply = reply_route
+            return reply
 
         return await self._coordinator.run(process_serialized)

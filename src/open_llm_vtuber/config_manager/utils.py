@@ -202,10 +202,11 @@ def scan_bg_directory() -> list[str]:
     bg_files = []
     bg_dir = "backgrounds"
     catalog = load_background_catalog(bg_dir)
-    if catalog is not None:
-        return list(catalog.files)
+    listed = list(catalog.files) if catalog is not None else []
+    # A catalog orders the bundled scenes; images users add stay selectable.
+    hidden = {*listed, *catalog.aliases} if catalog is not None else set()
     for root, _, files in os.walk(bg_dir):
         for file in files:
-            if file.endswith((".jpg", ".jpeg", ".png", ".gif")):
+            if file.endswith((".jpg", ".jpeg", ".png", ".gif")) and file not in hidden:
                 bg_files.append(file)
-    return bg_files
+    return listed + bg_files

@@ -679,10 +679,12 @@ class BasicMemoryAgent(AgentInterface):
         tool_executor: Optional[ToolExecutor] = None,
         mcp_prompt_string: str = "",
         question_judge_llm: StatelessLLMInterface | None = None,
+        official_route_runtime=None,
     ):
         """Initialize agent with LLM and configuration."""
         super().__init__()
         self._question_judge_llm = question_judge_llm
+        self._official_route_runtime = official_route_runtime
         self._memory = []
         self._repetition_history_start = 0
         self._recent_memory_context = ""
@@ -858,6 +860,10 @@ class BasicMemoryAgent(AgentInterface):
         self._recent_memory_context = (
             context.strip() if isinstance(context, str) else ""
         )
+        runtime = getattr(self, "_official_route_runtime", None)
+        if runtime is not None and runtime.enabled:
+            from ...official_route.prewarm import schedule_prewarm
+            schedule_prewarm(runtime, self)
 
     def _recent_memory_tool_block_reason(
         self,
@@ -954,7 +960,11 @@ class BasicMemoryAgent(AgentInterface):
             parts.append("【历史系统信号】\n" + "\n\n".join(legacy_system_messages))
 
         channel_instruction = metadata.get("channel_system_instruction")
-        if isinstance(channel_instruction, str) and channel_instruction.strip():
+        if (
+            metadata.get("source_channel") != "qq"
+            and isinstance(channel_instruction, str)
+            and channel_instruction.strip()
+        ):
             parts.append(channel_instruction.strip())
 
         video_analysis_context = metadata.get("video_analysis_context")
@@ -1036,6 +1046,11 @@ class BasicMemoryAgent(AgentInterface):
             and proactive_screen_instruction.strip()
         ):
             parts.append(proactive_screen_instruction.strip())
+        # Keep the QQ output contract after memory/tool/scene instructions.
+        # It is an exact program literal, shared by both reply providers.
+        qq_instruction = getattr(self, "_qq_texting_instruction", "")
+        if qq_instruction:
+            parts.append(qq_instruction)
         return "\n\n".join(part.strip() for part in parts if part and part.strip())
 
     def _add_message(
@@ -1177,6 +1192,9 @@ class BasicMemoryAgent(AgentInterface):
                     response_parts.append(event["text"])
 
         try:
+            counters = getattr(self, "_relay_calls_this_reply", None)
+            if counters is not None:
+                counters["rewrite"] += 1
             stream = self._llm.chat_completion(
                 messages,
                 self._library_evidence_prompt(f"{system_prompt}\n\n{instruction}"),
@@ -1253,7 +1271,12 @@ class BasicMemoryAgent(AgentInterface):
         messages: List[Dict[str, Any]],
         system_prompt: str,
     ) -> str:
-        """Use validated repetition checks; preserve the draft if checking fails."""
+        """Remove confirmed repeated questions; preserve ordinary reply passages."""
+        self._question_checks_this_reply = []
+        self._relay_calls_this_reply = dict(
+            question_skipped=0, rewrite=0, removed_questions=0,
+            removed_passages=0, kept_original=0,
+        )
         # Transport errors are not Opus drafts. Keep diagnostics in the backend
         # logs and deliver a fixed reply without another model request.
         if draft.lstrip().startswith("Error calling the chat endpoint:"):
@@ -1266,19 +1289,10 @@ class BasicMemoryAgent(AgentInterface):
                 draft, messages, system_prompt
             )
         guarded = self._guard_library_reply(draft)
-        evidence = getattr(self, "_library_turn_evidence", None)
-        skip_passage = guarded != draft or bool(
-            evidence is not None
-            and (
-                evidence.failed_search or evidence.empty_search or evidence.failed_reads
-            )
-            and not (evidence.successful_reads or evidence.current_image)
-        )
         draft = guarded
         if not draft.strip():
             return draft
         history = [dict(message) for message in self._repetition_history()]
-        self._question_checks_this_reply = []
         check_budget = CHECK_TIMEOUT_SECONDS
 
         async def inspect(text):
@@ -1301,96 +1315,22 @@ class BasicMemoryAgent(AgentInterface):
             )
             return result
 
-        checked = await inspect(draft)
-        if not checked.ok:
-            logger.warning("信息问句检查未完成，不重试，保留Opus原回复：{}", checked.error)
-            return draft
-        questions = checked.repeated
-        previous_responses = [
-            message["content"]
-            for message in history
-            if message.get("role") == "assistant"
-            and isinstance(message.get("content"), str)
-        ]
-        passage = (
-            None
-            if skip_passage
-            or getattr(self, "_request_is_proactive", False)
-            or _EXPLICIT_REPEAT_REQUEST.search(self._latest_user_text(messages, self._attention_texts_to_exclude()))
-            else _find_repeated_response_passage(
-                remove_question_spans(draft, [d.span for d in checked.decisions]),
-                previous_responses,
-            )
-        )
-        if not questions and passage is None:
-            return draft
-        details = []
-        if passage is not None:
-            details.append(f"较早已经说过：{passage[0]}\n草稿中的重复句：{passage[1]}")
-        for question in questions:
-            details.append(
-                f"已存在的信息依据（消息{question.source_id}）：{question.source_text}\n"
-                f"草稿中重复的问题：{question.span.text}\n"
-                f"旧问题之后的对话节选：{self._question_followup_context(history, question.source_id)}\n"
-                f"重复原因：{question.reason}"
-            )
-        instruction = (
-            "【本轮静默去重：重写完整回复】\n"
-            "请重新写出自然、可以直接发送给用户的完整回复，保留回应本轮输入的"
-            "事实和必要动作，删除或真正改写下列重复内容。只输出最终回复和正常情绪、"
-            "动作，不解释检查、草稿或重写过程。没有新内容可替代时直接省略。\n"
-        )
-        if questions:
-            instruction += (
-                "你问的问题重复了。请换一个问题，或者不要为了问问题而问问题。"
-                "用户已经回答过的内容不要再问；不得只换措辞重问同一个问题。\n"
-            )
-        instruction += "\n".join(details) + f"\n整段草稿：{draft}"
-        rewritten = await self._request_repetition_rewrite(
-            draft, messages, system_prompt, instruction
-        )
-        candidate = rewritten if rewritten is not None else draft
-        candidate_check = checked if candidate == draft else await inspect(candidate)
-        if not candidate_check.ok:
-            logger.warning("重写后的信息问句检查未完成，保留Opus原回复：{}", candidate_check.error)
-            return draft
-        remaining = candidate_check.repeated
-        if remaining:
-            candidate = remove_question_spans(
-                candidate, [item.span for item in remaining]
-            )
-        if has_visible_reply(candidate):
-            logger.info(
-                "重复问句已重写或移除，保留其余回复（原命中{}处）", len(questions)
-            )
-            return candidate
-
-        # A question-only reply gets one final attempt, with no further retries.
-        extra = await self._request_repetition_rewrite(
-            draft,
-            messages,
-            system_prompt,
-            instruction
-            + "\n重复问句已移除，回复没有剩余正文。请只回应用户本轮说的话，"
-            "生成一份简短、完全不带问题的完整回复，不要索取更多信息，也不要解释重写。",
-        )
-        if extra is not None:
-            final_check = await inspect(extra)
-            if not final_check.ok:
-                logger.warning("补写后的信息问句检查未完成，保留Opus原回复：{}", final_check.error)
+        if "？" in draft or "?" in draft:
+            checked = await inspect(draft)
+            if not checked.ok:
+                logger.warning("信息问句检查未完成，不重试，保留Opus原回复：{}", checked.error)
                 return draft
-            if final_check.ok:
-                extra = remove_question_spans(
-                    extra, [item.span for item in final_check.decisions]
-                )
-                if has_visible_reply(extra):
-                    return extra
-        logger.warning(
-            "重复内容处理后仍无可朗读正文，使用固定兜底：路径=semantic，"
-            "问句命中={}，草稿字数={}，候选字数={}，补写字数={}",
-            len(questions), len(draft), len(candidate), len(extra or ""),
-        )
-        return "[gentle]我在听，用户。"
+            questions = checked.repeated
+        else:
+            self._relay_calls_this_reply["question_skipped"] = 1
+            questions = ()
+        candidate = remove_question_spans(draft, [item.span for item in questions]) if questions else draft
+        self._relay_calls_this_reply["removed_questions"] = len(questions)
+        if has_visible_reply(candidate):
+            return candidate
+        self._relay_calls_this_reply["kept_original"] = 1
+        logger.info("本地删除后没有可朗读正文，保留原回复")
+        return draft
 
     @staticmethod
     def _question_followup_context(history, source_id):
@@ -1410,39 +1350,18 @@ class BasicMemoryAgent(AgentInterface):
         messages: List[Dict[str, Any]],
         system_prompt: str,
     ) -> str:
-        """Rewrite repetition before delivery; never restore a repeated question."""
+        """Legacy question guard only; ordinary passages never trigger a rewrite."""
         guarded = self._guard_library_reply(draft)
-        evidence = getattr(self, "_library_turn_evidence", None)
-        skip_passage = guarded != draft or bool(
-            evidence is not None
-            and (
-                evidence.failed_search or evidence.empty_search or evidence.failed_reads
-            )
-            and not (evidence.successful_reads or evidence.current_image)
-        )
         draft = guarded
         if not draft.strip() or getattr(self, "_request_is_proactive", False):
             return draft
         if _EXPLICIT_REPEAT_REQUEST.search(self._latest_user_text(messages, self._attention_texts_to_exclude())):
             return draft
         history = self._repetition_history()
-        previous_responses = [
-            message["content"]
-            for message in history
-            if message.get("role") == "assistant"
-            and isinstance(message.get("content"), str)
-        ]
         questions = find_repeated_questions(draft, history)
-        passage = (
-            None
-            if skip_passage
-            else _find_repeated_response_passage(draft, previous_responses)
-        )
-        if not questions and passage is None:
+        if not questions:
             return draft
         details = []
-        if passage is not None:
-            details.append(f"较早已经说过：{passage[0]}\n草稿中的重复句：{passage[1]}")
         for question in questions:
             details.append(
                 f"同一聊天记录里已经问过：{question.previous}\n"
@@ -1743,6 +1662,16 @@ class BasicMemoryAgent(AgentInterface):
         )
         self._request_is_proactive = bool(
             (input_data.metadata or {}).get("proactive_speak")
+        )
+        channel_instruction = (input_data.metadata or {}).get(
+            "channel_system_instruction", ""
+        )
+        self._qq_texting_instruction = (
+            channel_instruction.strip()
+            if (input_data.metadata or {}).get("source_channel") == "qq"
+            and isinstance(channel_instruction, str)
+            and not self._request_is_proactive
+            else ""
         )
         mandatory_rules = (input_data.metadata or {}).get(
             "mandatory_response_rules", ""
@@ -2526,8 +2455,11 @@ class BasicMemoryAgent(AgentInterface):
         internal_memory_tool: Any | None = None,
         recent_diary_tool: Any | None = None,
         active_capabilities: set[str] | None = None,
+        llm=None,
+        official_system_prompt: str | None = None,
     ) -> AsyncIterator[Union[str, Dict[str, Any]]]:
         """Handle Claude interaction loop with tool support."""
+        llm = llm or self._llm
         messages = initial_messages.copy()
         current_turn_text = ""
         pending_tool_calls = []
@@ -2550,76 +2482,83 @@ class BasicMemoryAgent(AgentInterface):
                 or ordinary_external_tool_calls >= MAX_ORDINARY_EXTERNAL_TOOL_CALLS
                 or ordinary_external_tool_seconds >= MAX_ORDINARY_EXTERNAL_TOOL_SECONDS
             )
-            active_tools = self._library_tools_for_turn(
-                self._tools_for_capabilities(tools, active_capabilities)
-            )
-            current_system_prompt = self._current_request_system_prompt()
-            if recent_diary_tool is not None:
-                recent_instruction = (
-                    recent_diary_tool.followup_instructions
-                    if recent_diary_tool.called
-                    else recent_diary_tool.decision_instructions
+            if official_system_prompt is not None:
+                # Keep the already checked system and program schemas stable
+                # throughout this official tool loop. Only messages append.
+                exhausted={helper.name for helper in (internal_memory_tool,recent_diary_tool) if helper is not None and helper.exhausted}
+                active_tools = [tool for tool in tools if tool.get('name') not in exhausted]
+                current_system_prompt = official_system_prompt
+            else:
+                active_tools = self._library_tools_for_turn(
+                    self._tools_for_capabilities(tools, active_capabilities)
                 )
-                if recent_instruction:
-                    current_system_prompt = (
-                        f"{current_system_prompt}\n\n{recent_instruction}"
+                current_system_prompt = official_system_prompt if official_system_prompt is not None else self._current_request_system_prompt()
+                if recent_diary_tool is not None:
+                    recent_instruction = (
+                        recent_diary_tool.followup_instructions
+                        if recent_diary_tool.called
+                        else recent_diary_tool.decision_instructions
                     )
-            if internal_memory_tool is not None:
-                memory_instruction = (
-                    internal_memory_tool.followup_instructions
-                    if internal_memory_tool.called
-                    else internal_memory_tool.decision_instructions
-                )
-                if memory_instruction:
-                    current_system_prompt = (
-                        f"{current_system_prompt}\n\n{memory_instruction}"
+                    if recent_instruction:
+                        current_system_prompt = (
+                            f"{current_system_prompt}\n\n{recent_instruction}"
+                        )
+                if internal_memory_tool is not None:
+                    memory_instruction = (
+                        internal_memory_tool.followup_instructions
+                        if internal_memory_tool.called
+                        else internal_memory_tool.decision_instructions
                     )
-            current_system_prompt = self._append_rinne_library_prompt(
-                current_system_prompt,
-                active_tools,
-            )
-            if internal_memory_tool is not None and internal_memory_tool.exhausted:
-                active_tools = [
-                    tool
-                    for tool in active_tools
-                    if tool.get("name") != internal_memory_tool.name
-                ]
-            elif internal_memory_tool is not None and internal_memory_tool.called:
-                active_tools = [
-                    (
-                        internal_memory_tool.active_claude_schema
-                        if tool.get("name") == internal_memory_tool.name
-                        else tool
-                    )
-                    for tool in active_tools
-                ]
-            if recent_diary_tool is not None and recent_diary_tool.exhausted:
-                active_tools = [
-                    tool
-                    for tool in active_tools
-                    if tool.get("name") != recent_diary_tool.name
-                ]
-            if external_budget_exhausted:
-                active_tools = self._tools_after_external_budget(
+                    if memory_instruction:
+                        current_system_prompt = (
+                            f"{current_system_prompt}\n\n{memory_instruction}"
+                        )
+                current_system_prompt = self._append_rinne_library_prompt(
+                    current_system_prompt,
                     active_tools,
-                    internal_memory_tool,
-                    recent_diary_tool,
                 )
-                current_system_prompt = (
-                    f"{current_system_prompt}\n\n"
-                    f"{EXTERNAL_TOOL_BUDGET_EXHAUSTED_INSTRUCTION}"
-                )
-            elif ordinary_external_budget_exhausted:
-                active_tools = self._tools_after_ordinary_budget(
-                    active_tools,
-                    internal_memory_tool,
-                    recent_diary_tool,
-                )
-                current_system_prompt = (
-                    f"{current_system_prompt}\n\n"
-                    f"{ORDINARY_EXTERNAL_TOOL_BUDGET_EXHAUSTED_INSTRUCTION}"
-                )
-            force_tool = getattr(self._llm, "force_tool_once", None)
+                if internal_memory_tool is not None and internal_memory_tool.exhausted:
+                    active_tools = [
+                        tool
+                        for tool in active_tools
+                        if tool.get("name") != internal_memory_tool.name
+                    ]
+                elif internal_memory_tool is not None and internal_memory_tool.called:
+                    active_tools = [
+                        (
+                            internal_memory_tool.active_claude_schema
+                            if tool.get("name") == internal_memory_tool.name
+                            else tool
+                        )
+                        for tool in active_tools
+                    ]
+                if recent_diary_tool is not None and recent_diary_tool.exhausted:
+                    active_tools = [
+                        tool
+                        for tool in active_tools
+                        if tool.get("name") != recent_diary_tool.name
+                    ]
+                if external_budget_exhausted:
+                    active_tools = self._tools_after_external_budget(
+                        active_tools,
+                        internal_memory_tool,
+                        recent_diary_tool,
+                    )
+                    current_system_prompt = (
+                        f"{current_system_prompt}\n\n"
+                        f"{EXTERNAL_TOOL_BUDGET_EXHAUSTED_INSTRUCTION}"
+                    )
+                elif ordinary_external_budget_exhausted:
+                    active_tools = self._tools_after_ordinary_budget(
+                        active_tools,
+                        internal_memory_tool,
+                        recent_diary_tool,
+                    )
+                    current_system_prompt = (
+                        f"{current_system_prompt}\n\n"
+                        f"{ORDINARY_EXTERNAL_TOOL_BUDGET_EXHAUSTED_INSTRUCTION}"
+                    )
+            force_tool = getattr(llm, "force_tool_once", None)
             if (
                 callable(force_tool)
                 and internal_memory_tool is not None
@@ -2632,10 +2571,9 @@ class BasicMemoryAgent(AgentInterface):
                 )
             ):
                 force_tool(internal_memory_tool.name)
-            current_system_prompt = self._finalize_request_system_prompt(
-                current_system_prompt
-            )
-            stream = self._llm.chat_completion(
+            if official_system_prompt is None:
+                current_system_prompt = self._finalize_request_system_prompt(current_system_prompt)
+            stream = llm.chat_completion(
                 messages,
                 current_system_prompt,
                 tools=active_tools,
@@ -2759,6 +2697,15 @@ class BasicMemoryAgent(AgentInterface):
                     )
 
                 if tool_results_for_llm:
+                    if official_system_prompt is not None:
+                        # Follow-up rules stay available without rewriting the
+                        # signed/cacheable system or already sent history.
+                        followup='\n\n'.join(helper.followup_instructions for helper in
+                            (recent_diary_tool,internal_memory_tool) if helper is not None and helper.called)
+                        if followup:
+                            for result in tool_results_for_llm:
+                                if isinstance(result.get('content'),str):
+                                    result['content']+='\n\n'+followup
                     messages.append({"role": "user", "content": tool_results_for_llm})
 
                 if external_requested:
@@ -3396,6 +3343,19 @@ class BasicMemoryAgent(AgentInterface):
             self.reset_interrupt()
             self.prompt_mode_flag = False
             self._active_scene_metadata = input_data.metadata
+            route_runtime = getattr(self, "_official_route_runtime", None)
+            if route_runtime is not None and route_runtime.enabled:
+                if input_data.metadata is None:
+                    input_data.metadata = {}
+                confirmation = await route_runtime.handle_command(
+                    self._to_text_prompt(input_data), input_data.metadata
+                )
+                if confirmation is not None:
+                    input_data.metadata["official_route_command"] = True
+                    input_data.metadata["skip_memory"] = True
+                    input_data.metadata["skip_history"] = True
+                    yield confirmation
+                    return
 
             messages = self._to_messages(input_data)
             current_user_text = self._to_text_prompt(input_data)
@@ -3445,6 +3405,126 @@ class BasicMemoryAgent(AgentInterface):
                     )
                 ):
                     recent_diary_tool = candidate_recent_tool
+
+            if route_runtime is not None and route_runtime.enabled:
+                official_tools = []
+                if internal_memory_tool is not None:
+                    official_tools.append(internal_memory_tool.claude_schema)
+                if recent_diary_tool is not None:
+                    official_tools.append(recent_diary_tool.claude_schema)
+                choice = await route_runtime.prepare_turn(
+                    self,
+                    input_data,
+                    messages,
+                    current_user_text,
+                    active_capabilities,
+                    official_tools,
+                )
+                input_data.metadata["_official_route_choice"] = choice
+                input_data.metadata["route"] = choice.route
+                input_data.metadata["route_reason"] = choice.reason
+                input_data.metadata["provider"] = (
+                    getattr(choice, "provider", "")
+                    if choice.route == "official"
+                    else ""
+                )
+                if choice.route == "official":
+                    while True:
+                        visible_text = False
+                        try:
+                            async for output in _strip_message_time_context_stream(
+                                self._visible_scene_stream(
+                                    self._claude_tool_interaction_loop(
+                                        choice.messages,
+                                        official_tools,
+                                        internal_memory_tool=internal_memory_tool,
+                                        recent_diary_tool=recent_diary_tool,
+                                        active_capabilities=set(),
+                                        llm=choice.client,
+                                        official_system_prompt=choice.system,
+                                    ),
+                                    input_data.metadata,
+                                )
+                            ):
+                                if isinstance(output, str) and output.strip():
+                                    visible_text = True
+                                yield output
+                            return
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception as route_error:
+                            category = getattr(
+                                route_error, "category", "provider_error"
+                            )
+                            input_data.metadata["_official_route_error"] = category
+                            if visible_text:
+                                yield self._build_missing_final_reply_message()
+                                return
+                            alternate_method = getattr(
+                                route_runtime, "prepare_alternate", None
+                            )
+                            alternate = (
+                                await alternate_method(
+                                    choice,
+                                    category,
+                                    self,
+                                    input_data,
+                                    messages,
+                                    current_user_text,
+                                    active_capabilities,
+                                    official_tools,
+                                )
+                                if alternate_method
+                                else None
+                            )
+                            if alternate is not None:
+                                choice = alternate
+                                input_data.metadata["_official_route_choice"] = choice
+                                input_data.metadata["provider"] = getattr(
+                                    choice, "provider", ""
+                                )
+                                input_data.metadata["fallback_from"] = (
+                                    choice.fallback_from
+                                )
+                                input_data.metadata["fallback_reason"] = (
+                                    choice.fallback_reason
+                                )
+                                input_data.metadata.pop("_official_route_error", None)
+                                continue
+                            input_data.metadata["route"] = "relay"
+                            input_data.metadata["route_reason"] = (
+                                category
+                                if category
+                                in {
+                                    "check_failed",
+                                    "gate_blocked",
+                                    "presend_unrecorded",
+                                }
+                                else "official_refusal"
+                                if category == "refusal"
+                                else "official_error"
+                            )
+                            # A memory lookup may have finished before the official
+                            # continuation failed. Keep its evidence for the relay
+                            # while retaining tool audit/budget state.
+                            for memory_tool in (
+                                internal_memory_tool,
+                                recent_diary_tool,
+                            ):
+                                result = getattr(memory_tool, "_result", None)
+                                content = getattr(result, "content", "")
+                                if getattr(memory_tool, "called", False) and content:
+                                    messages.append(
+                                        {
+                                            "role": "user",
+                                            "content": (
+                                                "[系统提示：以下是本轮切换前已取回的记忆工具结果，请依据证据续接。]\n"
+                                                + content
+                                            ),
+                                        }
+                                    )
+                            # self._llm and original messages were never changed; the existing relay path follows.
+                            break
 
             # “是否必须联网”与“拿什么词搜索”分开处理：
             # 关键词规则只负责强制触发，查询改写器负责提炼搜索主题。
@@ -3594,7 +3674,19 @@ class BasicMemoryAgent(AgentInterface):
                     yield fallback_text
                     self._add_message(fallback_text, "assistant")
 
-        return chat_with_memory
+        async def with_route_finalization(input_data):
+            runtime = getattr(self, "_official_route_runtime", None)
+            try:
+                async for item in chat_with_memory(input_data):
+                    yield item
+            finally:
+                metadata = input_data.metadata or {}
+                choice = metadata.pop("_official_route_choice", None)
+                if runtime is not None and choice is not None:
+                    reply = self._memory[-1].get("content", "") if self._memory and self._memory[-1].get("role") == "assistant" else ""
+                    await runtime.finish_turn(choice, metadata, reply=reply, error=metadata.pop("_official_route_error", None))
+
+        return with_route_finalization
 
     async def chat(
         self,

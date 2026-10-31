@@ -5,6 +5,10 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import os
+from functools import lru_cache
+from pathlib import Path
+import re
 from typing import AsyncIterator
 
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -21,6 +25,7 @@ from .agent_runtime.private_bridge import (
 )
 from .agent_runtime.private_media import PrivateMediaValidationError
 from .agent_runtime.text_turn import normalize_qq_response_text
+from .memory.scene_state import strip_scene_envelopes
 
 PRIVATE_BRIDGE_HEARTBEAT_SECONDS = 15.0
 
@@ -82,8 +87,17 @@ _PRIVATE_INTERNAL_ERROR_PREFIXES = (
     "See the logs for details.",
     "Troubleshooting with documentation:",
 )
+@lru_cache(maxsize=1)
+def _qq_emotion_tags():
+    models = json.loads(
+        (Path(__file__).resolve().parents[2] / "model_dict.json").read_text(encoding="utf-8")
+    )
+    mapping = next(model["emotionMap"] for model in models if model.get("name", "").lower() == "rinne")
+    return re.compile(r"\[(?:" + "|".join(re.escape(tag) for tag in mapping) + r")\]", re.I)
+
+
 def _private_visible_sentence(text: object) -> str | None:
-    """Keep internal status out of QQ while preserving desktop-style expression."""
+    """Hide internal state and registered tags; preserve parenthesized chat."""
 
     if not isinstance(text, str):
         return None
@@ -92,7 +106,54 @@ def _private_visible_sentence(text: object) -> str | None:
         return None
     if sentence.startswith(_PRIVATE_INTERNAL_ERROR_PREFIXES):
         return None
-    return normalize_qq_response_text(sentence).strip() or None
+    sentence = strip_scene_envelopes(sentence)[0]
+    return _qq_emotion_tags().sub("", normalize_qq_response_text(sentence)).strip() or None
+
+
+def qq_text_bubbles(line: str) -> list[str]:
+    """Format a tag-free QQ line without changing the stored assistant text."""
+    pairs = {"（": "）", "【": "】", "(": ")", "[": "]"}
+    stack = []
+    removed = set()
+    for index, char in enumerate(line):
+        if char in pairs:
+            stack.append((index, char))
+        elif stack and char == pairs[stack[-1][1]]:
+            start, opening = stack.pop()
+            if opening in "（【" or re.search(r"[\u3400-\u9fff]", line[start:index]):
+                removed.update(range(start, index + 1))
+    text = "".join(char for index, char in enumerate(line) if index not in removed)
+    text = text.translate(str.maketrans("", "", '“”‘’「」『』"')).strip()
+    if re.fullmatch(r"[？?！!]+", text):
+        return [text]
+    bubbles = []
+    for segment in re.split(r"[\r\n。！？!?；;]", text):
+        segment = segment.strip()
+        parts = (
+            re.split(r"，|(?<!\d),|,(?!\d)", segment)
+            if len(segment) > 16
+            else [segment]
+        )
+        index = 0
+        while index < len(parts):
+            part = parts[index].strip()
+            if index + 1 < len(parts) and len(part) <= 4:
+                combined = part + "，" + parts[index + 1].strip()
+                if len(combined) <= 16:
+                    part = combined
+                    index += 1
+            part = part.strip().rstrip("，,、").strip()
+            if part:
+                bubbles.append(part)
+            index += 1
+    return bubbles
+
+
+def _qq_texting_enabled() -> bool:
+    return all(
+        os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+        for name in ("RINNE_HEADLESS_PRIVATE_BRIDGE", "RINNE_PRIVATE_BRIDGE_ENABLED")
+    )
 
 
 def _is_private_internal_error(text: object) -> bool:
@@ -158,9 +219,15 @@ def init_private_bridge_routes(bridge: PrivateChannelBridge) -> APIRouter:
                         return
                     sentence = _private_visible_sentence(event.get("text"))
                     if sentence and failure_code is None:
-                        await queue.put({"type": "sentence", "text": sentence})
+                        bubbles = qq_text_bubbles(sentence) if _qq_texting_enabled() else [sentence]
+                        for bubble in bubbles:
+                            await queue.put({"type": "sentence", "text": bubble})
                 elif event_type == "error":
                     await report_failure("backend_error")
+                elif event_type == "system" and failure_code is None:
+                    text = event.get("text")
+                    if isinstance(text, str) and text.startswith("⚙ "):
+                        await queue.put({"type": "sentence", "text": text})
 
             async def execute() -> None:
                 try:

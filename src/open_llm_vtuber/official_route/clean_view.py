@@ -8,9 +8,12 @@ import re
 from ..memory.layer2_context import format_layer2_context
 from ..rinne_renderer_profile import _MP_GUIDANCE_START, _MP_LATER_RULE
 from .content_check import ContentChecker
+from .checks_deadline import is_pending
 
 BACKGROUND_PLACEHOLDER = "（这里是一段两人亲密时光的记录，细节略。）"
 HISTORY_NOTICE = "[系统提示：这之前有一段两人亲密相处的时光，细节略。]"
+BACKGROUND_PENDING = "（这里有一段内容暂时没法显示。）"
+HISTORY_PENDING = "[系统提示：这之前有几轮对话暂时没法显示。]"
 OPEN_BACKGROUND = "<current_user_background>"
 CLOSE_BACKGROUND = "</current_user_background>"
 FIXED_ANCHORS = (_MP_GUIDANCE_START, "【核心原则】", _MP_LATER_RULE)
@@ -111,7 +114,7 @@ def _items(text):
     return result
 
 
-def background_parts(text: str, anchors=(), *, layer2=False):
+def background_parts(text: str, anchors=(), *, layer2=False, recent=False):
     spans = []
     if layer2:
         opening = text.find(OPEN_BACKGROUND)
@@ -146,7 +149,9 @@ def background_parts(text: str, anchors=(), *, layer2=False):
         if start > position:
             source = text[position:start]
             values = (
-                _items(source)
+                [value for paragraph in _paragraphs(source) for value in _items(paragraph)]
+                if recent
+                else _items(source)
                 if layer2 and position >= content_start
                 else _paragraphs(source)
             )
@@ -165,9 +170,9 @@ def background_parts(text: str, anchors=(), *, layer2=False):
 
 
 async def clean_background(
-    text: str, checker: ContentChecker, *, anchors=(), layer2=False
+    text: str, checker: ContentChecker, *, anchors=(), layer2=False, recent=False
 ) -> CleanBackground:
-    parts = background_parts(text, anchors, layer2=layer2)
+    parts = background_parts(text, anchors, layer2=layer2, recent=recent)
     protected = [x for x in parts if x["protected"]]
     protected_records = [_check_protected(part, checker) for part in protected]
     blocked = [
@@ -185,6 +190,7 @@ async def clean_background(
     output = []
     manifest = []
     blocked_run = False
+    blocked_placeholder = None
     gap = ""
     newline = "\r\n" if "\r\n" in text else "\n"
     for part in parts:
@@ -206,14 +212,19 @@ async def clean_background(
                 protected=part["protected"],
                 kind=part["name"],
                 replaced=replaced,
+                pending=is_pending(record),
             )
         )
         if replaced:
-            if not blocked_run:
+            placeholder = (
+                BACKGROUND_PENDING if is_pending(record) else BACKGROUND_PLACEHOLDER
+            )
+            if not blocked_run or placeholder != blocked_placeholder:
                 if "".join(output).rsplit("\n", 1)[-1].strip():
                     output.append(newline)
-                output.append(BACKGROUND_PLACEHOLDER)
+                output.append(placeholder)
             blocked_run = True
+            blocked_placeholder = placeholder
             gap = ""
         else:
             if blocked_run:
@@ -222,6 +233,7 @@ async def clean_background(
                 output.append(gap)
             output.append(value)
             blocked_run = False
+            blocked_placeholder = None
             gap = ""
             checker.record_lines(value, record)
     if gap:
@@ -229,7 +241,11 @@ async def clean_background(
     return CleanBackground("".join(output), manifest)
 
 
-async def clean_history(turns: list[dict], checker: ContentChecker) -> CleanHistory:
+async def clean_history(
+    turns: list[dict], checker: ContentChecker, *, neighbor_radius=0
+) -> CleanHistory:
+    if type(neighbor_radius) is not int or neighbor_radius < 0:
+        raise ValueError("invalid_neighbor_radius")
     texts = [
         json.dumps(
             {"user": turn["user"], "assistant": turn.get("assistant", "")},
@@ -239,11 +255,20 @@ async def clean_history(turns: list[dict], checker: ContentChecker) -> CleanHist
     ]
     contexts = [tuple(texts[max(0, i - 3) : i]) for i in range(len(turns))]
     records = await checker.check_many(texts, kind="turn", contexts=contexts)
+    removed_by = {i: [] for i in range(len(turns))}
+    for index, record in enumerate(records):
+        if record.label != "A" or is_pending(record):
+            for neighbor in range(
+                max(0, index - neighbor_radius),
+                min(len(turns), index + neighbor_radius + 1),
+            ):
+                removed_by[neighbor].append(index)
     output = []
     manifest = []
     pending_notice = False
+    notice = None
     for index, (turn, record) in enumerate(zip(turns, records)):
-        keep = record.label == "A"
+        keep = not removed_by[index]
         manifest.append(
             dict(
                 index=index,
@@ -252,17 +277,34 @@ async def clean_history(turns: list[dict], checker: ContentChecker) -> CleanHist
                 confidence=record.confidence,
                 source=record.source,
                 removed=not keep,
+                pending=is_pending(record),
+                neighbor_of=removed_by[index],
             )
         )
         if not keep:
             pending_notice = True
+            has_real_block = any(
+                not is_pending(records[root]) for root in removed_by[index]
+            )
+            if has_real_block or notice == HISTORY_NOTICE:
+                notice = HISTORY_NOTICE
+            else:
+                notice = HISTORY_PENDING
             continue
         current = dict(turn)
         checker.record_lines(turn["user"], record)
         checker.record_lines(turn.get("assistant", ""), record)
         if pending_notice:
-            current["user"] = HISTORY_NOTICE + "\n" + current["user"]
-            checker.record_fixed_line(HISTORY_NOTICE)
+            current["user"] = notice + "\n" + current["user"]
+            checker.record_fixed_line(notice)
             pending_notice = False
+            notice = None
         output.append(current)
+    if pending_notice and neighbor_radius > 0:
+        output.append(dict(user=notice, assistant=""))
+        checker.record_fixed_line(notice)
     return CleanHistory(output, manifest)
+
+
+async def clean_runtime_history(turns, checker):
+    return await clean_history(turns, checker, neighbor_radius=1)

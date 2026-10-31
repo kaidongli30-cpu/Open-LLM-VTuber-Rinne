@@ -522,6 +522,7 @@ class ServiceContext:
                 live2d_model=self.live2d_model,
                 tts_preprocessor_config=self.character_config.tts_preprocessor_config,
                 character_avatar=avatar,
+                conf_uid=self.character_config.conf_uid,
                 system_config=self.system_config.model_dump(),
                 tool_manager=self.tool_manager,
                 tool_executor=self.tool_executor,

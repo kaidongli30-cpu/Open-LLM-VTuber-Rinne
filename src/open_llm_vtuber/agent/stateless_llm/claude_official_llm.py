@@ -3,6 +3,7 @@
 import asyncio
 from copy import deepcopy
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,8 @@ from anthropic import AsyncAnthropic
 from .claude_llm import AsyncLLM as ClaudeAsyncLLM
 from .request_limiter import build_backend_key, limit_request_concurrency
 from ...official_route.gate import OfficialContentBlocked, RequestGate
+from ...official_route.model_profiles import get_profile, request_options
+from ...official_route.record_storage import append_row
 
 OFFICIAL_URL = "https://api.anthropic.com"
 
@@ -86,6 +89,7 @@ class AsyncLLM(ClaudeAsyncLLM):
         http_client=None,
         max_concurrent_requests=1,
         min_request_interval_seconds=0.0,
+        effort=None,
     ):
         key = os.environ.get("RINNE_OFFICIAL_ANTHROPIC_KEY", "")
         if not key:
@@ -95,6 +99,7 @@ class AsyncLLM(ClaudeAsyncLLM):
         self.system = None
         self.gate = gate
         self.thinking = bool(thinking)
+        self.effort = effort
         self.stable_system_prefix = stable_system_prefix
         self.ledger_path = Path(ledger_path)
         self.max_concurrent_requests = max(1, int(max_concurrent_requests))
@@ -124,8 +129,26 @@ class AsyncLLM(ClaudeAsyncLLM):
         ]
         if converted and converted[-1].get("role") == "assistant":
             raise ValueError("assistant_prefill_unsupported")
-        if len(converted) > 1:
-            previous = converted[-2]
+        # Anchor the history breakpoint before the current user question.
+        # Tool-result continuations must not move it and rewrite the already
+        # checked history prefix (including cache metadata) mid-turn.
+        question_index = next(
+            (
+                index
+                for index in range(len(converted) - 1, -1, -1)
+                if converted[index].get("role") == "user"
+                and not (
+                    isinstance(converted[index].get("content"), list)
+                    and any(
+                        block.get("type") == "tool_result"
+                        for block in converted[index]["content"]
+                    )
+                )
+            ),
+            0,
+        )
+        if question_index > 0:
+            previous = converted[question_index - 1]
             if isinstance(previous.get("content"), str):
                 previous["content"] = [dict(type="text", text=previous["content"])]
             for block in reversed(previous.get("content", [])):
@@ -133,6 +156,49 @@ class AsyncLLM(ClaudeAsyncLLM):
                     block["cache_control"] = {"type": "ephemeral"}
                     break
         return converted
+
+    def _write_ledger(self, row):
+        """Small override point for runtime-only, sanitized telemetry."""
+        append_row(self.ledger_path, row, lock_name=".state.lock")
+
+    def build_request(self, messages, system=None, tools=None) -> dict:
+        """Build exactly the SDK payload used by chat_completion, without I/O.
+
+        Does not consume force_tool_once or mutate caller-owned messages/tools;
+        route preflight can call this repeatedly before the final gate check.
+        Thinking is merged into the HTTP body by SDK 0.76.0 via extra_body.
+        """
+        options = request_options(
+            self.model,
+            self.thinking,
+            self._forced_tool_name_once,
+            effort=getattr(self, "effort", None),
+        )
+        if not tools:
+            options.pop("tool_choice", None)
+        system_blocks, _ = split_system(
+            system if system is not None else (self.system or ""),
+            self.stable_system_prefix,
+        )
+        payload = dict(
+            system=system_blocks,
+            messages=self._messages(messages),
+            **options,
+        )
+        if tools:
+            payload["tools"] = deepcopy(tools)
+        return payload
+
+    def build_wire_request(self, messages, system=None, tools=None):
+        """Exact JSON body after SDK extra_body merge and stream insertion."""
+        return self.wire_payload(self.build_request(messages, system, tools))
+
+    @staticmethod
+    def wire_payload(payload):
+        result = deepcopy(payload)
+        result.update(result.pop("extra_body", {}))
+        result["stream"] = True
+        return result
 
     async def chat_completion(self, messages, system=None, tools=None):
         started = monotonic()
@@ -152,35 +218,35 @@ class AsyncLLM(ClaudeAsyncLLM):
             stop_reason=None,
             error_category="",
             forced_tool_changed_to_auto=False,
+            request_sha256=None,
+            gate_lines=0,
+            latency_category="not_started",
         )
         try:
-            system_blocks, did_split = split_system(
-                system if system is not None else (self.system or ""),
-                self.stable_system_prefix,
-            )
-            row["system_split"] = did_split
-            payload = dict(
-                model=self.model,
-                max_tokens=16000 if self.thinking else 4096,
-                system=system_blocks,
-                messages=self._messages(messages),
-            )
-            if tools:
-                payload["tools"] = deepcopy(tools)
+            payload = self.build_request(messages, system=system, tools=tools)
+            profile = get_profile(payload["model"])
+            row["model"] = payload["model"]
+            row["thinking"] = profile.effective_thinking(self.thinking)
+            row["group"] = "official_thinking" if row["thinking"] else "official"
+            row["system_split"] = len(payload["system"]) == 2
             forced = self._forced_tool_name_once
             self._forced_tool_name_once = None
-            if forced and tools:
-                payload["tool_choice"] = (
-                    {"type": "auto"}
-                    if self.thinking
-                    else {"type": "tool", "name": forced}
-                )
-                row["forced_tool_changed_to_auto"] = self.thinking
-            if self.thinking:
-                payload["extra_body"] = {"thinking": {"type": "adaptive"}}
-            gate_result = await self.gate.require(payload)
+            row["forced_tool_changed_to_auto"] = bool(
+                forced and tools and payload.get("tool_choice") == {"type": "auto"}
+            )
+            row["request_sha256"] = hashlib.sha256(
+                json.dumps(
+                    self.wire_payload(payload),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            gate_result = await self.gate.require(self.wire_payload(payload))
             row["gate"] = "allowed"
             row["checked_lines"] = gate_result.checked_lines
+            row["gate_lines"] = gate_result.checked_lines
+            row["latency_category"] = "waiting_first_text"
             async with limit_request_concurrency(
                 self._limiter_key,
                 self.max_concurrent_requests,
@@ -221,6 +287,7 @@ class AsyncLLM(ClaudeAsyncLLM):
                         ):
                             if row["ttft_seconds"] is None:
                                 row["ttft_seconds"] = round(monotonic() - started, 6)
+                                row["latency_category"] = "first_text"
                             yield dict(type="text_delta", text=event.delta.text)
                         elif event.type == "content_block_stop":
                             block = stream.current_message_snapshot.content[
@@ -256,6 +323,7 @@ class AsyncLLM(ClaudeAsyncLLM):
         except OfficialContentBlocked as exc:
             row["gate"] = "blocked"
             row["blocked"] = exc.result.blocked
+            row["gate_lines"] = exc.result.checked_lines
             row["error_category"] = "content_blocked"
             raise
         except asyncio.CancelledError:
@@ -267,12 +335,7 @@ class AsyncLLM(ClaudeAsyncLLM):
             raise
         finally:
             row["total_seconds"] = round(monotonic() - started, 6)
-            row["estimated_usd"] = (
-                row["input_tokens"] * 5
-                + row["cache_creation_input_tokens"] * 6.25
-                + row["cache_read_input_tokens"] * 0.5
-                + row["output_tokens"] * 25
-            ) / 1e6
-            self.ledger_path.parent.mkdir(parents=True, exist_ok=True)
-            with self.ledger_path.open("a", encoding="utf-8") as log:
-                log.write(json.dumps(row, ensure_ascii=False) + "\n")
+            # No payload (e.g. unknown model) means no HTTP and zero usage.
+            if row["request_sha256"] is not None:
+                row["estimated_usd"] = get_profile(row["model"]).usage_cost(row)
+            self._write_ledger(row)

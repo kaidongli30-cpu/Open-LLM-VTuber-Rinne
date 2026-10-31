@@ -188,6 +188,25 @@ def _compact_llm_request_trace(
     return compact
 
 
+def _relay_call_counts(agent, traces, route=None):
+    """Only numeric counters; missing main-model trace coverage is explicit."""
+    local = getattr(agent, "_relay_calls_this_reply", {})
+    checker = getattr(getattr(agent, "_official_route_runtime", None), "checker", None)
+    stats = getattr(checker, "stats", {})
+    started = sum(row.get("event") == "request_started" for row in traces)
+    return {
+        "reply_requests": int(started) if started and route != "official" else -1,
+        "question_judge": sum(int(check.calls) for check in getattr(agent, "_question_checks_this_reply", [])),
+        "question_skipped": int(local.get("question_skipped", 0)),
+        "rewrite": int(local.get("rewrite", 0)),
+        "removed_questions": int(local.get("removed_questions", 0)),
+        "removed_passages": int(local.get("removed_passages", 0)),
+        "kept_original": int(local.get("kept_original", 0)),
+        "check_first_total": int(stats.get("first_model_calls", 0)),
+        "check_second_total": int(stats.get("second_model_calls", 0)),
+    }
+
+
 async def process_single_conversation(
     context: ServiceContext,
     websocket_send: WebSocketSend,
@@ -320,6 +339,20 @@ async def process_single_conversation(
             monitored_websocket_send,
             attachments,
         )
+        route_runtime = getattr(context.agent_engine, "_official_route_runtime", None)
+        if route_runtime is not None and route_runtime.parse_command(input_text) is not None:
+            metadata["official_route_command"] = True
+            metadata["skip_history"] = True
+            metadata["skip_memory"] = True
+            confirmation = await route_runtime.handle_command(input_text, metadata)
+            if confirmation is not None:
+                full_response = confirmation
+                await monitored_websocket_send(json.dumps(
+                    {"type": "full-text", "text": confirmation}, ensure_ascii=False
+                ))
+                return confirmation
+        metadata["request_received_at"] = request_received_at
+        metadata["official_route_has_media"] = bool(images or attachments)
         media_settings = settings_from_character_config(context.character_config)
         if any(item.get("kind") == "video" for item in attachments or []):
             (
@@ -691,7 +724,7 @@ async def process_single_conversation(
         if skip_history:
             logger.debug("Skipping storing user input to history (proactive speak)")
 
-        logger.info(f"User input: {input_text}")
+        logger.info("User input: {}", text_log_fields(input_text))
         if images:
             logger.info(f"With {len(images)} images")
 
@@ -747,9 +780,19 @@ async def process_single_conversation(
                         translate_engine=context.translate_engine,
                         output_mode=output_mode,
                     )
-                    full_response += (
+                    response_text = (
                         str(response_part) if response_part is not None else ""
                     )
+                    if (
+                        metadata.get("source_channel") == "qq"
+                        and output_mode is ConversationOutputMode.TEXT_ONLY
+                        and full_response
+                        and response_text
+                    ):
+                        # QQ outputs are individual message lines. Keep their
+                        # boundaries when the next turn reloads this history.
+                        full_response += "\n"
+                    full_response += response_text
                 else:
                     logger.warning(
                         "Received unexpected item type from agent chat stream: "
@@ -802,7 +845,7 @@ async def process_single_conversation(
                 except Exception as exc:
                     logger.warning(f"[当前场景] 保存凛祢场景更新失败：{exc}")
 
-        if context.history_uid and full_response:
+        if context.history_uid and full_response and not metadata.get("official_route_command"):
             store_message(
                 conf_uid=context.character_config.conf_uid,
                 history_uid=context.history_uid,
@@ -816,6 +859,18 @@ async def process_single_conversation(
                 request_today_summary(history_root, context.character_config)
             except Exception as exc:
                 logger.warning("[今日摘要] 后台调度失败：{}；不影响本轮回复", type(exc).__name__)
+        if (
+            metadata.get("source_channel") == "qq"
+            and output_mode is ConversationOutputMode.TEXT_ONLY
+            and full_response.strip()
+            and not metadata.get("official_route_command")
+        ):
+            await monitored_websocket_send(json.dumps({
+                "type": "private-reply-route",
+                "route": metadata.get("route", "relay"),
+                "reason": metadata.get("route_reason", "unknown"),
+                "completed_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+            }))
         return full_response
 
     except asyncio.CancelledError:
@@ -861,7 +916,7 @@ async def process_single_conversation(
                     "status": "not_requested",
                     "cloud_tool": memory_tool_snapshot,
                 }
-        if trial_log_enabled and not metadata.get("proactive_speak"):
+        if trial_log_enabled and not metadata.get("proactive_speak") and not metadata.get("official_route_command"):
             trial_record = {
                 "trial_record_version": 2,
                 "turn_id": str(uuid.uuid4()),
@@ -918,7 +973,17 @@ async def process_single_conversation(
                 "recent_diary_recall": recent_diary_diagnostics,
                 "retrieval": retrieval_diagnostics,
                 "llm_requests": llm_request_traces,
+                "relay_calls": _relay_call_counts(
+                    context.agent_engine, llm_request_traces, metadata.get("route")
+                ),
             }
+            if metadata.get("source_channel") == "qq":
+                trial_record["qq_reply_format"] = dict(
+                    metadata.get("qq_reply_format") or {},
+                    saved_line_breaks=full_response.count("\n"),
+                )
+            trial_record.update({key: metadata.get(key) for key in (
+                "route", "route_reason", "provider", "fallback_from", "fallback_reason", "official_usd", "gate_lines", "official_request_sha256", "official_check_seconds")})
             try:
                 path = await asyncio.to_thread(
                     write_memory_trial_record, history_root, trial_record

@@ -3,7 +3,9 @@ This module contains the pydantic model for the configurations of
 different types of agents.
 """
 
-from pydantic import BaseModel, Field
+from datetime import date, datetime
+
+from pydantic import BaseModel, Field, field_validator
 from typing import Dict, ClassVar, Optional, Literal, List
 from .i18n import I18nMixin, Description
 from .stateless_llm_models import StatelessLLMConfigs
@@ -59,6 +61,117 @@ class LongTermMemoryRetrievalConfig(I18nMixin, BaseModel):
     }
 
 
+class OpenAIOfficialRouteConfig(I18nMixin, BaseModel):
+    """Independent OpenAI settings; invalid model/effort falls back at routing."""
+
+    model: str = "gpt-6.1-sol"
+    effort: Optional[str] = "high"
+    first_text_timeout_seconds: float = Field(40, ge=10, le=180, allow_inf_nan=False)
+    credit_usd: float = Field(0, ge=0, allow_inf_nan=False)
+    credit_as_of: str = "2026-11-01T00:00:00+00:00"
+    credit_expires: str = "2026-12-31"
+
+    @field_validator("credit_as_of")
+    @classmethod
+    def valid_credit_start(cls, value: str) -> str:
+        if "T" not in value and " " not in value:
+            raise ValueError("credit_as_of must include the starting time")
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return value
+
+    @field_validator("credit_expires")
+    @classmethod
+    def valid_credit_expiry(cls, value: str) -> str:
+        date.fromisoformat(value)
+        return value
+
+
+class OfficialRouteConfig(I18nMixin, BaseModel):
+    """Shared official-route controls; credentials are never stored here."""
+
+    enabled: bool = False
+    route: Literal["anthropic", "openai", "apinebula"] = "anthropic"
+    model: str = "claude-opus-4-6"
+    thinking: bool = True
+    effort: Optional[str] = None
+    first_text_timeout_seconds: float = Field(40, ge=10, le=180, allow_inf_nan=False)
+    openai: OpenAIOfficialRouteConfig = Field(default_factory=OpenAIOfficialRouteConfig)
+    chat_check_mode: Literal["two_pass", "explicit_only"] = "two_pass"
+    first_pass_model: str = "claude-sonnet-4-6"
+    second_pass_model: str = "claude-opus-4-6"
+    cooldown_minutes: int = Field(10, ge=0, le=1440)
+    credit_usd: float = Field(0, ge=0, allow_inf_nan=False)
+    credit_as_of: str = "2026-11-01T00:00:00+00:00"
+    credit_expires: str = "2026-12-31"
+    data_dir: Optional[str] = None
+
+    @field_validator("credit_as_of")
+    @classmethod
+    def valid_credit_start(cls, value: str) -> str:
+        if "T" not in value and " " not in value:
+            raise ValueError("credit_as_of must include the starting time")
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return value
+
+    @field_validator("credit_expires")
+    @classmethod
+    def valid_credit_expiry(cls, value: str) -> str:
+        date.fromisoformat(value)
+        return value
+
+    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
+        "enabled": Description(
+            en="Enable automatic official routing", zh="启用官方通道自动切换"
+        ),
+        "model": Description(en="Official dialogue model", zh="官方通道大脑型号"),
+        "route": Description(
+            en="Selected provider; the latest configuration/menu change wins",
+            zh="选择 Anthropic、OpenAI 或 APINebula；配置与菜单最后改的算数",
+        ),
+        "effort": Description(
+            en="Model-specific effort; null preserves the official default",
+            zh="模型支持的思考强度；null 使用官方默认值",
+        ),
+        "first_text_timeout_seconds": Description(
+            en="Maximum wait for first text, 10 to 180 seconds",
+            zh="首字最长等待秒数，允许 10—180",
+        ),
+        "openai": Description(
+            en="Independent OpenAI model, effort, timeout and credit settings",
+            zh="OpenAI 独立的模型、思考强度、超时和额度设置",
+        ),
+        "thinking": Description(en="Enable adaptive thinking", zh="启用自适应思考"),
+        "chat_check_mode": Description(
+            en="Chat checks: two_pass, or explicit_only with one Sonnet 4.6 check and no cooldown",
+            zh="聊天检查：two_pass 双审；explicit_only 仅单次 Sonnet 4.6 检查，无冷却",
+        ),
+        "first_pass_model": Description(
+            en="Relay first-pass checker: Sonnet 4.6 or Opus 4.6",
+            zh="中转站第一遍检查模型，只支持 Sonnet 4.6 或 Opus 4.6",
+        ),
+        "second_pass_model": Description(
+            en="Relay second-pass checker: Sonnet 4.6 or Opus 4.6",
+            zh="中转站二审模型，只支持 Sonnet 4.6 或 Opus 4.6",
+        ),
+        "cooldown_minutes": Description(
+            en="Relay cooldown after a blocked turn", zh="非A轮之后走中转站的分钟数"
+        ),
+        "credit_usd": Description(
+            en="Remaining dollars at the starting time", zh="起点时的剩余美元额度"
+        ),
+        "credit_as_of": Description(
+            en="Timestamp of the remaining-credit reading", zh="剩余额度的读取时间"
+        ),
+        "credit_expires": Description(
+            en="Last inclusive credit date", zh="额度到期日（含当日）"
+        ),
+        "data_dir": Description(
+            en="Shared route data directory; empty uses character history",
+            zh="共用通道数据目录；留空用角色聊天记录目录",
+        ),
+    }
+
+
 class BasicMemoryAgentConfig(I18nMixin, BaseModel):
     """Configuration for the basic memory agent."""
 
@@ -86,8 +199,11 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
     scene_memory_enabled: bool = Field(False, alias="scene_memory_enabled")
     response_reminder_enabled: bool = Field(False, alias="response_reminder_enabled")
     scene_card_enabled: bool = Field(False, alias="scene_card_enabled")
-    scene_card_position: Literal["end", "start"] = Field("end", alias="scene_card_position")
+    scene_card_position: Literal["end", "start"] = Field(
+        "end", alias="scene_card_position"
+    )
     bocha_api_key: str = Field("", alias="bocha_api_key", repr=False)
+    official_route: OfficialRouteConfig = Field(default_factory=OfficialRouteConfig)
     long_term_memory_retrieval: LongTermMemoryRetrievalConfig = Field(
         default_factory=LongTermMemoryRetrievalConfig,
         alias="long_term_memory_retrieval",
@@ -137,6 +253,10 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
         "bocha_api_key": Description(
             en="Private persistent Bocha Web Search API key; BOCHA_API_KEY overrides it",
             zh="私有持久化博查搜索密钥；BOCHA_API_KEY 环境变量可覆盖它",
+        ),
+        "official_route": Description(
+            en="Shared automatic official-route controls",
+            zh="桌宠和QQ共用的官方通道设置",
         ),
         "long_term_memory_retrieval": Description(
             en="Live long-term-memory retrieval settings",
@@ -291,24 +411,16 @@ class MediaAnalysisConfig(I18nMixin, BaseModel):
 
     enabled: bool = Field(False, alias="enabled")
     provider: Literal["gemini_native"] = Field("gemini_native", alias="provider")
-    base_url: str = Field(
-        "https://generativelanguage.googleapis.com", alias="base_url"
-    )
+    base_url: str = Field("https://generativelanguage.googleapis.com", alias="base_url")
     model: str = Field("gemini-2.0-flash", alias="model")
     api_key: str = Field("", alias="api_key", repr=False)
     api_key_file: Optional[str] = Field(None, alias="api_key_file")
-    timeout_seconds: float = Field(
-        180.0, ge=10.0, le=900.0, alias="timeout_seconds"
-    )
-    max_output_tokens: int = Field(
-        4096, ge=512, le=32768, alias="max_output_tokens"
-    )
+    timeout_seconds: float = Field(180.0, ge=10.0, le=900.0, alias="timeout_seconds")
+    max_output_tokens: int = Field(4096, ge=512, le=32768, alias="max_output_tokens")
     video_segment_seconds: float = Field(
         45.0, ge=5.0, le=45.0, alias="video_segment_seconds"
     )
-    max_concurrent_requests: int = Field(
-        1, ge=1, le=8, alias="max_concurrent_requests"
-    )
+    max_concurrent_requests: int = Field(1, ge=1, le=8, alias="max_concurrent_requests")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "enabled": Description(
