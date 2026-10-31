@@ -98,6 +98,30 @@ character_config:
 
     agent_settings:
       basic_memory_agent:
+        # Optional official Anthropic/OpenAI route, off by default. See the README.
+        # The official key stays in the Windows user environment variable RINNE_OFFICIAL_ANTHROPIC_KEY, never here.
+        official_route:
+          enabled: false # true turns it on; false sends everything to llm_provider below
+          route: anthropic # startup default: anthropic / openai / apinebula (apinebula means llm_provider below); the latest change between this file and chat commands wins
+          chat_check_mode: explicit_only # one Sonnet explicit-risk check per turn; a failed check affects that turn only
+          model: claude-opus-4-6 # Anthropic chat model; must be in the code price table
+          thinking: true # whether to enable thinking
+          effort: high # Anthropic: low / medium / high / max; null uses the provider default
+          first_text_timeout_seconds: 40 # seconds to wait for the first text, 10-180; a timeout sends that turn to llm_provider
+          first_pass_model: claude-sonnet-4-6 # content check model, called through llm_provider; Sonnet 4.6 or Opus 4.6 only
+          second_pass_model: claude-opus-4-6 # memory preparation model, called through llm_provider; Sonnet 4.6 or Opus 4.6 only
+          cooldown_minutes: 0 # minutes to stay on llm_provider after a failed check; 0 means no carry-over
+          credit_usd: 0 # remaining account credit in USD; below 1 USD this provider is skipped
+          credit_as_of: "2026-11-01T00:00:00+00:00" # when that credit was read, with time zone
+          credit_expires: "2026-12-31" # credit expiry date
+          data_dir: null # check records and status folder; null uses the current character's default folder
+          openai: # OpenAI settings; the key stays in RINNE_OPENAI_API_KEY, never here
+            model: gpt-6.1-sol # OpenAI chat model; must be in the code price table
+            effort: high # OpenAI: low / medium / high / xhigh / max
+            first_text_timeout_seconds: 40 # seconds to wait for the first text, 10-180
+            credit_usd: 0 # remaining account credit in USD; below 1 USD this provider is skipped
+            credit_as_of: "2026-11-01T00:00:00+00:00" # when that credit was read, with time zone
+            credit_expires: "2026-12-31" # credit expiry date
         # The Basic AI Agent. Nothing fancy.
         # choose one of the llm provider from the llm_config
         # and set the required parameters in the corresponding field

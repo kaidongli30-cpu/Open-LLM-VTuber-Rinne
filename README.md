@@ -374,6 +374,7 @@ uv run run_server.py
 
 - 能看到凛祢。
 - 在 Live Mode 的换装菜单中能选择九套服装。
+- 在 Live Mode 能选择 67 张游戏场景作为背景。
 - 输入一句话后，能收到文字回复并听到语音。
 - 切换灵装后，也能继续对话。
 
@@ -535,6 +536,34 @@ QQ 通道仍在试用阶段，可能遇到问题。只用桌面端时，可以�
 ### 让凛祢读取你的资料
 
 文件放在哪里、视频密钥怎样填写，见 [Library 使用说明](rinne_library/README.md)。
+
+### Anthropic／OpenAI 官方通道
+
+默认关闭。不打开时，一切照旧，只用 `conf.yaml` 里 `llm_provider` 选的接口。
+
+打开后，凛祢优先用你选的官方接口回复。每一轮发送前先做内容检查，检查没过时这一轮改用平时的接口；额度用完或官方出错时，先换另一家官方，再不行也改用平时的接口。
+
+需要准备：
+
+1. **官方密钥**：放进 Windows 用户环境变量 `RINNE_OFFICIAL_ANTHROPIC_KEY`（Anthropic）或 `RINNE_OPENAI_API_KEY`（OpenAI），不要写进 `conf.yaml`。只有一家也能用。
+2. **平时的接口要能调用 `claude-sonnet-4-6` 和 `claude-opus-4-6`**：内容检查和记忆整理靠它们，这部分按平时的接口计费。
+3. **关键词表**：在 `chat_history/<你的 conf_uid>/official_route/` 里新建 `关键词.txt`，一行一个词，含这些词的内容不发给官方。可以是空文件，但文件必须存在，否则通道不会启用。
+4. **人设**：改过人设的话，要保留 `【核心原则】` 这一段，否则不会走官方。
+5. **打开开关**：在 `conf.yaml` 的 `official_route` 里，把 `enabled` 改成 `true`，填好 `credit_usd`（账户剩余额度，美元）、`credit_as_of`（查询额度的时间）、`credit_expires`（到期日）。OpenAI 的这三项在下一层 `openai:` 里。额度低于 1 美元的那一家不会被使用。
+6. 重启后台。
+
+想换通道时，在聊天里发：
+
+| 发什么 | 结果 |
+| --- | --- |
+| `/anthropic` | 优先用 Anthropic |
+| `/openai` | 优先用 OpenAI |
+| `/relay` | 只用平时的接口 |
+| `/official` | 回到上次用的官方 |
+
+模型和思考强度也在 `official_route` 里改，只能选代码价目表里有的模型。状态和花费看 `chat_history/<你的 conf_uid>/official_route/状态.html`。
+
+这条通道目前只在作者自己的账号上用过，花费和限制以官方为准。
 
 <a id="faq"></a>
 ## 11. 常见问题

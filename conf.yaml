@@ -259,6 +259,30 @@ character_config:
 
     agent_settings:
       basic_memory_agent:
+        # 可选：Anthropic／OpenAI 官方通道，默认关闭。用法见 README「可选功能」。
+        # 官方密钥不写在这里，放进 Windows 用户环境变量 RINNE_OFFICIAL_ANTHROPIC_KEY。
+        official_route:
+          enabled: false # true 才启用；false 时全部走下面的 llm_provider
+          route: anthropic # 开机默认：anthropic / openai / apinebula（apinebula 就是下面的 llm_provider）；配置和聊天指令谁最后改听谁
+          chat_check_mode: explicit_only # 每轮一次 Sonnet 明确风险检查；检查没过只影响当轮
+          model: claude-opus-4-6 # Anthropic 聊天模型，必须在代码价目表内
+          thinking: true # 是否开思考
+          effort: high # Anthropic：low / medium / high / max；null 用官方默认
+          first_text_timeout_seconds: 40 # 首字最多等待秒数，允许 10—180；超时这一轮走 llm_provider
+          first_pass_model: claude-sonnet-4-6 # 内容检查模型，通过 llm_provider 调用；只支持 Sonnet 4.6 或 Opus 4.6
+          second_pass_model: claude-opus-4-6 # 记忆整理模型，通过 llm_provider 调用；只支持 Sonnet 4.6 或 Opus 4.6
+          cooldown_minutes: 0 # 检查没过后继续走 llm_provider 的分钟数；0 表示不延续
+          credit_usd: 0 # 账户剩余额度，美元；低于 1 美元时不走这一家
+          credit_as_of: "2026-11-01T00:00:00+00:00" # 查询上述额度的时间，含时区
+          credit_expires: "2026-12-31" # 额度到期日
+          data_dir: null # 检查记录和状态目录；null 使用当前角色默认目录
+          openai: # OpenAI 单独的设置；密钥只放 RINNE_OPENAI_API_KEY，不写在这里
+            model: gpt-6.1-sol # OpenAI 聊天模型，必须在代码价目表内
+            effort: high # OpenAI：low / medium / high / xhigh / max
+            first_text_timeout_seconds: 40 # 首字最多等待秒数，允许 10—180
+            credit_usd: 0 # 账户剩余额度，美元；低于 1 美元时不走这一家
+            credit_as_of: "2026-11-01T00:00:00+00:00" # 查询上述额度的时间，含时区
+            credit_expires: "2026-12-31" # 额度到期日
         # 基础 AI 代理，没什么特别的。
         # 从 llm_config 中选择一个 llm 提供商
         # 并在相应的字段中设置所需的参数
